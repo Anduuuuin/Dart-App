@@ -560,7 +560,7 @@ function vX01(){const L=S.live;const f=L.fmt;
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}
  <button onclick="undo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div>`;}
 function key(k){const L=S.live;if(!L)return;
- if(k==='ok'){if(L.input==='')return;const v=parseInt(L.input,10);L.input='';if(L.kind==='score')scoreVisit(v);else if(L.kind==='mg')mgVisit(v);else if(L.kind==='ex')exNum(v);else visit(v);return;}
+ if(k==='ok'){const v=L.input===''?0:parseInt(L.input,10);L.input='';if(L.kind==='score')scoreVisit(v);else if(L.kind==='mg')mgVisit(v);else if(L.kind==='ex')exNum(v);else visit(v);return;}
  if(k==='del'){L.input=L.input.slice(0,-1);render();return;}
  if(L.input.length>=3)return;L.input=(L.input+k).replace(/^0+(?=\d)/,'');render();}
 function visit(v){const L=S.live;L.input='';
