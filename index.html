@@ -348,8 +348,7 @@ function vLogin(){const ps=players();
  <div class="card" style="margin:0"><h3>🏟️ Verein & Admin</h3><p class="muted small">Für Laptop und Tablets im Vereinsheim: Turniere, Boards, Training.</p>
  <label>Zugang</label><select id="lacc"><option value="club">Vereinszugang</option><option value="admin">Admin</option></select>
  <label>PIN</label><input id="lpin" type="password" inputmode="numeric" placeholder="PIN">
- <button class="pri" style="width:100%;margin-top:12px" onclick="loginStaff()">Anmelden</button>
- <p class="muted small" style="margin-top:10px">Prototyp-PINs: Verein <b>1111</b>, Admin <b>0000</b>${S.demo?', Demo-Spieler <b>1234</b>':''}.</p></div></div>`;}
+ <button class="pri" style="width:100%;margin-top:12px" onclick="loginStaff()">Anmelden</button></div></div>`;}
 function loginPlayer(){const id=document.getElementById('lpl').value,pin=document.getElementById('lppin').value;const u=S.users.find(x=>x.id===id);
  if(u&&(u.pin||'')===pin){setMe(id);go('home');}else toast('Falsche PIN');}
 function loginStaff(){const a=document.getElementById('lacc').value,p=document.getElementById('lpin').value;const u=S.users.find(x=>x.id===a);
