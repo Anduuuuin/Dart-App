@@ -278,9 +278,11 @@ function ask(text,yesLabel,fn,danger){modal(`<h3>${text}</h3><div class="row" st
 /* ===================== Checkout-Tabelle ===================== */
 const CO={};(function(){const seg=[],dbl=[];for(let n=20;n>=1;n--)seg.push(['T'+n,3*n]);seg.push(['Bull',50],['25',25]);for(let n=20;n>=1;n--)seg.push([String(n),n]);
 for(let n=20;n>=1;n--)dbl.push(['D'+n,2*n]);dbl.push(['Bull',50]);
-dbl.forEach(d=>{if(!CO[d[1]])CO[d[1]]=[d[0]];});
-seg.forEach(a=>dbl.forEach(d=>{const v=a[1]+d[1];if(!CO[v])CO[v]=[a[0],d[0]];}));
-seg.forEach(a=>seg.forEach(b=>dbl.forEach(d=>{const v=a[1]+b[1]+d[1];if(v<=170&&!CO[v])CO[v]=[a[0],b[0],d[0]];})));})();
+const dR={D20:0,D16:0,D8:1,D18:1,D12:1,D10:1,D4:2,D14:2,D2:3,D6:3,Bull:6};const sC=a=>{const m=/^T(\d+)$/.exec(a);if(m){const n=+m[1];return n>=15?20-n:8;}return a==='Bull'?6:a==='25'?3:2;};
+const cost={};const put=(v,r,c)=>{if(v>170)return;if(cost[v]==null||c<cost[v]){cost[v]=c;CO[v]=r;}};
+dbl.forEach(d=>put(d[1],[d[0]],100+(dR[d[0]]??4)*3));
+seg.forEach(a=>dbl.forEach(d=>put(a[1]+d[1],[a[0],d[0]],200+(dR[d[0]]??4)*3+sC(a[0]))));
+seg.forEach(a=>seg.forEach(b=>dbl.forEach(d=>put(a[1]+b[1]+d[1],[a[0],b[0],d[0]],300+(dR[d[0]]??4)*3+sC(a[0])+sC(b[0])+(sC(a[0])>sC(b[0])?1:0)))));})();
 const IMPOSSIBLE=[163,166,169,172,173,175,176,178,179];
 
 
@@ -675,11 +677,121 @@ Object.assign(EX,{
  bullpts:{name:'Bullseye Points Challenge',dur:3,sets:1,type:'bull',unit:'Punkte',max:60,better:'high',
   desc:'Trainiere deine Bull-Genauigkeit – präzisere Treffer bringen mehr Punkte.',
   steps:['Wirf 10 Aufnahmen (30 Darts) auf das Bull.','Jedes Single Bull (25) zählt 1 Punkt.','Jedes Bullseye (50) zählt 2 Punkte.','Ergebnis: Gesamtpunkte aus 30 Darts (maximal 60).']}});
+const xr=(a,b,st=1)=>{const r=[];for(let n=a;st>0?n<=b:n>=b;n+=st)r.push(n);return r;};
+const EXCAT={warm:'Warm-up',score:'Scoring',dbl:'Doppel',co:'Checkout',bull:'Bull',kids:'Kids'};
+Object.assign(EX.singles,{cat:'warm'});Object.assign(EX.atcw,{cat:'warm'});Object.assign(EX.skill,{cat:'score'});Object.assign(EX.score250,{cat:'score'});Object.assign(EX.sprint,{cat:'score'});
+Object.assign(EX.fin2140,{cat:'co'});Object.assign(EX.ladder,{cat:'co'});Object.assign(EX.streak61,{cat:'co'});Object.assign(EX.d16,{cat:'dbl'});Object.assign(EX.d20,{cat:'dbl'});Object.assign(EX.bullpts,{cat:'bull'});
+const hitsEx=(t,cat,extra='')=>({name:`${t}-Challenge`,cat,dur:2,sets:1,type:'hits',target:t,visits:5,unit:'Treffer',max:15,better:'high',desc:`15 Darts auf die ${t.replace('D','Doppel ').replace('T','Treble ')}${extra}.`,steps:[`Wirf 5 Aufnahmen (15 Darts) auf die ${t}.`,`Jeder Dart im ${t}-Feld zählt als Treffer.`,'Ergebnis: Treffer aus 15 Darts.']});
+Object.assign(EX,{
+ /* ---- Warm-up & Genauigkeit ---- */
+ atcrev:{name:'Around the Clock rückwärts',cat:'warm',dur:8,sets:1,type:'atc',list:xr(20,1,-1),maxDarts:120,unit:'Darts',better:'low',
+  desc:'Wie Around the Clock, nur von der 20 runter bis zur 1 – zwingt dich auf ungewohnte Wege übers Board.',
+  steps:['Beginne bei der 20 und arbeite dich bis zur 1 runter.','Triff das aktuelle Ziel einmal (Single, Doppel oder Treble), dann kommt die nächste Zahl.','Nach jedem Dart tippst du Treffer oder Daneben.','Ziel: alle 20 Zahlen mit möglichst wenigen Darts.']},
+ atcd:{name:'Doubles Around the World',cat:'dbl',dur:15,sets:1,type:'atc',list:[...xr(1,20).map(n=>'D'+n),'Bull'],maxDarts:180,unit:'Darts',better:'low',
+  desc:'Der Klassiker fürs Doppeltraining: jedes Doppel von D1 bis D20 und zum Schluss das Bullseye.',
+  steps:['Beginne bei Doppel 1.','Erst wenn das Doppel getroffen ist, geht es zum nächsten.','Nach D20 kommt zum Abschluss das Bullseye.','Nach jedem Dart tippst du Treffer oder Daneben.','Ziel: möglichst wenige Darts. Nach 180 Darts ist Schluss.']},
+ atct:{name:'Trebles Around the World',cat:'score',dur:15,sets:1,type:'atc',list:xr(1,20).map(n=>'T'+n),maxDarts:180,unit:'Darts',better:'low',
+  desc:'Jedes Treble von T1 bis T20 der Reihe nach – trainiert Genauigkeit auf dem kleinen Ring.',
+  steps:['Beginne bei Treble 1.','Erst wenn das Treble getroffen ist, geht es zum nächsten.','Nach jedem Dart tippst du Treffer oder Daneben.','Ziel: alle 20 Trebles mit möglichst wenigen Darts. Nach 180 Darts ist Schluss.']},
+ paw:{name:'Points Around the World (PAW)',cat:'warm',dur:10,sets:1,type:'tlist',list:xr(1,20),hb:9,unit:'Punkte',max:180,better:'high',
+  desc:'3 Darts auf jede Zahl von 1 bis 20. Single = 1 Punkt, Doppel = 2, Treble = 3.',
+  steps:['Beginne bei der 1, pro Zahl wirfst du eine Aufnahme (3 Darts).','Single zählt 1 Punkt, Doppel 2 Punkte, Treble 3 Punkte.','Andere Zahlen zählen nichts.','Trage nach jeder Aufnahme die Punkte (0–9) ein.','Maximum: 180 Punkte. Gute Vereinsspieler liegen bei 40–80.']},
+ mega:{name:'Mikko\'s Megatrain',cat:'warm',dur:12,sets:1,type:'tlist',list:['T20','D20','T20','D18','T20','T19','T20','D16','T20','T18','T20','D12','T20','D10','T20','T17','T20','D8','T20','Bull'],hb:3,unit:'Treffer',max:60,better:'high',
+  desc:'Wechsel zwischen T20 und wichtigen Doppeln und Trebles – Scoring und Finishen in einer Übung.',
+  steps:['Es gibt 20 Ziele, abwechselnd T20 und ein anderes Feld.','Pro Ziel eine Aufnahme (3 Darts).','Trage ein, wie viele Darts im Zielfeld gelandet sind.','Beim Bull zählt nur das Bullseye.','Maximum: 60 Treffer.']},
+ /* ---- Scoring ---- */
+ t20c:{name:'T20-Challenge (30 Darts)',cat:'score',dur:3,sets:1,type:'hits',target:'T20',visits:10,unit:'Treffer',max:30,better:'high',
+  desc:'30 Darts auf die Treble 20 – wie viele landen im Treble?',steps:['Wirf 10 Aufnahmen (30 Darts) auf die T20.','Trage pro Aufnahme die Treble-Treffer ein.','Ergebnis: T20-Treffer aus 30 Darts.']},
+ t19c:{name:'T19-Challenge (30 Darts)',cat:'score',dur:3,sets:1,type:'hits',target:'T19',visits:10,unit:'Treffer',max:30,better:'high',
+  desc:'30 Darts auf die Treble 19 – die wichtigste Ausweichzahl, wenn die 20 zu ist.',steps:['Wirf 10 Aufnahmen (30 Darts) auf die T19.','Trage pro Aufnahme die Treble-Treffer ein.','Ergebnis: T19-Treffer aus 30 Darts.']},
+ priestley:{name:'Priestley Trebles',cat:'score',dur:8,sets:1,type:'tlist',list:xr(10,20).map(n=>'T'+n),hb:3,unit:'Treffer',max:33,better:'high',
+  desc:'Die Routine von Weltmeister Dennis Priestley: 3 Darts auf jedes Treble von T10 bis T20.',
+  steps:['Beginne bei Treble 10.','Pro Treble wirfst du eine Aufnahme (3 Darts).','Trage ein, wie viele Darts im Treble gelandet sind.','Weiter bis Treble 20. Maximum: 33 Treffer.']},
+ n99t20:{name:'99 Darts auf T20',cat:'score',dur:12,sets:1,type:'visits',target:'20',visits:33,unit:'Punkte',better:'high',
+  desc:'33 Aufnahmen auf die 20. Nur Darts in der 20 zählen – der Klassiker für Rhythmus und Scoring-Ausdauer.',
+  steps:['Wirf 33 Aufnahmen (99 Darts) auf die Treble 20.','Es zählen nur Darts in der 20 (Single, Doppel, Treble).','Trage nach jeder Aufnahme die Punkte ein.','Ergebnis: Gesamtpunkte. Teile durch 33 für deinen Schnitt.']},
+ n99t19:{name:'99 Darts auf T19',cat:'score',dur:12,sets:1,type:'visits',target:'19',visits:33,unit:'Punkte',better:'high',
+  desc:'Wie 99 Darts auf T20, nur auf die 19.',
+  steps:['Wirf 33 Aufnahmen (99 Darts) auf die Treble 19.','Es zählen nur Darts in der 19.','Trage nach jeder Aufnahme die Punkte ein.','Ergebnis: Gesamtpunkte.']},
+ press99:{name:'99 unter Druck',cat:'score',dur:12,sets:1,type:'visits',target:'20',visits:33,reset:true,unit:'Punkte',better:'high',
+  desc:'Wie 99 Darts auf T20 – aber eine Aufnahme ohne Treffer in der 20 setzt deinen Punktestand auf 0.',
+  steps:['Wirf 33 Aufnahmen (99 Darts) auf die 20.','Es zählen nur Darts in der 20.','Gehen alle 3 Darts einer Aufnahme an der 20 vorbei (0 Punkte), fällt dein Stand auf 0.','Ergebnis: Punkte nach der letzten Aufnahme.']},
+ score501:{name:'Score 501',cat:'score',dur:8,sets:1,type:'total',goal:501,unit:'Aufnahmen',better:'low',
+  desc:'Sammle 501 Punkte in möglichst wenigen Aufnahmen – ohne Rest-Rechnerei.',
+  steps:['Wirf ganz normale Scoring-Aufnahmen.','Alle Punkte werden addiert.','Sobald du 501 oder mehr hast, ist die Übung beendet.','Ziel: möglichst wenige Aufnahmen (Profis schaffen es in 9 Darts).']},
+ score1000:{name:'Score 1000',cat:'score',dur:15,sets:1,type:'total',goal:1000,unit:'Aufnahmen',better:'low',
+  desc:'Die Ausdauer-Variante: 1000 Punkte in möglichst wenigen Aufnahmen.',
+  steps:['Wirf ganz normale Scoring-Aufnahmen.','Alle Punkte werden addiert.','Ab 1000 Punkten ist Schluss.','Ziel: möglichst wenige Aufnahmen.']},
+ sprint501:{name:'501 Sprint (Double Out)',cat:'score',dur:8,sets:1,type:'sprint',start:501,dOut:true,maxDarts:90,unit:'Darts',better:'low',
+  desc:'Ein komplettes 501-Leg alleine – mit Double Out wie im Spiel.',
+  steps:['Spiele ein Leg 501.','Der letzte Dart muss ein Doppel (oder Bullseye) sein.','Rest 1 oder Überwerfen ist ein Bust – der Rest bleibt wie vorher.','Ziel: möglichst wenige Darts. Nach 90 Darts ist Schluss.']},
+ sprint701:{name:'701 Sprint (Double Out)',cat:'score',dur:12,sets:1,type:'sprint',start:701,dOut:true,maxDarts:120,unit:'Darts',better:'low',
+  desc:'Das lange Leg: 701 mit Double Out.',
+  steps:['Spiele ein Leg 701.','Der letzte Dart muss ein Doppel (oder Bullseye) sein.','Rest 1 oder Überwerfen ist ein Bust.','Ziel: möglichst wenige Darts. Nach 120 Darts ist Schluss.']},
+ /* ---- Doppel ---- */
+ dbldown:{name:'Doubles Down',cat:'dbl',dur:6,sets:1,type:'tlist',list:xr(20,2,-2).map(n=>'D'+n),hb:3,unit:'Treffer',max:30,better:'high',
+  desc:'3 Darts auf jedes gerade Doppel von D20 runter bis D2 – genau die Doppel, die du im Spiel am häufigsten brauchst.',
+  steps:['Beginne bei Doppel 20.','Pro Doppel eine Aufnahme (3 Darts).','Trage ein, wie viele Darts im Doppel gelandet sind.','Weiter mit D18, D16 … bis D2. Maximum: 30 Treffer.']},
+ daw1:{name:'Doppel-Runde (1 Dart)',cat:'dbl',dur:4,sets:1,type:'tlist',list:[...xr(1,20).map(n=>'D'+n),'Bull'],hb:1,unit:'Treffer',max:21,better:'high',
+  desc:'Genau ein Dart auf jedes Doppel von D1 bis D20 plus Bullseye – jeder Wurf zählt.',
+  steps:['Ein Dart auf Doppel 1, dann ein Dart auf Doppel 2 und so weiter.','Nach D20 ein Dart aufs Bullseye.','Tippe pro Dart Treffer oder Daneben.','Maximum: 21 Treffer.']},
+ d8:hitsEx('D8','dbl'),d10:hitsEx('D10','dbl'),d12:hitsEx('D12','dbl'),d18:hitsEx('D18','dbl'),
+ /* ---- Checkout ---- */
+ c121:{name:'121',cat:'co',dur:12,sets:1,type:'cogame',start:121,rounds:10,visits:3,step:1,lock:true,dOut:true,unit:'höchstes Finish',better:'high',
+  desc:'Der Profi-Klassiker fürs Finishen: Checke die 121 mit 9 Darts – jeder Check bringt dich eine Zahl höher.',
+  steps:['Du startest bei 121 und hast 9 Darts (3 Aufnahmen), um mit Double Out auszuchecken.','Geschafft: Die nächste Runde geht auf 122, dann 123 und so weiter.','Checkst du schon mit den ersten 3 Darts, ist die Zahl gesichert – tiefer fällst du nicht mehr.','Nicht geschafft: zurück auf deine gesicherte Zahl (am Anfang 121).','Es gibt 10 Runden. Ergebnis: dein höchstes geschafftes Finish.']},
+ cochal:{name:'Checkout Challenge (ab 80)',cat:'co',dur:8,sets:1,type:'cogame',start:80,rounds:15,visits:1,step:10,down1:true,dOut:true,unit:'höchstes Finish',better:'high',
+  desc:'Start bei 80, nur 3 Darts pro Versuch. Geschafft = 10 Punkte höher, verpasst = 1 Punkt runter.',
+  steps:['Du startest bei Rest 80 und hast genau eine Aufnahme (3 Darts) mit Double Out.','Geschafft: Das nächste Finish ist 10 höher (80 → 90 → 100 …).','Nicht geschafft: Das nächste Finish ist 1 tiefer (80 → 79), aber nie unter 80.','Es gibt 15 Versuche. Ergebnis: dein höchstes geschafftes Finish.']},
+ catch40:{name:'Catch 40',cat:'co',dur:25,sets:1,type:'catch',list:xr(61,100),visits:2,ptab:[0,3,3,2,1,1,1],dOut:true,unit:'Punkte',max:120,better:'high',
+  desc:'Die Finish-Routine von John Part: alle Checkouts von 61 bis 100 mit je höchstens 6 Darts.',
+  steps:['Arbeite dich von 61 bis 100 vor, jede Zahl mit Double Out.','Pro Zahl hast du maximal 6 Darts (2 Aufnahmen).','Check mit 2 Darts = 3 Punkte, mit 3 Darts = 2 Punkte, mit 4–6 Darts = 1 Punkt.','Nicht geschafft = 0 Punkte, weiter zur nächsten Zahl.','Maximum: 120 Punkte. Ziel für den Anfang: 40 Punkte.']},
+ catch20:{name:'Catch 20 (Einsteiger)',cat:'co',dur:12,sets:1,type:'catch',list:xr(61,80),visits:2,ptab:[0,3,3,2,1,1,1],dOut:true,unit:'Punkte',max:60,better:'high',
+  desc:'Die kürzere Einsteiger-Version von Catch 40: Checkouts 61 bis 80.',
+  steps:['Arbeite dich von 61 bis 80 vor, jede Zahl mit Double Out.','Pro Zahl maximal 6 Darts (2 Aufnahmen).','Check mit 2 Darts = 3 Punkte, mit 3 Darts = 2, mit 4–6 Darts = 1.','Maximum: 60 Punkte. Ein gutes Ziel: 20 Punkte.']},
+ hubbe:{name:'Hubbe (101–130)',cat:'co',dur:12,sets:1,type:'catch',list:xr(101,130),visits:1,dOut:true,unit:'Checkouts',max:30,better:'high',
+  desc:'Hohe Finishes von 101 bis 130 – jede Zahl mit nur 3 Darts. Die perfekte Ergänzung zu Catch 40.',
+  steps:['Arbeite dich von 101 bis 130 vor, jede Zahl mit Double Out.','Pro Zahl hast du genau eine Aufnahme (3 Darts).','Ergebnis: Anzahl geschaffter Checkouts (maximal 30).']},
+ dblouts:{name:'Doppel-Checkouts 40 bis 2',cat:'dbl',dur:6,sets:1,type:'catch',list:xr(40,2,-4).concat([2]).filter((v,i,a)=>a.indexOf(v)===i),visits:1,ptab:[0,3,2,1],dOut:true,unit:'Punkte',max:33,better:'high',
+  desc:'Die wichtigsten Doppel-Finishes 40, 36, 32 … bis 2. Je schneller ausgecheckt, desto mehr Punkte.',
+  steps:['Rest 40 mit einer Aufnahme auschecken, dann 36, 32, 28 … bis 4 und zum Schluss 2.','Danebengeworfene Darts verändern den Rest – du musst den neuen Rest auschecken.','Check mit 1 Dart = 3 Punkte, mit 2 Darts = 2, mit 3 Darts = 1.','Maximum: 33 Punkte.']},
+ fin4160:{name:'Finish-Training 41–60 (Double Out)',cat:'co',dur:8,sets:1,type:'catch',list:xr(41,60),visits:1,dOut:true,unit:'Checkouts',max:20,better:'high',
+  desc:'Die typischen Zwei-Dart-Finishes: ein Single zum Stellen, dann das Doppel.',
+  steps:['Arbeite dich von 41 bis 60 vor, jede Zahl mit Double Out.','Pro Zahl genau eine Aufnahme (3 Darts).','Tipp: erst das Single stellen, dann das Lieblingsdoppel.','Ergebnis: Anzahl geschaffter Checkouts (maximal 20).']},
+ p170:{name:'170 Practice',cat:'co',dur:5,sets:1,type:'catch',list:Array(10).fill(170),visits:1,dOut:true,unit:'Checkouts',max:10,better:'high',
+  desc:'Das Big Fish: T20 · T20 · Bull. 10 Versuche auf das höchste Finish.',
+  steps:['10 Versuche auf Rest 170 – T20, T20, Bullseye.','Pro Versuch eine Aufnahme (3 Darts).','Trage die geworfenen Punkte ein. 170 = geschafft.','Ergebnis: Anzahl geschaffter 170er.']},
+ /* ---- Bull ---- */
+ bull500:{name:'Bullseye 500',cat:'bull',dur:10,sets:1,type:'total',goal:500,onlyBull:true,unit:'Aufnahmen',better:'low',
+  desc:'Sammle 500 Punkte nur auf dem Bull. Single Bull = 25, Bullseye = 50.',
+  steps:['Wirf nur aufs Bull.','Single Bull zählt 25, Bullseye 50, alles andere 0.','Trage pro Aufnahme die Bull-Punkte ein (z. B. 75).','Ziel: 500 Punkte in möglichst wenigen Aufnahmen.']},
+ bullc:{name:'Bull-Challenge (30 Darts)',cat:'bull',dur:3,sets:1,type:'hits',target:'Bull',visits:10,unit:'Treffer',max:30,better:'high',
+  desc:'30 Darts aufs Bull – jeder Dart im Single Bull oder Bullseye zählt.',steps:['Wirf 10 Aufnahmen (30 Darts) aufs Bull.','Single Bull und Bullseye zählen beide als Treffer.','Ergebnis: Treffer aus 30 Darts.']},
+ /* ---- Kids ---- */
+ katc10:{name:'Zahlen-Rallye 1–10',cat:'kids',dur:5,sets:1,type:'atc',list:xr(1,10),maxDarts:60,unit:'Darts',better:'low',
+  desc:'Triff die Zahlen 1 bis 10 der Reihe nach. Egal ob Single, Doppel oder Treble.',
+  steps:['Beginne bei der 1.','Hast du die Zahl getroffen, kommt die nächste.','Nach jedem Dart tippst du Treffer oder Daneben.','Wie schnell schaffst du es bis zur 10?']},
+ k20:{name:'Volle 20',cat:'kids',dur:3,sets:1,type:'hits',target:'20',visits:10,unit:'Treffer',max:30,better:'high',
+  desc:'30 Darts auf die 20 – jeder Dart irgendwo in der 20 zählt.',steps:['Wirf 10 Aufnahmen (30 Darts) auf die 20.','Jeder Dart in der 20 zählt – Single, Doppel oder Treble.','Ergebnis: Treffer aus 30 Darts.']},
+ kcolor:{name:'Rot-Grün-Jagd',cat:'kids',dur:3,sets:1,type:'hits',target:'Rot/Grün',visits:10,unit:'Treffer',max:30,better:'high',
+  desc:'Triff die bunten Felder! Jeder Dart in einem roten oder grünen Feld (Doppel, Treble, Bull) zählt.',steps:['Wirf 10 Aufnahmen (30 Darts).','Jeder Dart in einem roten oder grünen Feld ist ein Treffer.','Ergebnis: Treffer aus 30 Darts.']},
+ k100:{name:'Hundert voll',cat:'kids',dur:4,sets:1,type:'total',goal:100,unit:'Aufnahmen',better:'low',
+  desc:'Wie schnell sammelst du 100 Punkte? Alle Felder zählen.',steps:['Wirf ganz normal und zähle die Punkte jeder Aufnahme.','Alle Punkte werden addiert.','Ab 100 Punkten bist du fertig.','Ziel: möglichst wenige Aufnahmen.']},
+ k101:{name:'101 Sprint (Single Out)',cat:'kids',dur:5,sets:1,type:'sprint',start:101,maxDarts:45,unit:'Darts',better:'low',
+  desc:'Ein kurzes Leg 101 – ohne Doppel am Ende.',steps:['Starte mit 101 Punkten.','Ziehe die Punkte jeder Aufnahme ab.','Du musst genau auf 0 kommen. Zu viel = Bust, der Rest bleibt.','Ziel: möglichst wenige Darts.']},
+});
+
+
 const PLANS={
  checkout:{name:'Checkout-Coach',items:[['atcw',1],['fin2140',1],['d16',1],['ladder',1],['d20',1]]},
  scoring:{name:'Scoring-Booster',items:[['singles',1],['skill',2],['score250',1],['sprint',1]]},
  bullfinish:{name:'Bull & Finish',items:[['bullpts',1],['streak61',2],['fin2140',1]]},
  firstleg:{name:'Erstes-Leg-Routine',items:[['atcw',1],['skill',1],['sprint',1],['ladder',1]]}};
+Object.assign(PLANS,{
+ cpro:{name:'Checkout-Profi',items:[['dblouts',1],['fin4160',1],['catch20',1],['c121',1]]},
+ dbldoc:{name:'Doppel-Doktor',items:[['daw1',1],['dbldown',1],['d16',1],['d20',1],['atcd',1]]},
+ power:{name:'Treble-Power',items:[['t20c',1],['priestley',1],['t19c',1],['n99t20',1]]},
+ kids:{name:'Kids-Training',items:[['katc10',1],['k20',1],['kcolor',1],['k100',1],['k101',1]]}});
 let trTab='play',exUser=null,openPlan='checkout';
 function trUid(){return me().role==='player'?meId:exUser;}
 function exRuns(uid,id){return S.trainings.filter(x=>x.uid===uid&&x.mode==='ex'&&x.ex===id).sort((a,b)=>a.date-b.date);}
@@ -694,8 +806,9 @@ function vTrain(){const self=me().role==='player';
  if(trTab==='games')return `${tabsH}${run}${vTrainGames()}`;if(trTab==='play')return `${tabsH}${run}${vPlay()}`;if(trTab==='mg')return `${tabsH}${run}${vMGList()}`;
  const pick=!self?`<div class="card"><label style="margin-top:0">Wer trainiert?</label><div class="slots"><div class="slot ${exUser?'':'guest'}" onclick="openPicker({title:'Wer trainiert?',exclude:[],onPick:id=>{exUser=id;}})">${AV(exUser?U(exUser):{nick:'?',guest:true},40)}<div class="who"><b>${exUser?esc(U(exUser).nick):'Profil wählen'}</b><small>${exUser?'antippen zum Wechseln':'Übungen werden im Profil gespeichert'}</small></div></div></div></div>`:'';
  return `${tabsH}${run}${pick}${trTab==='ex'?vExList():vPlans()}`;}
-function vExList(){const uid=trUid();
- return `<div class="grid2">${Object.entries(EX).map(([id,e])=>{const b=uid?exBest(uid,id):null;return `<button class="tile" onclick="go('ex','${id}')">
+let exCat='all';
+function vExList(){const uid=trUid();const all=Object.entries(EX);
+ return `<div class="seg">${[['all','Alle ('+all.length+')'],...Object.entries(EXCAT).map(([k,l])=>[k,l+' ('+all.filter(([,e])=>e.cat===k).length+')'])].map(([k,l])=>`<button class="${exCat===k?'on':''}" onclick="exCat='${k}';render()">${l}</button>`).join('')}</div><div class="grid2">${all.filter(([,e])=>exCat==='all'||e.cat===exCat).map(([id,e])=>{const b=uid?exBest(uid,id):null;return `<button class="tile" onclick="go('ex','${id}')">
  <div class="row" style="width:100%"><b class="sp">${e.name}</b><span class="badge">⏱ ${e.dur} Min.</span></div><small>${e.desc}</small>
  ${uid?`<small>Rekord: <b style="color:${b!=null?'var(--gold)':'var(--muted)'}">${b!=null?exFmt(id,b):'noch keiner'}</b> · ${exRuns(uid,id).length}× gemacht</small>`:''}</button>`;}).join('')}</div>`;}
 
@@ -712,7 +825,7 @@ function vExDetail(id){const e=EX[id];if(!e){view='train';return vTrain();}const
 
 /* --- Übung durchführen --- */
 function startEx(id,planIdx=null){const e=EX[id];const uid=planIdx!=null?S.planRun.uid:trUid();if(!uid)return toast('Erst Spieler wählen');
- const st={targets:{i:0,hits:0},hits:{v:0,hits:0},skill:{v:0,t:0,s:0,selT:null,selS:null},total:{sum:0,visits:[]},sprint:{rem:e.start,darts:0,visits:0},atc:{t:1,darts:0,dv:0},finlist:{n:e.from,ok:0},ladder:{n:e.from,rem:e.from,visits:0},streak:{n:e.from,rem:e.from,v:0,ok:0},bull:{v:0,t:0,s:0,selT:null,selS:null}}[e.type];
+ const st={targets:{i:0,hits:0},hits:{v:0,hits:0},skill:{v:0,t:0,s:0,selT:null,selS:null},total:{sum:0,visits:[]},sprint:{rem:e.start,darts:0,visits:0},atc:{t:1,darts:0,dv:0},finlist:{n:e.from,ok:0},ladder:{n:e.from,rem:e.from,visits:0},streak:{n:e.from,rem:e.from,v:0,ok:0},tlist:{i:0,sum:0},visits:{v:0,sum:0,last:[]},catch:{i:0,v:0,rem:e.list?e.list[0]:0,pts:0,ok:0,darts:0},cogame:{cur:e.start,safe:e.start,rem:e.start,v:0,r:1,best:0,ok:0,log:[]},bull:{v:0,t:0,s:0,selT:null,selS:null}}[e.type];
  S.live={kind:'ex',ex:id,uid,st:JSON.parse(JSON.stringify(st)),hist:[],input:'',planIdx};save();go('live');}
 function exSnap(){const L=S.live;L.hist.push(JSON.stringify(L.st));if(L.hist.length>80)L.hist.shift();}
 function exUndo(){const L=S.live;if(L.input){L.input='';render();return;}const h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen');L.st=JSON.parse(h);save();render();}
@@ -730,11 +843,18 @@ function vEx(){const L=S.live,e=EX[L.ex],s=L.st;let body='';
   body=bull?`${big('Bull','Ziel')}<p class="muted" style="text-align:center">Aufnahme ${s.v+1} von 10 · Punkte: <b style="color:var(--text)">${s.t*2+s.s}</b> · Bullseye: ${s.t} · Single Bull: ${s.s}</p>${prog(s.v,10)}
   ${row('T','Bullseye (50) – je 2 Punkte')}${row('S','Single Bull (25) – je 1 Punkt')}`:`${big('T20','Ziel')}<p class="muted" style="text-align:center">Aufnahme ${s.v+1} von 10 · T20: <b style="color:var(--text)">${s.t}</b> · S20: <b style="color:var(--text)">${s.s}</b></p>${prog(s.v,10)}
   ${row('T','Treble-20-Treffer')}${row('S','Single-20-Treffer')}`;body+=`<button class="pri" style="width:100%;margin-top:14px;padding:16px" ${s.selT==null||s.selS==null?'disabled':''} onclick="exSkillOk()">OK – nächste Aufnahme</button>${undoBtn()}`;}
- if(e.type==='atc')body=`${big(s.t,'Ziel: großes Single')}<p class="muted" style="text-align:center">Darts: <b style="color:var(--text)">${s.darts}</b> / ${e.maxDarts} · Dart ${s.dv+1} der Aufnahme</p>${prog(s.t-1,20)}${bigBtns('exAtc',[[0,'✗ Daneben','ghost'],[1,'✓ Treffer']])}${undoBtn()}`;
  if(e.type==='finlist')body=`${big(s.n,'Rest – mit einer Aufnahme checken (Single Out)')}<p class="co" style="text-align:center">Weg: ${s.n<=20?s.n:s.n<=40?`${s.n-20} · 20`:`20 · 20 · ${s.n-40}`}</p><p class="muted" style="text-align:center">Finish ${s.n-e.from+1} von ${e.to-e.from+1} · geschafft: <b style="color:var(--text)">${s.ok}</b></p>${prog(s.n-e.from,e.to-e.from+1)}${bigBtns('exFin',[[0,'✗ Nicht geschafft','ghost'],[1,'✓ Geschafft']])}${undoBtn()}`;
- if(e.type==='total'){const sum=s.sum;body=`${big(Math.max(0,e.goal-sum),'Noch bis 250')}<p class="muted" style="text-align:center">Aufnahmen: <b style="color:var(--text)">${s.visits.length}</b> · Punkte: ${sum} · ${s.visits.join(' · ')||''}</p>${prog(sum,e.goal)}${padH()}`;}
- if(e.type==='sprint')body=`${big(s.rem,'Rest (Single Out)')}<p class="muted" style="text-align:center">Darts: <b style="color:var(--text)">${s.darts}</b> / ${e.maxDarts}</p>${prog(s.darts,e.maxDarts)}${padH()}`;
+ if(e.type==='total'){const sum=s.sum;body=`${big(Math.max(0,e.goal-sum),'Noch bis '+e.goal+(e.onlyBull?' (nur Bull)':''))}<p class="muted" style="text-align:center">Aufnahmen: <b style="color:var(--text)">${s.visits.length}</b> · Punkte: ${sum} · ${s.visits.join(' · ')||''}</p>${prog(sum,e.goal)}${padH()}`;}
+ if(e.type==='sprint')body=`${big(s.rem,e.dOut?'Rest (Double Out)':'Rest (Single Out)')}${e.dOut&&CO[s.rem]?`<p class="co" style="text-align:center">Weg: ${CO[s.rem].join(' · ')}</p>`:''}<p class="muted" style="text-align:center">Darts: <b style="color:var(--text)">${s.darts}</b> / ${e.maxDarts}</p>${prog(s.darts,e.maxDarts)}${padH()}`;
  if(e.type==='streak')body=`${big(s.rem,`Finish ${s.n} · Rest`)}<p class="muted" style="text-align:center">Aufnahme ${s.v+1} von 3 (max. 9 Darts) · Checkouts in Folge: <b style="color:var(--text)">${s.ok}</b></p>${prog(s.v,3)}${padH()}`;
+ if(e.type==='atc'){const L2=e.list||xr(1,20);body=`${big(L2[s.t-1]??'✓',e.list?'Ziel':'Ziel: großes Single')}<p class="muted" style="text-align:center">Ziel ${Math.min(s.t,L2.length)} von ${L2.length} · Darts: <b style="color:var(--text)">${s.darts}</b> / ${e.maxDarts} · Dart ${s.dv+1} der Aufnahme</p>${prog(s.t-1,L2.length)}${bigBtns('exAtc',[[0,'✗ Daneben','ghost'],[1,'✓ Treffer']])}${undoBtn()}`;}
+ if(e.type==='tlist'){const n=e.list.length;const bs=[...Array(e.hb+1).keys()].map(k=>[k,String(k),k?'':'red']);
+  body=`${big(e.list[s.i],'Ziel')}<p class="muted" style="text-align:center">Ziel ${s.i+1} von ${n} · ${e.unit}: <b style="color:var(--text)">${s.sum}</b></p>${prog(s.i,n)}<p class="muted" style="text-align:center">${e.hb===1?'Getroffen?':e.hb===9?'Punkte dieser Aufnahme (S=1 · D=2 · T=3)':'Wie viele der 3 Darts im Ziel?'}</p>${e.hb===1?bigBtns('exTl',[[0,'✗ Daneben','ghost'],[1,'✓ Treffer']]):e.hb>3?`<div class="pad" style="grid-template-columns:repeat(5,1fr)">${bs.map(([k])=>`<button class="${k?'':'red'}" onclick="exTl(${k})">${k}</button>`).join('')}</div>`:hitBtns('exTl')}${undoBtn()}`;}
+ if(e.type==='visits')body=`${big(e.target,'Ziel – nur die '+e.target+' zählt')}<p class="muted" style="text-align:center">Aufnahme ${s.v+1} von ${e.visits} · Punkte: <b style="color:var(--text)">${s.sum}</b>${s.v?` · Schnitt ${(s.sum/s.v).toFixed(1)}`:''}</p>${prog(s.v,e.visits)}<p class="muted small" style="text-align:center">${s.last.slice(-8).join(' · ')}</p>${padH()}`;
+ if(e.type==='catch'){const n=e.list.length;const route=CO[s.rem]?CO[s.rem].join(' · '):'kein Finish möglich';
+  body=`${big(s.rem,`Finish ${e.list[s.i]} · Rest`)}<p class="co" style="text-align:center">Weg: ${route}</p><p class="muted" style="text-align:center">Zahl ${s.i+1} von ${n} · Aufnahme ${s.v+1} von ${e.visits} · ${e.unit}: <b style="color:var(--text)">${e.ptab?s.pts:s.ok}</b></p>${prog(s.i,n)}${padH()}${`<button class="ghost sm" style="margin-top:8px;width:100%" onclick="exCatchSkip()">Zahl aufgeben → nächste</button>`}`;}
+ if(e.type==='cogame'){const route=CO[s.rem]?CO[s.rem].join(' · '):'kein Finish möglich';
+  body=`${big(s.rem,`Runde ${s.r} von ${e.rounds} · Finish ${s.cur}`)}<p class="co" style="text-align:center">Weg: ${route}</p><p class="muted" style="text-align:center">Aufnahme ${s.v+1} von ${e.visits} · Höchstes Finish: <b style="color:var(--gold)">${s.best||'–'}</b>${e.lock?` · gesichert: <b style="color:var(--text)">${s.safe}</b>`:''}</p>${prog(s.r-1,e.rounds)}<p class="muted small" style="text-align:center">${s.log.slice(-6).join(' · ')}</p>${padH()}`;}
  if(e.type==='ladder')body=`${big(s.rem,`Finish ${s.n} · Rest`)}<p class="muted" style="text-align:center">Leiter ${s.n-e.from+1} von ${e.to-e.from+1} · Aufnahmen: <b style="color:var(--text)">${s.visits}</b></p>${prog(s.n-e.from,e.to-e.from+1)}${padH()}`;
  return `<div class="card">${head}${body}</div>`;}
 function exHits(n){const L=S.live,e=EX[L.ex],s=L.st;exSnap();s.hits+=n;
@@ -742,15 +862,29 @@ function exHits(n){const L=S.live,e=EX[L.ex],s=L.st;exSnap();s.hits+=n;
 function exSel(k,n){S.live.st['sel'+k]=n;render();}
 function exSkillOk(){const s=S.live.st;const bull=EX[S.live.ex].type==='bull';exSnap();s.t+=s.selT;s.s+=s.selS;s.v++;s.selT=s.selS=null;if(s.v>=10)return bull?finishEx(s.t*2+s.s,{inner:s.t,outer:s.s}):finishEx(s.t+s.s,{t:s.t,s:s.s});save();render();}
 function exAtc(hit){const L=S.live,e=EX[L.ex],s=L.st;exSnap();s.darts++;s.dv=(s.dv+1)%3;if(hit)s.t++;
- if(s.t>20)return finishEx(s.darts);if(s.darts>=e.maxDarts)return finishEx(s.darts,{reached:s.t-1},false);save();render();}
+ if(s.t>(e.list?e.list.length:20))return finishEx(s.darts);if(s.darts>=e.maxDarts)return finishEx(s.darts,{reached:s.t-1},false);save();render();}
 function exFin(ok){const L=S.live,e=EX[L.ex],s=L.st;exSnap();if(ok)s.ok++;s.n++;if(s.n>e.to)return finishEx(s.ok);save();render();}
 function exNum(v){const L=S.live,e=EX[L.ex],s=L.st;if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
+ if(e.onlyBull&&(v%25||v>150)){toast('Nur Bull-Punkte: 0, 25, 50 … 150');render();return;}
  if(e.type==='total'){exSnap();s.sum+=v;s.visits.push(v);if(v===180)toast('🔥 180! 🔥');if(s.sum>=e.goal)return finishEx(s.visits.length,{points:s.sum});}
- if(e.type==='sprint'){if(v===s.rem){modal(`<h3>Check-out ${v}! 🎯</h3><p class="muted">Mit wie vielen Darts?</p><div class="row">${[1,2,3].map(d=>`<button class="pri sp" onclick="closeModal();exSprintFin(${d})">${d}</button>`).join('')}</div><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal();render()">Abbrechen</button>`);return;}
-  exSnap();s.darts+=3;s.visits++;if(v>s.rem)toast('Überworfen! 💥');else s.rem-=v;if(s.darts>=e.maxDarts)return finishEx(e.maxDarts,{rem:s.rem},false);}
+ if(e.type==='sprint'){if(v===s.rem&&e.dOut&&!CO[v]){toast(`${v} ist mit Double Out nicht checkbar`);render();return;}if(v===s.rem){modal(`<h3>Check-out ${v}! 🎯</h3><p class="muted">Mit wie vielen Darts?</p><div class="row">${[1,2,3].map(d=>`<button class="pri sp" onclick="closeModal();exSprintFin(${d})">${d}</button>`).join('')}</div><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal();render()">Abbrechen</button>`);return;}
+  exSnap();s.darts+=3;s.visits++;if(v>s.rem||(e.dOut&&s.rem-v===1))toast('Überworfen! 💥');else s.rem-=v;if(s.darts>=e.maxDarts)return finishEx(e.maxDarts,{rem:s.rem},false);}
  if(e.type==='streak'){exSnap();if(v===s.rem){s.ok++;s.n++;s.rem=s.n;s.v=0;toast(`✓ Check! Weiter mit ${s.n}`);}else{if(v<s.rem)s.rem-=v;else toast('Bust – Rest bleibt '+s.rem);s.v++;if(s.v>=3)return finishEx(s.ok,{reached:s.n});}}
+ if(e.type==='visits'){if(v>60*3){toast('Zu viel');render();return;}exSnap();s.sum=(e.reset&&v===0)?0:s.sum+v;if(e.reset&&v===0)toast('Keine Treffer – zurück auf 0!');s.last.push(v);s.v++;if(s.v>=e.visits)return finishEx(s.sum);}
+ if(e.type==='catch'){if(v===s.rem&&!CO[v]){toast(`${v} ist mit Double Out nicht checkbar`);render();return;}
+  if(v===s.rem){if(e.ptab){modal(`<h3>Check-out ${v}! 🎯</h3><p class="muted">Mit wie vielen Darts in dieser Aufnahme?</p><div class="row">${[1,2,3].map(d=>`<button class="pri sp" ${d<CO[v].length?'disabled':''} onclick="closeModal();exCatchOk(${d})">${d}</button>`).join('')}</div><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal();render()">Abbrechen</button>`);return;}exCatchOk(3);return;}
+  exSnap();if(v>s.rem||s.rem-v===1)toast('Bust – Rest bleibt '+s.rem);else s.rem-=v;s.v++;if(s.v>=e.visits)return exCatchNext();}
+ if(e.type==='cogame'){if(v===s.rem&&!CO[v]){toast(`${v} ist mit Double Out nicht checkbar`);render();return;}exSnap();
+  if(v===s.rem){s.ok++;s.best=Math.max(s.best,s.cur);if(e.lock&&s.v===0&&s.cur>s.safe){s.safe=s.cur;toast(`🔒 ${s.cur} gesichert!`);}else toast(`✓ ${s.cur} gecheckt!`);s.log.push('✓'+s.cur);s.cur+=e.step;return exCoNext();}
+  if(v>s.rem||s.rem-v===1)toast('Bust – Rest bleibt '+s.rem);else s.rem-=v;s.v++;
+  if(s.v>=e.visits){s.log.push('✗'+s.cur);s.cur=e.down1?Math.max(e.start,s.cur-1):s.safe;return exCoNext();}}
  if(e.type==='ladder'){exSnap();s.visits++;if(v>s.rem)toast('Bust – Rest bleibt '+s.rem);else if(v===s.rem){s.n++;if(s.n>e.to)return finishEx(s.visits);s.rem=s.n;toast(`✓ Geschafft! Weiter mit ${s.n}`);}else s.rem-=v;}
  save();render();}
+function exTl(n){const L=S.live,e=EX[L.ex],s=L.st;exSnap();s.sum+=n;s.i++;if(s.i>=e.list.length)return finishEx(s.sum);save();render();}
+function exCatchOk(d){const L=S.live,e=EX[L.ex],s=L.st;exSnap();const darts=s.v*3+d;s.ok++;s.pts+=e.ptab?(e.ptab[darts]||0):1;toast(`✓ ${e.list[s.i]} gecheckt!`);exCatchNext(true);}
+function exCatchSkip(){exSnap();exCatchNext();}
+function exCatchNext(){const L=S.live,e=EX[L.ex],s=L.st;s.i++;s.v=0;if(s.i>=e.list.length)return finishEx(e.ptab?s.pts:s.ok,{ok:s.ok});s.rem=e.list[s.i];save();render();}
+function exCoNext(){const L=S.live,e=EX[L.ex],s=L.st;s.r++;s.v=0;if(s.r>e.rounds)return finishEx(s.best,{ok:s.ok});s.rem=s.cur;save();render();}
 function exSprintFin(d){const s=S.live.st;exSnap();s.darts+=d;s.rem=0;finishEx(s.darts);}
 function finishEx(val,extra={},complete=true){const L=S.live,id=L.ex,e=EX[id],pu=L.uid;const best=exBest(pu,id);
  const rec=complete&&best!=null&&(e.better==='low'?val<best:val>best);
