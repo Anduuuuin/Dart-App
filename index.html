@@ -234,7 +234,15 @@ label{font-weight:600;font-size:13px;letter-spacing:.2px}
 .ckrow{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.ck{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:8px;background:#0d1110;border:1px solid var(--line);font-weight:700;color:var(--muted);font-size:12px}
 .ck i{font-style:normal;color:var(--gold)}.ck.m3{background:#1fb35a26;border-color:#1fb35a66;color:var(--text)}.ck.m3 i{color:var(--accent)}
 .proto{font-size:12px;color:var(--muted);text-align:center;padding:20px 0 30px}
-@media (max-width:560px){.sc-p .rem{font-size:42px}.pad button{padding:13px 0}.wrap{padding:12px}}
+/* größere Scorer-Anzeige */
+.sc-p .nm{font-size:24px;font-weight:800;line-height:1.15;word-break:break-word}
+.sc-p .rem{font-size:88px}
+.sc-p .meta{font-size:15px;gap:12px}
+.sc-p .legs{position:static;display:block;font-size:15px;margin-bottom:2px}
+.inbox .muted{white-space:nowrap}
+@media (max-width:560px){.inbox{padding-left:12px}.inbox .muted{font-size:18px!important}}
+@media (max-width:560px){.sc-p{padding:10px 12px}.sc-p .nm{font-size:19px}.sc-p .meta{font-size:13px;gap:8px}}
+@media (max-width:560px){.sc-p .rem{font-size:62px}.pad button{padding:13px 0}.wrap{padding:12px}}
 </style>
 </head>
 <body>
@@ -555,7 +563,7 @@ function vX01(){const L=S.live;const f=L.fmt;
  return `<div class="row muted small" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${L.dOut?'Double Out':'Single Out'}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}</div>
  <div class="sc-players">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
   <div class="nm">${AV(U(id))} ${esc(U(id).nick)}</div><div class="rem">${L.scores[i]}</div>
-  <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts: ${s.darts}</span></div>
+  <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
   ${i===L.cur?`<div class="co">${co}</div>`:''}</div>`;}).join('')}</div>
  <div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
  <div class="quick">${[26,41,45,60,81,85,100,121,140,180,0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="visit(${cur})" title="Rest checken" style="color:var(--gold)">✓ Rest</button></div>
