@@ -180,6 +180,8 @@ label{font-weight:600;font-size:13px;letter-spacing:.2px}
 .sc-p.cur{border-color:var(--accent);box-shadow:0 0 0 3px #1fb35a33,0 10px 30px #1fb35a1f}
 .sc-p .legs{color:var(--gold)}
 .inbox{background:#0d1110;border:1px solid var(--line)}
+.inbox{position:relative;padding-left:64px;padding-right:64px}
+.bksp{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:54px;height:54px;padding:0;font-size:24px;border-radius:12px;background:var(--panel2);color:var(--text)}
 .pad button,.quick button{background:linear-gradient(180deg,#1b2220,#151b19);border:1px solid var(--line)}
 .pad button.pri{background:linear-gradient(180deg,#25c466,#179a4c);border:0}
 .big-target{background:linear-gradient(180deg,#fff,#b9f5cf);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -555,7 +557,7 @@ function vX01(){const L=S.live;const f=L.fmt;
   <div class="nm">${AV(U(id))} ${esc(U(id).nick)}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts: ${s.darts}</span></div>
   ${i===L.cur?`<div class="co">${co}</div>`:''}</div>`;}).join('')}</div>
- <div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}</div>
+ <div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
  <div class="quick">${[26,41,45,60,81,85,100,121,140,180,0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="visit(${cur})" title="Rest checken" style="color:var(--gold)">✓ Rest</button></div>
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}
  <button onclick="undo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div>`;}
@@ -664,7 +666,7 @@ function vScore(){const L=S.live;const id=curP(),s=L.st[id];const sum=s.visits.r
  return `${trHead()}<div class="card"><div class="row"><div class="muted sp">${AV(U(id))} <b style="color:var(--text)">${esc(U(id).nick)}</b> · Scoring-Training</div><b>Aufnahme ${Math.min(s.visits.length+1,10)}/10</b></div>
  <div class="stats" style="margin:12px 0"><div class="stat"><div class="v">${sum}</div><div class="k">Punkte</div></div><div class="stat"><div class="v">${f1(s.visits.length?sum/s.visits.length:0)}</div><div class="k">Average</div></div><div class="stat"><div class="v">${s.visits.length?Math.max(...s.visits):'–'}</div><div class="k">Beste Aufnahme</div></div></div>
  <div class="muted small" style="margin-bottom:8px">${s.visits.join(' · ')||'&nbsp;'}</div>
- <div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte eingeben</span>'}</div>
+ <div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte eingeben</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}
  <button onclick="trUndo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div>`;}
 function scoreVisit(v){const L=S.live;if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
@@ -861,7 +863,7 @@ function startEx(id,planIdx=null){const e=EX[id];const uid=planIdx!=null?S.planR
  S.live={kind:'ex',ex:id,uid,st:JSON.parse(JSON.stringify(st)),hist:[],input:'',planIdx};save();go('live');}
 function exSnap(){const L=S.live;L.hist.push(JSON.stringify(L.st));if(L.hist.length>80)L.hist.shift();}
 function exUndo(){const L=S.live;if(L.input){L.input='';render();return;}const h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen');L.st=JSON.parse(h);save();render();}
-function padH(){return `<div class="inbox">${S.live.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}</div><div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}<button onclick="exUndo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div>`;}
+function padH(){return `<div class="inbox">${S.live.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div><div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}<button onclick="exUndo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div>`;}
 const bigBtns=(fn,labels)=>`<div class="row">${labels.map(([v,l,c])=>`<button class="${c||'pri'} sp" style="padding:22px 0;font-size:22px" onclick="${fn}(${v})">${l}</button>`).join('')}</div>`;
 const undoBtn=()=>`<button class="ghost sm" style="margin-top:12px" onclick="exUndo()">↶ Rückgängig</button>`;
 const prog=(a,b)=>`<div style="height:10px;background:var(--panel2);border-radius:99px;margin:12px 0;overflow:hidden"><div style="height:100%;width:${Math.min(100,a/b*100)}%;background:var(--accent)"></div></div>`;
@@ -1195,7 +1197,7 @@ function vMG(){const st=S.live,g=MG[st.id];const p=st.cur;
  <div class="card" style="text-align:center;padding:14px"><div class="muted small">${esc(U(st.ps[p]).nick)} ist dran${g.visitInput?' · Aufnahme eintippen':` · Dart ${st.dart+1} von 3`}</div>
  <div style="font-family:Outfit,Inter,sans-serif;font-size:22px;font-weight:800;margin:6px 0">${g.hint(st,p)}</div>
  ${g.visitInput?'':`<div class="row" style="justify-content:center;gap:6px">${[0,1,2].map(k=>`<span class="badge" style="min-width:64px;font-size:14px;${k===st.dart?'border-color:var(--accent);color:var(--text)':''}">${st.darts[k]?dName(st.darts[k]):'·'}</span>`).join('')}</div>`}</div>
- ${g.visitInput?`<div class="card" style="padding:12px"><div class="inbox">${st.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}</div>
+ ${g.visitInput?`<div class="card" style="padding:12px"><div class="inbox">${st.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}<button onclick="if(S.live.input){S.live.input='';render();}else mgUndo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div>`
  :`<div class="card mgpad" style="padding:12px">
  <div class="row" style="gap:6px;margin-bottom:8px">${[[1,'Single'],[2,'Double'],[3,'Triple']].map(([m,l])=>`<button class="sp ${st.mult===m?'on':''}" style="padding:12px 0" onclick="mgMult(${m})">${l}</button>`).join('')}</div>
