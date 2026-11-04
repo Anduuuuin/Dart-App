@@ -383,7 +383,7 @@ function gamesOf(id){return S.games.filter(g=>g.players.some(p=>p.id===id)).sort
 function trainsOf(id,mode){return S.trainings.filter(t=>t.uid===id&&(!mode||t.mode===mode)).sort((a,b)=>a.date-b.date);}
 function calc(id){const gs=gamesOf(id);let darts=0,pts=0,s180=0,s140=0,s100=0,hiCo=0,wins=0;const avgs=[];
  const fN={9:[0,0],12:[0,0],15:[0,0],18:[0,0]};let dd=0,cos=0;const hf=[];const m30=[0,0,0];
- gs.forEach(g=>{const p=g.players.find(x=>x.id===id);[9,12,15,18].forEach(N=>{fN[N][0]+=p['f'+N]||0;fN[N][1]+=p['f'+N+'n']||0;});(p.hf||[]).forEach(v=>hf.push(v));dd+=p.dd||0;cos+=p.co||0;if(g.date>Date.now()-30*DAY){m30[0]+=p.darts;m30[1]+=p.pts;m30[2]++;}darts+=p.darts;pts+=p.pts;s180+=p.s180;s140+=p.s140;s100+=p.s100;hiCo=Math.max(hiCo,p.hiCo||0);if(p.won)wins++;avgs.push({d:g.date,v:p.darts?p.pts/p.darts*3:0});});
+ gs.forEach(g=>{const p=g.players.find(x=>x.id===id);[9,12,15,18].forEach(N=>{fN[N][0]+=p['f'+N]||0;fN[N][1]+=p['f'+N+'n']||0;});(p.hf||[]).forEach(v=>hf.push(v));if(p.ch){dd+=p.ch;cos+=p.co||0;}if(g.date>Date.now()-30*DAY){m30[0]+=p.darts;m30[1]+=p.pts;m30[2]++;}darts+=p.darts;pts+=p.pts;s180+=p.s180;s140+=p.s140;s100+=p.s100;hiCo=Math.max(hiCo,p.hiCo||0);if(p.won)wins++;avgs.push({d:g.date,v:p.darts?p.pts/p.darts*3:0});});
  const tr=trainsOf(id);const acts=[...gs.map(g=>g.date),...tr.map(t=>t.date)];
  const days=new Set(acts.filter(t=>t>Date.now()-30*DAY).map(t=>new Date(t).toDateString())).size;
  const week=acts.filter(t=>t>Date.now()-7*DAY).length;
@@ -450,7 +450,7 @@ function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
   ${st(c.avg30!=null?f1(c.avg30):'–','Ø letzte 30 Tage',`aus ${c.games30} ${c.games30===1?'Spiel':'Spielen'}`)}
   ${st(c.games?f1(c.best):'–','Bester Average','in einem Spiel')}</div>
   <div class="sec">First Darts (Ø der ersten Darts je Leg)</div><div class="stats">${[9,12,15,18].map(N=>st(fa(N),'First '+N,lg(N))).join('')}</div>
-  <div class="sec">Checkout</div><div class="stats">${st(c.coPct!=null?f1(c.coPct)+' %':'–','Checkout-Quote',c.dd?`${c.cos} von ${c.dd} Darts aufs Doppel`:'noch keine Darts aufs Doppel')}${st(c.hiCo||'–','Höchstes Finish')}</div>
+  <div class="sec">Checkout</div><div class="stats">${st(c.coPct!=null?f1(c.coPct)+' %':'–','Checkout-Quote',c.dd?`${c.cos} von ${c.dd} Chancen gecheckt`:'noch keine Checkout-Chancen')}${st(c.hiCo||'–','Höchstes Finish')}</div>
   <div class="sec">Scores</div><div class="stats">${st(c.s100,'100+')}${st(c.s140,'140+')}${st(c.s180,'180er')}${st(c.hf.length,'High Finishes')}</div>
   <div class="card" style="margin-top:12px"><h3>High Finishes (100+)</h3>${c.hf.length?`<div class="chips">${c.hf.slice(0,30).map(v=>`<span class="badge y" style="font-size:16px;padding:6px 12px">${v}</span>`).join('')}</div><p class="muted small" style="margin-top:8px">${c.hf.length} High Finish${c.hf.length===1?'':'es'} insgesamt</p>`:'<p class="muted">Noch kein Finish über 100 – das kommt! 🎯</p>'}</div>
   <p class="muted small" style="margin-top:10px">Alle Werte aus X01-Spielen (Training, Liga und Turniere).</p>`;}
@@ -546,7 +546,7 @@ function startFree(){startX01(slotIds(setup.slots),setup.start,{...setup.fmt},se
 /* ===================== X01-Scorer ===================== */
 function startX01(ps,start,fmt,dOut,tref){if(typeof fmt==='number')fmt={sets:false,bo:fmt,setLegs:3};
  S.live={kind:'x01',players:ps,start,fmt,dOut,tref,legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),scores:ps.map(()=>start),cur:0,legStarter:0,hist:[],input:'',
-  st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,dd:0,co:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};save();go('live');}
+  st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,ch:0,co:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};save();go('live');}
 function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const co=L.dOut&&CO[cur]?CO[cur].join(' · '):(!L.dOut&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
@@ -569,20 +569,12 @@ function visit(v){const L=S.live;L.input='';
  let bust=rest<0||(L.dOut&&rest===1);
  if(rest===0&&L.dOut&&!CO[prev])bust=true;
  if(rest===0&&!bust){const minD=L.dOut?CO[prev].length:1;
-  modal(`<h3>Check-out ${prev}! 🎯</h3><p class="muted">Mit wie vielen Darts?</p><div class="row">${[1,2,3].map(d=>`<button class="pri sp" ${d<minD?'disabled':''} onclick="closeModal();coDarts(${prev},${d})">${d}</button>`).join('')}</div><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal();render()">Abbrechen</button>`);return;}
+  modal(`<h3>Check-out ${prev}! 🎯</h3><p class="muted">Mit wie vielen Darts?</p><div class="row">${[1,2,3].map(d=>`<button class="pri sp" ${d<minD?'disabled':''} onclick="closeModal();finishLeg(${prev},${d})">${d}</button>`).join('')}</div><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal();render()">Abbrechen</button>`);return;}
  L.hist.push({i,prev,s:{...s,hf:[...(s.hf||[])]}});
  firstN(s,3,bust?0:v);s.darts+=3;if(bust){s.last='Bust';toast('Überworfen! 💥');}else{L.scores[i]=rest;s.pts+=v;s.last=v;if(v===180){s.s180++;toast('🔥 ONE HUNDRED AND EIGHTY! 🔥');}else if(v>=140)s.s140++;else if(v>=100)s.s100++;}
  L.cur=(i+1)%L.players.length;save();render();
- if(L.dOut&&CO[prev]&&(prev<=50||CO[prev].length<=2||(!bust&&rest<=50)))askDD(i,bust);}
-/* Checkout-Quote: Darts aufs Doppel abfragen */
-const ddBtns=(fn,from,to)=>`<div class="row">${Array.from({length:to-from+1},(_,k)=>from+k).map(n=>`<button class="${n?'pri':'ghost'} sp" style="padding:18px 0;font-size:22px" onclick="closeModal();${fn}(${n})">${n}</button>`).join('')}</div>`;
-let ddIdx=0;
-function askDD(i,bust){ddIdx=i;modal(`<h3>${bust?'Überworfen – ':''}Darts aufs Doppel?</h3><p class="muted small">${esc(U(S.live.players[i]).nick)} stand auf einem Finish. Wie viele Darts gingen aufs Doppel? (für die Checkout-Quote)</p>${ddBtns('setDD',0,3)}`);}
-function setDD(n){const L=S.live;if(!L||L.kind!=='x01')return;const s=L.st[ddIdx];s.dd=(s.dd||0)+n;save();}
-let coPend=null;
-function coDarts(prev,d){if(d===1)return finishLeg(prev,1,1);coPend=[prev,d];
- modal(`<h3>Check-out ${prev}! 🎯</h3><p class="muted">Wie viele der ${d} Darts gingen aufs Doppel?</p>${ddBtns('coDD',1,d)}`);}
-function coDD(n){const [prev,d]=coPend;coPend=null;finishLeg(prev,d,n);}
+ if(L.dOut&&CO[prev]&&(prev<=50||CO[prev].length<=2))s.ch=(s.ch||0)+1;}
+/* Checkout-Quote: wird automatisch gezählt – jede Aufnahme auf einem realistischen Finish (bis 50 oder 2-Dart-Finish) ist eine Chance */
 function undo(){const L=S.live;if(L.input){L.input='';render();return;}const h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
  L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;save();render();}
 /* Ergebnis entscheiden: wer zuerst die nötige Anzahl hat – sonst nach allen Legs/Sets: Höchster gewinnt, Gleichstand = Unentschieden */
@@ -591,7 +583,7 @@ function firstN(s,d,v){const a=s.ld||0;s.ld=a+d;s.lp=(s.lp||0)+v;[9,12,15,18].fo
 function decide(arr,bo){const need=fmtNeed(bo);const w=arr.findIndex(x=>x>=need);if(w>=0)return{done:true,w};
  const tot=arr.reduce((a,b)=>a+b,0);if(tot<bo)return{done:false};const mx=Math.max(...arr);const top=arr.map((x,i)=>x===mx?i:-1).filter(i=>i>=0);
  return{done:true,w:top.length===1?top[0]:null};}
-function finishLeg(v,d,dd=1){const L=S.live;const i=L.cur,s=L.st[i];const f=L.fmt;if(L.dOut){s.dd=(s.dd||0)+dd;s.co=(s.co||0)+1;}
+function finishLeg(v,d){const L=S.live;const i=L.cur,s=L.st[i];const f=L.fmt;if(L.dOut){s.ch=(s.ch||0)+1;s.co=(s.co||0)+1;}
  firstN(s,d,v);s.darts+=d;s.pts+=v;s.last=v;s.hiCo=Math.max(s.hiCo,v);if(v>=100){s.hf=s.hf||[];s.hf.push(v);}if(v>=140)s.s140++;else if(v>=100)s.s100++;
  L.legs[i]++;L.legsTotal[i]++;let msg=`Leg für ${esc(U(L.players[i]).nick)}!`;
  if(f.sets){if(L.legs[i]>=fmtNeed(f.setLegs)){L.sets[i]++;L.legs=L.players.map(()=>0);msg=`🎯 Set für ${esc(U(L.players[i]).nick)}!`;
@@ -1480,7 +1472,7 @@ function demoData(){const names=[['Pfeilblitz','⚡'],['Triple-Tom','🐯'],['Bu
    else if(r<.7)S.trainings.push({id:uid(),uid:id,date:day+Math.random()*3e7,mode:'bob',score:Math.round(Math.max(0,base*3-80+prog*90+Math.random()*60))});
    else S.trainings.push({id:uid(),uid:id,date:day+Math.random()*3e7,mode:'score',avg:Math.max(10,base+Math.random()*8-4)});}});
   if(Math.random()<.5){const [a,b]=shuffle(ids.slice()).slice(0,2);const mk=id=>{const avg=Math.max(15,skill[id]+prog*8+Math.random()*10-5);const darts=45+Math.round(Math.random()*30);
-    const o={id,darts,pts:Math.round(avg*darts/3),s180:Math.random()<avg/400?1:0,s140:Math.round(Math.random()*avg/30),s100:Math.round(Math.random()*avg/12),hiCo:Math.round(20+Math.random()*avg*1.4),legs:0,won:false};const nl=2+Math.round(Math.random());[9,12,15,18].forEach(N=>{o['f'+N]=Math.round((avg+6-N/3+Math.random()*6)*N/3*nl);o['f'+N+'n']=nl;});o.hf=o.hiCo>=100?[o.hiCo]:[];o.co=nl-1;o.dd=o.co+Math.round(Math.random()*8+2);return o;};
+    const o={id,darts,pts:Math.round(avg*darts/3),s180:Math.random()<avg/400?1:0,s140:Math.round(Math.random()*avg/30),s100:Math.round(Math.random()*avg/12),hiCo:Math.round(20+Math.random()*avg*1.4),legs:0,won:false};const nl=2+Math.round(Math.random());[9,12,15,18].forEach(N=>{o['f'+N]=Math.round((avg+6-N/3+Math.random()*6)*N/3*nl);o['f'+N+'n']=nl;});o.hf=o.hiCo>=100?[o.hiCo]:[];o.co=nl-1;o.ch=o.co+Math.round(Math.random()*5+1);return o;};
    const pa=mk(a),pb=mk(b);(pa.pts/pa.darts>pb.pts/pb.darts?pa:pb).won=true;pa.legs=pa.won?2:Math.round(Math.random());pb.legs=pb.won?2:Math.round(Math.random());
    S.games.push({id:uid(),date:day+4e7,start:501,bestOf:3,tid:null,players:[pa,pb]});}}
  return ids;}
