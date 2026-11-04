@@ -240,6 +240,8 @@ label{font-weight:600;font-size:13px;letter-spacing:.2px}
 .sc-p .meta{font-size:15px;gap:12px}
 .sc-p .legs{position:static;display:block;font-size:15px;margin-bottom:2px}
 .inbox .muted{white-space:nowrap}
+.pad button{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+.pad button.cok{background:#1fb35a2e;border:2px solid var(--accent);color:#7dffb0;box-shadow:0 0 14px #1fb35a33}
 @media (max-width:560px){.inbox{padding-left:12px}.inbox .muted{font-size:18px!important}}
 @media (max-width:560px){.sc-p{padding:10px 12px}.sc-p .nm{font-size:19px}.sc-p .meta{font-size:13px;gap:8px}}
 @media (max-width:560px){.sc-p .rem{font-size:62px}.pad button{padding:13px 0}.wrap{padding:12px}}
@@ -566,8 +568,9 @@ function vX01(){const L=S.live;const f=L.fmt;
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
   ${i===L.cur?`<div class="co">${co}</div>`:''}</div>`;}).join('')}</div>
  <div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
- <div class="quick">${[26,41,45,60,81,85,100,121,140,180,0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="visit(${cur})" title="Rest checken" style="color:var(--gold)">✓ Rest</button></div>
- <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}
+ <div class="quick">${[26,41,45,60,81,85,100,121,140,180,0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="restIn()" title="Eingetippte Zahl ist dein Rest">Rest</button></div>
+ ${[1,2,3].some(d=>canCheck(cur,d))?`<p class="muted small" style="text-align:center;margin:2px 0 8px">🟢 Gecheckt? Grüne <b>1</b>, <b>2</b> oder <b>3</b> lange drücken = mit so vielen Darts</p>`:''}
+ <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>n<=3&&canCheck(cur,n)?`<button class="cok" onpointerdown="lpStart(${n})" onpointerup="lpEnd()" onpointerleave="lpEnd()" oncontextmenu="return false" onclick="if(lpFired){lpFired=false;return;}key('${n}')">${n}</button>`:`<button onclick="key('${n}')">${n}</button>`).join('')}
  <button onclick="undo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div>`;}
 function key(k){const L=S.live;if(!L)return;
  if(k==='ok'){const v=L.input===''?0:parseInt(L.input,10);L.input='';if(L.kind==='score')scoreVisit(v);else if(L.kind==='mg')mgVisit(v);else if(L.kind==='ex')exNum(v);else visit(v);return;}
@@ -585,6 +588,14 @@ function visit(v){const L=S.live;L.input='';
  L.cur=(i+1)%L.players.length;save();render();
  if(L.dOut&&CO[prev]&&(prev<=50||CO[prev].length<=2))s.ch=(s.ch||0)+1;}
 /* Checkout-Quote: wird automatisch gezählt – jede Aufnahme auf einem realistischen Finish (bis 50 oder 2-Dart-Finish) ist eine Chance */
+/* Rest eintippen statt geworfener Punkte */
+function restIn(){const L=S.live;if(!L||L.input===''){toast('Erst deinen Rest eintippen, dann „Rest“ drücken');return;}
+ const r=parseInt(L.input,10),prev=L.scores[L.cur],v=prev-r;L.input='';if(v<0){toast(`Rest ${r} ist mehr als dein Stand ${prev}`);render();return;}visit(v);}
+/* Checken per langem Druck auf 1, 2 oder 3 */
+function canCheck(rem,d){const L=S.live;if(!L||rem<=0)return false;if(L.dOut)return !!CO[rem]&&CO[rem].length<=d;return rem<=60*d&&!(d===3&&IMPOSSIBLE.includes(rem));}
+let lpT=null,lpFired=false;
+function lpStart(d){lpEnd();lpFired=false;lpT=setTimeout(()=>{lpFired=true;lpT=null;try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}const L=S.live;if(!L||L.kind!=='x01')return;const rem=L.scores[L.cur];if(!canCheck(rem,d))return;L.input='';toast(`🎯 ${rem} gecheckt mit ${d} Dart${d>1?'s':''}!`);finishLeg(rem,d);},550);}
+function lpEnd(){if(lpT){clearTimeout(lpT);lpT=null;}}
 function undo(){const L=S.live;if(L.input){L.input='';render();return;}const h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
  L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;save();render();}
 /* Ergebnis entscheiden: wer zuerst die nötige Anzahl hat – sonst nach allen Legs/Sets: Höchster gewinnt, Gleichstand = Unentschieden */
@@ -994,8 +1005,8 @@ const hearts=n=>n>0?'❤️'.repeat(n):'💀 raus';
 function shuffleNums(k,excl=[]){const a=[...Array(20).keys()].map(i=>i+1).filter(n=>!excl.includes(n));shuffle(a);return a.slice(0,k);}
 function targetsGame(name,cat,desc,targets,start,rulesExtra){const lab=t=>t==='D'?'irgendein Doppel':t==='T'?'irgendein Triple':t==='B'?'Bull (25/50)':t==='DB'?'Bullseye (50)':String(t);
  const hit=(t,d)=>t==='D'?d.m===2&&d.n!==25:t==='T'?d.m===3:t==='B'?d.n===25:t==='DB'?d.n===25&&d.m===2:d.n===t;
- return{name,cat,min:1,max:8,dur:targets.length,desc,rounds:targets.length,
-  rules:[`Ziele der Reihe nach: ${targets.map(lab).join(' → ')}.`,'Pro Runde 3 Darts aufs aktuelle Ziel – getroffene Punkte zählen.','Triffst du in einer Runde gar nicht, wird dein Punktestand halbiert!',...(rulesExtra||[]),'Wer am Ende die meisten Punkte hat, gewinnt.'],
+ return{name,cat,min:1,max:8,dur:targets.length,desc,rounds:targets.length,visitInput:true,visit(st,p,v){if(v>0){st.p[p].s+=v;st.p[p].hit=true;}},
+  rules:[`Ziele der Reihe nach: ${targets.map(lab).join(' → ')}.`,'Pro Runde 3 Darts aufs aktuelle Ziel – tippe nur die Punkte ein, die im Ziel gelandet sind (0 = kein Treffer).','Triffst du in einer Runde gar nicht, wird dein Punktestand halbiert!',...(rulesExtra||[]),'Wer am Ende die meisten Punkte hat, gewinnt.'],
   init(st){st.p.forEach(x=>x.s=start);},start(st,p){st.p[p].hit=false;},
   dart(st,p,d){const t=targets[st.round-1];if(hit(t,d)){st.p[p].s+=d.v;st.p[p].hit=true;}},
   endTurn(st,p){if(!st.p[p].hit){st.p[p].s=Math.floor(st.p[p].s/2);toast(`✂️ Halbiert: ${esc(U(st.ps[p]).nick)}`);}},
@@ -1054,13 +1065,14 @@ const MG={
   status:(st,i)=>`🐎 ${Math.min(st.p[i].pos,20)}/20${st.p[i].pos>=20?' · Zielgerade':''}`,
   hint:(st,p)=>{const x=st.p[p].pos;return x>=20?'Ziel: Bull!':`Nächstes Feld: ${x%5===4?'🚧 Doppel ':''}${ORD[x]}`;},result:st=>byDesc(st,x=>x.pos)},
  killer:killerGame(false),blindkiller:killerGame(true),
- gotcha:{name:'Gotcha',cat:'💀 Gruppe',min:2,max:8,dur:12,desc:'Wer genau auf 301 kommt, gewinnt – aber pass auf, dass dich keiner einholt.',
+ gotcha:{name:'Gotcha',cat:'💀 Gruppe',min:2,max:8,dur:12,visitInput:true,desc:'Wer genau auf 301 kommt, gewinnt – aber pass auf, dass dich keiner einholt.',
   rules:['Alle zählen von 0 hoch, Ziel ist genau 301.','Wirfst du über 301, zählt die ganze Aufnahme nicht.','Hast du nach deiner Aufnahme genau den gleichen Stand wie ein anderer, fällt dieser auf 0 zurück! 😈','Wer zuerst genau 301 hat, gewinnt.'],
   init(st){st.p.forEach(x=>x.s=0);},start(st,p){st.p[p].ts=st.p[p].s;},
   dart(st,p,d){const me=st.p[p];me.s+=d.v;if(me.s>301){me.s=me.ts;toast('Überworfen!');st.endTurn=true;}else if(me.s===301)st.winner=p;},
+  visit(st,p,v){const me=st.p[p];if(me.s+v>301)toast('Überworfen!');else{me.s+=v;if(me.s===301)st.winner=p;}},
   endTurn(st,p){const me=st.p[p];st.p.forEach((o,i)=>{if(i!==p&&o.s===me.s&&me.s>0){o.s=0;toast(`😈 Gotcha! ${esc(U(st.ps[i]).nick)} fällt auf 0`);}});},
   status:(st,i)=>`<b>${st.p[i].s}</b> / 301`,hint:(st,p)=>`Noch ${301-st.p[p].s} bis 301`,result:st=>byDesc(st,x=>x.s)},
- knockout:{name:'Knockout',cat:'💀 Gruppe',min:2,max:8,dur:10,desc:'Überbiete die Aufnahme deines Vorgängers – sonst kostet es ein Leben.',
+ knockout:{name:'Knockout',cat:'💀 Gruppe',min:2,max:8,dur:10,visitInput:true,visit(st,p,v){st.p[p].t=v;},desc:'Überbiete die Aufnahme deines Vorgängers – sonst kostet es ein Leben.',
   rules:['Jeder hat 3 Leben.','Deine Aufnahme muss mindestens so hoch sein wie die deines Vorgängers.','Schaffst du das nicht, verlierst du ein Leben.','Wer als Letzter übrig ist, gewinnt.'],
   init(st){st.p.forEach(x=>x.lives=3);st.last=null;},active:(st,i)=>st.p[i].lives>0,start(st,p){st.p[p].t=0;},
   dart(st,p,d){st.p[p].t+=d.v;},endTurn(st,p){const me=st.p[p];if(st.last!==null&&me.t<st.last){me.lives--;toast(`💥 ${me.t} < ${st.last} – Leben weg!`);}st.last=me.t;},
@@ -1077,13 +1089,13 @@ const MG={
   dart(st,p,d){if(d.n===0)return;st.lastHit=d;if(!st.target){st.target=d;st.got=true;}else if(d.n===st.target.n&&d.m===st.target.m)st.got=true;},
   endTurn(st,p){if(!st.got){st.p[p].lives--;toast('💔 Ziel verfehlt – Leben weg');}else if(st.lastHit)st.target=st.lastHit;},
   status:(st,i)=>hearts(st.p[i].lives),hint:st=>st.target?`Triff: ${dName(st.target)}`:'Gib ein Ziel vor – wirf auf ein Feld deiner Wahl',result:st=>byDesc(st,x=>x.lives)},
- elimination:{name:'Elimination',cat:'💀 Gruppe',min:2,max:8,dur:12,desc:'Rennen auf 301 – wer gleichzieht, wirft den anderen raus.',
+ elimination:{name:'Elimination',cat:'💀 Gruppe',min:2,max:8,dur:12,visitInput:true,visit(st,p,v){const me=st.p[p];if(me.s+v>301)toast('Überworfen!');else{me.s+=v;if(me.s===301)st.winner=p;}},desc:'Rennen auf 301 – wer gleichzieht, wirft den anderen raus.',
   rules:['Alle zählen von 0 hoch, Ziel ist genau 301.','Wirfst du über 301, zählt die Aufnahme nicht.','Hast du nach deiner Aufnahme genau den gleichen Stand wie ein anderer, fliegt dieser raus!','Wer zuerst genau 301 hat oder als Letzter übrig ist, gewinnt.'],
   init(st){st.p.forEach(x=>{x.s=0;x.out=false;});},active:(st,i)=>!st.p[i].out,start(st,p){st.p[p].ts=st.p[p].s;},
   dart(st,p,d){const me=st.p[p];me.s+=d.v;if(me.s>301){me.s=me.ts;toast('Überworfen!');st.endTurn=true;}else if(me.s===301)st.winner=p;},
   endTurn(st,p){const me=st.p[p];st.p.forEach((o,i)=>{if(i!==p&&!o.out&&o.s===me.s&&me.s>0){o.out=true;toast(`❌ ${esc(U(st.ps[i]).nick)} ist raus!`);}});},
   status:(st,i)=>st.p[i].out?'❌ raus':`<b>${st.p[i].s}</b> / 301`,hint:(st,p)=>`Noch ${301-st.p[p].s} bis 301`,result:st=>byDesc(st,x=>(x.out?-1000:0)+x.s)},
- suddendeath:{name:'Sudden Death',cat:'💀 Gruppe',min:2,max:8,dur:8,desc:'Jede Runde fliegt der mit der niedrigsten Aufnahme raus.',
+ suddendeath:{name:'Sudden Death',cat:'💀 Gruppe',min:2,max:8,dur:8,visitInput:true,visit(st,p,v){st.p[p].t=v;},desc:'Jede Runde fliegt der mit der niedrigsten Aufnahme raus.',
   rules:['Jeder wirft eine Aufnahme, die Punkte zählen.','Wer in der Runde die wenigsten Punkte hat, fliegt raus (bei Gleichstand niemand).','Wer als Letzter übrig ist, gewinnt.'],
   init(st){st.p.forEach(x=>{x.out=false;x.t=0;});},active:(st,i)=>!st.p[i].out,start(st,p){st.p[p].t=0;},dart(st,p,d){st.p[p].t+=d.v;},
   endRound(st){const act=st.p.map((x,i)=>i).filter(i=>!st.p[i].out);const mn=Math.min(...act.map(i=>st.p[i].t));const lows=act.filter(i=>st.p[i].t===mn);
@@ -1140,13 +1152,13 @@ const MG={
   status:(st,i)=>`${i===0?'❌':'⭕'} ${st.own.filter(x=>x===i).length} Felder`,hint:()=>'Triff ein freies Feld',
   extra:st=>`<div style="display:grid;grid-template-columns:repeat(3,70px);gap:6px;justify-content:center;margin:10px 0">${st.grid.map((n,i)=>`<div style="height:70px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:Outfit,sans-serif;font-weight:800;font-size:${st.own[i]===null?22:30}px;background:${st.own[i]===0?'#e3262f33':st.own[i]===1?'#1fb35a33':'#0d1110'};border:1px solid var(--line)">${st.own[i]===0?'❌':st.own[i]===1?'⭕':(n===25?'Bull':n)}</div>`).join('')}</div>`,
   result:st=>byDesc(st,x=>0)},
- by5:{name:'51 by 5',cat:'🔢 Rechnen',min:1,max:8,dur:10,rounds:25,desc:'Nur durch 5 teilbare Aufnahmen zählen – wer erreicht genau 51?',
-  rules:['Alle 3 Darts müssen treffen, sonst zählt die Aufnahme nicht.','Ist die Summe deiner Aufnahme durch 5 teilbar, bekommst du Summe ÷ 5 Punkte (z. B. 45 → 9 Punkte).','Ziel ist genau 51 – wer darüber käme, bekommt nichts.','Wer zuerst genau 51 hat, gewinnt – spätestens nach 25 Runden gewinnt der Höchste. Super Kopfrechen-Training!'],
+ by5:{name:'51 by 5',cat:'🔢 Rechnen',min:1,max:8,dur:10,rounds:25,visitInput:true,visit(st,p,v){st.p[p].t=v;st.p[p].miss=false;},desc:'Nur durch 5 teilbare Aufnahmen zählen – wer erreicht genau 51?',
+  rules:['Alle 3 Darts müssen treffen, sonst zählt die Aufnahme nicht – dann einfach 0 eintippen.','Ist die Summe deiner Aufnahme durch 5 teilbar, bekommst du Summe ÷ 5 Punkte (z. B. 45 → 9 Punkte).','Ziel ist genau 51 – wer darüber käme, bekommt nichts.','Wer zuerst genau 51 hat, gewinnt – spätestens nach 25 Runden gewinnt der Höchste. Super Kopfrechen-Training!'],
   init(st){st.p.forEach(x=>x.s=0);},start(st,p){st.p[p].t=0;st.p[p].miss=false;},
   dart(st,p,d){const me=st.p[p];me.t+=d.v;if(d.n===0)me.miss=true;},
   endTurn(st,p){const me=st.p[p];if(me.miss){toast('Daneben – zählt nicht');return;}if(me.t%5!==0){toast(`${me.t} ist nicht durch 5 teilbar`);return;}const add=me.t/5;if(me.s+add>51){toast('Zu viel – über 51');return;}me.s+=add;toast(`+${add} Punkte`);if(me.s===51)st.winner=p;},
   status:(st,i)=>`<b>${st.p[i].s}</b> / 51`,hint:(st,p)=>`Noch ${51-st.p[p].s} Punkte = Aufnahme von ${(51-st.p[p].s)*5}`,result:st=>byDesc(st,x=>x.s)},
- countup:{name:'Count Up',cat:'🔢 Rechnen',min:1,max:8,dur:8,rounds:8,desc:'8 Runden, so viele Punkte wie möglich.',
+ countup:{name:'Count Up',cat:'🔢 Rechnen',min:1,max:8,dur:8,rounds:8,visitInput:true,visit(st,p,v){st.p[p].s+=v;},desc:'8 Runden, so viele Punkte wie möglich.',
   rules:['8 Runden à 3 Darts.','Alle Punkte werden zusammengezählt.','Die meisten Punkte gewinnen.'],
   init(st){st.p.forEach(x=>x.s=0);},dart(st,p,d){st.p[p].s+=d.v;},
   status:(st,i)=>`<b>${st.p[i].s}</b> Punkte`,hint:st=>`Runde ${st.round} von 8`,result:st=>byDesc(st,x=>x.s)},
