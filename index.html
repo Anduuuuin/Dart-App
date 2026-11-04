@@ -383,7 +383,8 @@ function createProfile(loginAfter){const n=document.getElementById('npn').value.
 function gamesOf(id){return S.games.filter(g=>g.players.some(p=>p.id===id)).sort((a,b)=>a.date-b.date);}
 function trainsOf(id,mode){return S.trainings.filter(t=>t.uid===id&&(!mode||t.mode===mode)).sort((a,b)=>a.date-b.date);}
 function calc(id){const gs=gamesOf(id);let darts=0,pts=0,s180=0,s140=0,s100=0,hiCo=0,wins=0;const avgs=[];
- gs.forEach(g=>{const p=g.players.find(x=>x.id===id);darts+=p.darts;pts+=p.pts;s180+=p.s180;s140+=p.s140;s100+=p.s100;hiCo=Math.max(hiCo,p.hiCo||0);if(p.won)wins++;avgs.push({d:g.date,v:p.darts?p.pts/p.darts*3:0});});
+ const fN={9:[0,0],12:[0,0],15:[0,0],18:[0,0]};const hf=[];const m30=[0,0,0];
+ gs.forEach(g=>{const p=g.players.find(x=>x.id===id);[9,12,15,18].forEach(N=>{fN[N][0]+=p['f'+N]||0;fN[N][1]+=p['f'+N+'n']||0;});(p.hf||[]).forEach(v=>hf.push(v));if(g.date>Date.now()-30*DAY){m30[0]+=p.darts;m30[1]+=p.pts;m30[2]++;}darts+=p.darts;pts+=p.pts;s180+=p.s180;s140+=p.s140;s100+=p.s100;hiCo=Math.max(hiCo,p.hiCo||0);if(p.won)wins++;avgs.push({d:g.date,v:p.darts?p.pts/p.darts*3:0});});
  const tr=trainsOf(id);const acts=[...gs.map(g=>g.date),...tr.map(t=>t.date)];
  const days=new Set(acts.filter(t=>t>Date.now()-30*DAY).map(t=>new Date(t).toDateString())).size;
  const week=acts.filter(t=>t>Date.now()-7*DAY).length;
@@ -391,7 +392,8 @@ function calc(id){const gs=gamesOf(id);let darts=0,pts=0,s180=0,s140=0,s100=0,hi
  const atc=trainsOf(id,'atc'),bob=trainsOf(id,'bob'),scr=trainsOf(id,'score');
  const l5=avgs.slice(-5),p5=avgs.slice(-10,-5);const mean=a=>a.reduce((s,x)=>s+x.v,0)/(a.length||1);
  const trend=l5.length&&p5.length?mean(l5)-mean(p5):null;
- return{games:gs.length,wins,avg:darts?pts/darts*3:0,best:avgs.length?Math.max(...avgs.map(a=>a.v)):0,s180,s140,s100,hiCo,avgs,
+ const fAvg=N=>fN[N][1]?fN[N][0]/fN[N][1]/N*3:null;const l10=avgs.slice(-10);
+ return{fAvg,fLegs:N=>fN[N][1],hf:hf.sort((a,b)=>b-a),avg30:m30[0]?m30[1]/m30[0]*3:null,games30:m30[2],last10n:l10.length,games:gs.length,wins,avg:darts?pts/darts*3:0,best:avgs.length?Math.max(...avgs.map(a=>a.v)):0,s180,s140,s100,hiCo,avgs,
   trainings:tr.length,days,week,last,trend,atc,bob,scr,
   atcBest:atc.length?Math.min(...atc.map(t=>t.darts)):null,bobBest:bob.length?Math.max(...bob.map(t=>t.score)):null,scrBest:scr.length?Math.max(...scr.map(t=>t.avg)):null,
   recentAvg:mean(avgs.slice(-10))};}
@@ -442,13 +444,16 @@ function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
  const groups=S.teams.filter(t=>t.members.includes(id)).map(t=>esc(t.name));
  const seg=`<div class="seg">${[['over','Übersicht'],['train','Training'],['games','Spiele'],['log','Verlauf']].map(([k,l])=>`<button class="${statTab===k?'on':''}" onclick="statTab='${k}';render()">${l}</button>`).join('')}</div>`;
  let body='';
- if(statTab==='over')body=`<div class="stats">
-  <div class="stat"><div class="v">${c.week}</div><div class="k">Einheiten 7 Tage</div></div>
-  <div class="stat"><div class="v">${c.days}</div><div class="k">Trainingstage 30 T.</div></div>
-  <div class="stat"><div class="v">${c.games?f1(c.avg):'–'}</div><div class="k">Average gesamt</div></div>
-  <div class="stat"><div class="v">${c.trend===null?'–':(c.trend>=0?'+':'')+f1(c.trend)}</div><div class="k">Trend Average</div></div></div>
-  <div class="card" style="margin-top:12px"><div class="muted small" style="margin-bottom:8px;font-weight:700;letter-spacing:.6px">AKTIVITÄT LETZTE 4 WOCHEN</div>${heatHTML(id)}</div>
-  <div class="grid2">${c.avgs.length>=2?chart(c.avgs.slice(-20),{title:'Average pro Spiel'}):''}${chart(c.atc.slice(-20).map(t=>({d:t.date,v:t.darts})),{title:'Around the Clock – Darts',unit:' Darts',lowerBetter:true})}</div>`;
+ if(statTab==='over'){const st=(v,k,sub)=>`<div class="stat"><div class="v">${v}</div><div class="k">${k}</div>${sub?`<div class="muted small" style="margin-top:2px">${sub}</div>`:''}</div>`;const fa=N=>c.fAvg(N)!=null?f1(c.fAvg(N)):'–';const lg=N=>c.fLegs(N)?`aus ${c.fLegs(N)} Legs`:'';
+  body=`<div class="sec" style="margin-top:0">Average</div><div class="stats">
+  ${st(c.games?f1(c.avg):'–','Gesamt-Average',`aus ${c.games} ${c.games===1?'Spiel':'Spielen'}`)}
+  ${st(c.games?f1(c.recentAvg):'–','Ø letzte 10 Spiele',c.games?`aus ${c.last10n} ${c.last10n===1?'Spiel':'Spielen'}`:'')}
+  ${st(c.avg30!=null?f1(c.avg30):'–','Ø letzte 30 Tage',`aus ${c.games30} ${c.games30===1?'Spiel':'Spielen'}`)}
+  ${st(c.games?f1(c.best):'–','Bester Average','in einem Spiel')}</div>
+  <div class="sec">First Darts (Ø der ersten Darts je Leg)</div><div class="stats">${[9,12,15,18].map(N=>st(fa(N),'First '+N,lg(N))).join('')}</div>
+  <div class="sec">Scores</div><div class="stats">${st(c.s100,'100+')}${st(c.s140,'140+')}${st(c.s180,'180er')}${st(c.hiCo||'–','Höchstes Finish')}</div>
+  <div class="card" style="margin-top:12px"><h3>High Finishes (100+)</h3>${c.hf.length?`<div class="chips">${c.hf.slice(0,30).map(v=>`<span class="badge y" style="font-size:16px;padding:6px 12px">${v}</span>`).join('')}</div><p class="muted small" style="margin-top:8px">${c.hf.length} High Finish${c.hf.length===1?'':'es'} insgesamt</p>`:'<p class="muted">Noch kein Finish über 100 – das kommt! 🎯</p>'}</div>
+  <p class="muted small" style="margin-top:10px">Alle Werte aus X01-Spielen (Training, Liga und Turniere).</p>`;}
  if(statTab==='train')body=`<div class="sec" style="margin-top:0">Trainingsspiele</div><div class="stats">
   <div class="stat"><div class="v">${c.atcBest??'–'}</div><div class="k">Rekord ATC (Darts)</div></div>
   <div class="stat"><div class="v">${c.bobBest??'–'}</div><div class="k">Rekord Bob's 27</div></div>
@@ -541,7 +546,7 @@ function startFree(){startX01(slotIds(setup.slots),setup.start,{...setup.fmt},se
 /* ===================== X01-Scorer ===================== */
 function startX01(ps,start,fmt,dOut,tref){if(typeof fmt==='number')fmt={sets:false,bo:fmt,setLegs:3};
  S.live={kind:'x01',players:ps,start,fmt,dOut,tref,legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),scores:ps.map(()=>start),cur:0,legStarter:0,hist:[],input:'',
-  st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,last:null}))};save();go('live');}
+  st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};save();go('live');}
 function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const co=L.dOut&&CO[cur]?CO[cur].join(' · '):(!L.dOut&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
@@ -565,27 +570,29 @@ function visit(v){const L=S.live;L.input='';
  if(rest===0&&L.dOut&&!CO[prev])bust=true;
  if(rest===0&&!bust){const minD=L.dOut?CO[prev].length:1;
   modal(`<h3>Check-out ${prev}! 🎯</h3><p class="muted">Mit wie vielen Darts?</p><div class="row">${[1,2,3].map(d=>`<button class="pri sp" ${d<minD?'disabled':''} onclick="closeModal();finishLeg(${prev},${d})">${d}</button>`).join('')}</div><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal();render()">Abbrechen</button>`);return;}
- L.hist.push({i,prev,s:{...s}});
- s.darts+=3;if(bust){s.last='Bust';toast('Überworfen! 💥');}else{L.scores[i]=rest;s.pts+=v;s.last=v;if(v===180){s.s180++;toast('🔥 ONE HUNDRED AND EIGHTY! 🔥');}else if(v>=140)s.s140++;else if(v>=100)s.s100++;}
+ L.hist.push({i,prev,s:{...s,hf:[...(s.hf||[])]}});
+ firstN(s,3,bust?0:v);s.darts+=3;if(bust){s.last='Bust';toast('Überworfen! 💥');}else{L.scores[i]=rest;s.pts+=v;s.last=v;if(v===180){s.s180++;toast('🔥 ONE HUNDRED AND EIGHTY! 🔥');}else if(v>=140)s.s140++;else if(v>=100)s.s100++;}
  L.cur=(i+1)%L.players.length;save();render();}
 function undo(){const L=S.live;if(L.input){L.input='';render();return;}const h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
  L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;save();render();}
 /* Ergebnis entscheiden: wer zuerst die nötige Anzahl hat – sonst nach allen Legs/Sets: Höchster gewinnt, Gleichstand = Unentschieden */
+/* First 9/12/15/18: Punkte der ersten N Darts je Leg sammeln */
+function firstN(s,d,v){const a=s.ld||0;s.ld=a+d;s.lp=(s.lp||0)+v;[9,12,15,18].forEach(N=>{if(a<N&&s.ld>=N){s['f'+N]=(s['f'+N]||0)+s.lp;s['f'+N+'n']=(s['f'+N+'n']||0)+1;}});}
 function decide(arr,bo){const need=fmtNeed(bo);const w=arr.findIndex(x=>x>=need);if(w>=0)return{done:true,w};
  const tot=arr.reduce((a,b)=>a+b,0);if(tot<bo)return{done:false};const mx=Math.max(...arr);const top=arr.map((x,i)=>x===mx?i:-1).filter(i=>i>=0);
  return{done:true,w:top.length===1?top[0]:null};}
 function finishLeg(v,d){const L=S.live;const i=L.cur,s=L.st[i];const f=L.fmt;
- s.darts+=d;s.pts+=v;s.last=v;s.hiCo=Math.max(s.hiCo,v);if(v>=140)s.s140++;else if(v>=100)s.s100++;
+ firstN(s,d,v);s.darts+=d;s.pts+=v;s.last=v;s.hiCo=Math.max(s.hiCo,v);if(v>=100){s.hf=s.hf||[];s.hf.push(v);}if(v>=140)s.s140++;else if(v>=100)s.s100++;
  L.legs[i]++;L.legsTotal[i]++;let msg=`Leg für ${esc(U(L.players[i]).nick)}!`;
  if(f.sets){if(L.legs[i]>=fmtNeed(f.setLegs)){L.sets[i]++;L.legs=L.players.map(()=>0);msg=`🎯 Set für ${esc(U(L.players[i]).nick)}!`;
    const r=decide(L.sets,f.bo);if(r.done)return endX01(r.w);}}
  else{const r=decide(L.legs,f.bo);if(r.done)return endX01(r.w);}
  toast(msg);
- L.scores=L.players.map(()=>L.start);L.legStarter=(L.legStarter+1)%L.players.length;L.cur=L.legStarter;L.hist=[];save();render();}
+ L.st.forEach(x=>{x.ld=0;x.lp=0;});L.scores=L.players.map(()=>L.start);L.legStarter=(L.legStarter+1)%L.players.length;L.cur=L.legStarter;L.hist=[];save();render();}
 function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const before={};L.players.forEach(id=>before[id]=calc(id).best);
  const sc=f.sets?L.sets:L.legsTotal;
  const g={id:uid(),date:Date.now(),start:L.start,fmt:f,draw,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
-  players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?i===wi:true),...(({last,...r})=>r)(L.st[i])}))};
+  players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?i===wi:true),...(({last,ld,lp,...r})=>r)(L.st[i])}))};
  S.games.push(g);
  if(L.tref)applyResult(L.tref.tid,L.tref.mid,draw?'DRAW':L.players[wi],sc[0],sc[1]);
  S.live=null;save();
@@ -1463,7 +1470,7 @@ function demoData(){const names=[['Pfeilblitz','⚡'],['Triple-Tom','🐯'],['Bu
    else if(r<.7)S.trainings.push({id:uid(),uid:id,date:day+Math.random()*3e7,mode:'bob',score:Math.round(Math.max(0,base*3-80+prog*90+Math.random()*60))});
    else S.trainings.push({id:uid(),uid:id,date:day+Math.random()*3e7,mode:'score',avg:Math.max(10,base+Math.random()*8-4)});}});
   if(Math.random()<.5){const [a,b]=shuffle(ids.slice()).slice(0,2);const mk=id=>{const avg=Math.max(15,skill[id]+prog*8+Math.random()*10-5);const darts=45+Math.round(Math.random()*30);
-    return{id,darts,pts:Math.round(avg*darts/3),s180:Math.random()<avg/400?1:0,s140:Math.round(Math.random()*avg/30),s100:Math.round(Math.random()*avg/12),hiCo:Math.round(20+Math.random()*avg*1.4),legs:0,won:false};};
+    const o={id,darts,pts:Math.round(avg*darts/3),s180:Math.random()<avg/400?1:0,s140:Math.round(Math.random()*avg/30),s100:Math.round(Math.random()*avg/12),hiCo:Math.round(20+Math.random()*avg*1.4),legs:0,won:false};const nl=2+Math.round(Math.random());[9,12,15,18].forEach(N=>{o['f'+N]=Math.round((avg+6-N/3+Math.random()*6)*N/3*nl);o['f'+N+'n']=nl;});o.hf=o.hiCo>=100?[o.hiCo]:[];return o;};
    const pa=mk(a),pb=mk(b);(pa.pts/pa.darts>pb.pts/pb.darts?pa:pb).won=true;pa.legs=pa.won?2:Math.round(Math.random());pb.legs=pb.won?2:Math.round(Math.random());
    S.games.push({id:uid(),date:day+4e7,start:501,bestOf:3,tid:null,players:[pa,pb]});}}
  return ids;}
@@ -1479,6 +1486,17 @@ function myTeams(){return isStaff()?S.teams:S.teams.filter(t=>t.captains.include
 function togCap(id){const u=S.users.find(x=>x.id===id);u.captain=!u.captain;
  if(!u.captain)S.teams.forEach(t=>t.captains=t.captains.filter(c=>c!==id));save();toast(u.captain?`⭐ ${esc(u.nick)} ist jetzt Kapitän`:`${esc(u.nick)} ist kein Kapitän mehr`);render();}
 function joinCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r;do{r=[...Array(4)].map(()=>c[Math.floor(Math.random()*c.length)]).join('');}while(S.teams.some(t=>t.code===r));return r;}
+const TSTAT={week:['Einh. 7 T.',c=>c.week],days:['Tage 30 T.',c=>c.days],avg:['Ø gesamt',c=>c.games?f1(c.avg):'–'],avg10:['Ø letzte 10',c=>c.games?f1(c.recentAvg):'–'],avg30:['Ø 30 Tage',c=>c.avg30!=null?f1(c.avg30):'–'],
+ trend:['Trend',c=>c.trend===null?'<span class="muted">–</span>':c.trend>=0?`<span class="badge g">▲ ${f1(c.trend)}</span>`:`<span class="badge r">▼ ${f1(-c.trend)}</span>`],
+ f9:['First 9',c=>c.fAvg(9)!=null?f1(c.fAvg(9)):'–'],f12:['First 12',c=>c.fAvg(12)!=null?f1(c.fAvg(12)):'–'],f15:['First 15',c=>c.fAvg(15)!=null?f1(c.fAvg(15)):'–'],f18:['First 18',c=>c.fAvg(18)!=null?f1(c.fAvg(18)):'–'],
+ s100:['100+',c=>c.s100],s140:['140+',c=>c.s140],s180:['180er',c=>c.s180],hiCo:['High Finish',c=>c.hiCo||'–'],games:['Spiele',c=>c.games],
+ atc:['ATC-Rekord',c=>c.atcBest??'–'],bob:["Bob's 27",c=>c.bobBest??'–'],ex:['Übungen 7 T.',(c,id)=>S.trainings.filter(t=>t.uid===id&&t.mode==='ex'&&t.date>Date.now()-7*DAY).length],last:['Zuletzt',c=>c.last?dstr(c.last):'nie']};
+const TSTAT_DEF=['week','days','avg10','trend','atc','last'];
+let ntStats=[];
+const tstatChips=sel=>`<div class="chips" id="tsc">${Object.entries(TSTAT).map(([k,[l]])=>`<button class="${sel.includes(k)?'on':''}" onclick="this.classList.toggle('on');const i=ntStats.indexOf('${k}');i>=0?ntStats.splice(i,1):ntStats.push('${k}')">${l}</button>`).join('')}</div>`;
+function teamStatSel(tid){const t=S.teams.find(x=>x.id===tid);ntStats=[...(t.stats||TSTAT_DEF)];
+ modal(`<h3>Welche Statistiken willst du sehen?</h3><p class="muted small">Diese Werte erscheinen in der Tabelle „Leistung der Spieler“.</p>${tstatChips(ntStats)}
+ <div class="row" style="margin-top:16px"><button class="ghost sp" onclick="closeModal()">Abbrechen</button><button class="pri sp" onclick="if(!ntStats.length)return toast('Mindestens eine wählen');const t=S.teams.find(x=>x.id==='${tid}');t.stats=Object.keys(TSTAT).filter(k=>ntStats.includes(k));save();closeModal();render()">Speichern</button></div>`);}
 function teamStats(t){const rows=t.members.map(id=>({id,c:calc(id)}));const act=rows.filter(r=>r.c.week>0).length;const sum=rows.reduce((a,r)=>a+r.c.week,0);
  const av=rows.filter(r=>r.c.games);return{rows,act,sum,avg:av.length?av.reduce((a,r)=>a+r.c.recentAvg,0)/av.length:null};}
 function vTeams(){const ts=myTeams();const cap=me().captain&&!isStaff();
@@ -1488,14 +1506,15 @@ function vTeams(){const ts=myTeams();const cap=me().captain&&!isStaff();
   <small>Diese Woche: <b style="color:var(--text)">${st.act}/${t.members.length}</b> aktiv · ${st.sum} Einheiten</small></button>`;}).join('')}</div>`
  :`<div class="card muted">Noch keine Gruppen. Lege eine Trainingsgruppe (z. B. „Kids-Training“) oder eine Mannschaft an und füge Spieler hinzu – oder gib den Beitrittscode weiter.</div>`}`;}
 let nt={type:'training',cap:''};
-function newTeam(){nt={type:'training',cap:''};const caps=players().filter(p=>p.captain);
+function newTeam(){nt={type:'training',cap:''};ntStats=[...TSTAT_DEF];const caps=players().filter(p=>p.captain);
  modal(`<h3>Neue Gruppe</h3><label>Name</label><input id="tn" maxlength="30" placeholder="z. B. Kids-Training oder 1. Mannschaft">
  <label>Art</label><div class="chips" id="tty"><button class="on" onclick="nt.type='training';this.classList.add('on');this.nextElementSibling.classList.remove('on')">Trainingsgruppe</button><button onclick="nt.type='team';this.classList.add('on');this.previousElementSibling.classList.remove('on')">Mannschaft</button></div>
  ${isStaff()?`<label>Kapitän</label>${caps.length?`<select id="tc"><option value="">– später festlegen –</option>${caps.map(c=>`<option value="${c.id}">${esc(c.nick)}</option>`).join('')}</select>`:`<p class="muted small">Noch kein Spieler ist Kapitän. Unter Verwaltung kannst du Spieler zu Kapitänen machen.</p>`}`:'<p class="muted small">Du wirst Kapitän dieser Gruppe. Wenn du selbst mitspielst, füge dich danach als Spieler hinzu.</p>'}
+ <label>Welche Statistiken willst du von den Spielern sehen?</label>${tstatChips(ntStats)}
  <div class="row" style="margin-top:16px"><button class="ghost sp" onclick="closeModal()">Abbrechen</button><button class="pri sp" onclick="createTeam()">Erstellen</button></div>`);setTimeout(()=>document.getElementById('tn').focus(),50);}
 function createTeam(){const n=document.getElementById('tn').value.trim();if(n.length<2)return toast('Name zu kurz');
  const capSel=document.getElementById('tc');const caps=isStaff()?(capSel&&capSel.value?[capSel.value]:[]):[meId];
- const t={id:uid(),name:n,type:nt.type,captains:caps,members:[],code:joinCode(),created:Date.now()};S.teams.push(t);save();closeModal();go('team',t.id);}
+ if(!ntStats.length)return toast('Mindestens eine Statistik wählen');const t={id:uid(),name:n,type:nt.type,captains:caps,members:[],stats:Object.keys(TSTAT).filter(k=>ntStats.includes(k)),code:joinCode(),created:Date.now()};S.teams.push(t);save();closeModal();go('team',t.id);}
 function vTeam(id){const t=S.teams.find(x=>x.id===id);if(!t){view='home';return vHome();}const mg=canManage(t);
  if(!mg){return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('home')">← Start</button><h2 style="margin:0">${esc(t.name)}</h2></div>
   <div class="card"><p class="muted">${TTYPE[t.type]} · Kapitän: ${t.captains.map(c=>AV(U(c))+' '+esc(U(c).nick)).join(', ')||'–'}</p><div class="chips">${t.members.map(m=>`<span class="badge" style="font-size:14px;padding:6px 10px">${AV(U(m))} ${esc(U(m).nick)}</span>`).join('')}</div>
@@ -1512,11 +1531,10 @@ function vTeam(id){const t=S.teams.find(x=>x.id===id);if(!t){view='home';return 
  ${lazy.length?`<div class="banner" style="background:#e5484d14;border-color:#e5484d55">💤 Seit 2 Wochen nicht trainiert: ${lazy.map(r=>esc(U(r.id).nick)).join(', ')}</div>`:''}
  <div class="card"><h3>Training diese Woche</h3>${sorted.length?sorted.map(r=>`<div class="row" style="margin:8px 0;flex-wrap:nowrap"><span style="width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${AV(U(r.id))} ${esc(U(r.id).nick)}</span>
   <div class="sp" style="background:var(--panel2);border-radius:99px;height:14px;overflow:hidden"><div style="height:100%;width:${r.c.week/mx*100}%;background:var(--accent);border-radius:99px"></div></div><b style="width:28px;text-align:right">${r.c.week}</b></div>`).join(''):'<p class="muted">Noch keine Spieler.</p>'}</div>
- <div class="card" style="overflow-x:auto"><div class="row" style="margin-bottom:8px"><h3 class="sp" style="margin:0">Leistung der Spieler</h3><button class="sm pri" onclick="addMembers('${t.id}')">＋ Spieler hinzufügen</button></div>
- ${st.rows.length?`<table><tr><th>Spieler</th><th>Einh. 7 T.</th><th>Tage 30 T.</th><th>Ø letzte 10</th><th>Trend</th><th>ATC-Rekord</th><th>Zuletzt</th><th></th></tr>
- ${sorted.map(({id,c})=>`<tr class="click" onclick="backTo=['team','${t.id}'];go('player','${id}')"><td>${AV(U(id))} <b>${esc(U(id).nick)}</b>${t.captains.includes(id)?' ⭐':''}</td><td>${c.week}</td><td>${c.days}</td><td>${c.games?f1(c.recentAvg):'–'}</td>
- <td>${c.trend===null?'<span class="muted">–</span>':c.trend>=0?`<span class="badge g">▲ ${f1(c.trend)}</span>`:`<span class="badge r">▼ ${f1(-c.trend)}</span>`}</td><td>${c.atcBest??'–'}</td><td class="muted">${c.last?dstr(c.last):'nie'}</td>
- <td style="text-align:right">${`<button class="sm ghost" onclick="event.stopPropagation();rmMember('${t.id}','${id}')" title="Aus Gruppe entfernen">✕</button>`}</td></tr>`).join('')}</table>`:''}
+ <div class="card" style="overflow-x:auto"><div class="row" style="margin-bottom:8px"><h3 class="sp" style="margin:0">Leistung der Spieler</h3><button class="sm" onclick="teamStatSel('${t.id}')">📊 Statistiken wählen</button><button class="sm pri" onclick="addMembers('${t.id}')">＋ Spieler hinzufügen</button></div>
+ ${st.rows.length?(()=>{const cols=(t.stats||TSTAT_DEF).filter(k=>TSTAT[k]);return `<table><tr><th>Spieler</th>${cols.map(k=>`<th>${TSTAT[k][0]}</th>`).join('')}<th></th></tr>
+ ${sorted.map(({id,c})=>`<tr class="click" onclick="backTo=['team','${t.id}'];go('player','${id}')"><td>${AV(U(id))} <b>${esc(U(id).nick)}</b>${t.captains.includes(id)?' ⭐':''}</td>${cols.map(k=>`<td${k==='last'?' class="muted"':''}>${TSTAT[k][1](c,id)}</td>`).join('')}
+ <td style="text-align:right">${`<button class="sm ghost" onclick="event.stopPropagation();rmMember('${t.id}','${id}')" title="Aus Gruppe entfernen">✕</button>`}</td></tr>`).join('')}</table>`;})():''}
  <p class="muted small" style="margin-top:10px">Spieler antippen für die ausführliche Statistik. Spieler können auch selbst beitreten: Start → „Gruppe beitreten“ → Code ${t.code}.</p></div>
  <div class="row"><button class="sm" onclick="renameTeam('${t.id}')">Umbenennen</button>${isStaff()?`<button class="sm" onclick="setTeamCap('${t.id}')">Kapitän ändern</button>`:''}<button class="sm red" onclick="ask('Gruppe „${esc(t.name)}“ löschen? Die Statistiken der Spieler bleiben erhalten.','Löschen',()=>{S.teams=S.teams.filter(x=>x.id!=='${t.id}');save();go('teams');},true)">Gruppe löschen</button></div>`;}
 let addSel=[];
