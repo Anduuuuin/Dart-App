@@ -562,11 +562,11 @@ function startX01(ps,start,fmt,dOut,tref){if(typeof fmt==='number')fmt={sets:fal
 function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const co=L.dOut&&CO[cur]?CO[cur].join(' · '):(!L.dOut&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
- return `<div class="row muted small" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${L.dOut?'Double Out':'Single Out'}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}</div>
+ return `<div class="row muted small" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${L.dOut?'Double Out':'Single Out'}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}</div>
  <div class="sc-players">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
   <div class="nm">${AV(U(id))} ${esc(U(id).nick)}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
-  ${i===L.cur?`<div class="co">${co}</div>`:''}</div>`;}).join('')}</div>
+  ${i===L.cur?`<div class="co">${co}</div>`:''}${i===L.cur&&AD.on&&AD.ok?adDarts():''}</div>`;}).join('')}</div>
  <div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
  <div class="quick">${[26,41,45,60,81,85,100,121,140,180,0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="restIn()" title="Eingetippte Zahl ist dein Rest">Rest</button></div>
  ${[1,2,3].some(d=>canCheck(cur,d))?`<p class="muted small" style="text-align:center;margin:2px 0 8px">🟢 Gecheckt? Grüne <b>1</b>, <b>2</b> oder <b>3</b> lange drücken = mit so vielen Darts</p>`:''}
@@ -576,10 +576,10 @@ function key(k){const L=S.live;if(!L)return;
  if(k==='ok'){const v=L.input===''?0:parseInt(L.input,10);L.input='';if(L.kind==='score')scoreVisit(v);else if(L.kind==='mg')mgVisit(v);else if(L.kind==='ex')exNum(v);else visit(v);return;}
  if(k==='del'){L.input=L.input.slice(0,-1);render();return;}
  if(L.input.length>=3)return;L.input=(L.input+k).replace(/^0+(?=\d)/,'');render();}
-function visit(v){const L=S.live;L.input='';
+function visit(v,forceBust){const L=S.live;L.input='';
  if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
  const i=L.cur,prev=L.scores[i],rest=prev-v,s=L.st[i];
- let bust=rest<0||(L.dOut&&rest===1);
+ let bust=!!forceBust||rest<0||(L.dOut&&rest===1);
  if(rest===0&&L.dOut&&!CO[prev])bust=true;
  if(rest===0&&!bust){const minD=L.dOut?CO[prev].length:1;
   modal(`<h3>Check-out ${prev}! 🎯</h3><p class="muted">Mit wie vielen Darts?</p><div class="row">${[1,2,3].map(d=>`<button class="pri sp" ${d<minD?'disabled':''} onclick="closeModal();finishLeg(${prev},${d})">${d}</button>`).join('')}</div><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal();render()">Abbrechen</button>`);return;}
@@ -588,6 +588,45 @@ function visit(v){const L=S.live;L.input='';
  L.cur=(i+1)%L.players.length;save();render();
  if(L.dOut&&CO[prev]&&(prev<=50||CO[prev].length<=2))s.ch=(s.ch||0)+1;}
 /* Checkout-Quote: wird automatisch gezählt – jede Aufnahme auf einem realistischen Finish (bis 50 oder 2-Dart-Finish) ist eine Chance */
+
+/* ===================== Autodarts-Verbindung (lokal, Board Manager Port 3180) ===================== */
+const AD={on:false,url:'http://127.0.0.1:3180',ok:null,last:[],cnt:0,sent:false,timer:null,sig:''};
+try{const c=JSON.parse(localStorage.getItem('dc_autodarts')||'{}');if(c.url)AD.url=c.url;AD.on=!!c.on;}catch(e){}
+function adSave(){try{localStorage.setItem('dc_autodarts',JSON.stringify({on:AD.on,url:AD.url}));}catch(e){}}
+function adParse(t){const g=t&&t.segment?t.segment:(t||{});const num=+(g.number??g.segmentNumber??0)||0;const mul=+(g.multiplier??0)||0;const v=num&&mul?num*mul:0;
+ const name=v?(num===25?(mul===2?'Bull':'25'):(mul===3?'T':mul===2?'D':'')+num):'Miss';return{v,dbl:mul===2&&v>0,name};}
+function adChip(){const st=!AD.on?['aus','']:AD.ok===true?['verbunden','g']:AD.ok===false?['keine Verbindung','r']:['verbinde …','y'];
+ return `<button class="sm ${AD.on&&AD.ok?'':'ghost'}" style="padding:4px 10px" onclick="adMenu()">🎯 Autodarts: <span class="badge ${st[1]}">${st[0]}</span></button>`;}
+function adDarts(){const d=AD.last;return `<div class="row" style="gap:4px;margin-top:6px;flex-wrap:nowrap">${[0,1,2].map(k=>`<span class="badge ${d[k]?(d[k].v?'g':'r'):''}" style="min-width:38px;padding:3px 6px;justify-content:center;font-size:13px">${d[k]?d[k].name:'·'}</span>`).join('')}<span class="muted small">= ${d.reduce((a,x)=>a+x.v,0)}</span></div>`;}
+function adMenu(){modal(`<h2>🎯 Autodarts verbinden</h2><p class="muted small">Die Würfe kommen direkt aus deinem Autodarts am PC in den Scorer. Die App muss dafür <b>auf demselben PC</b> geöffnet sein, auf dem Autodarts läuft (oder du trägst die IP-Adresse des Autodarts-PCs ein).</p>
+ <label>Adresse vom Autodarts-PC</label><input id="adurl" value="${esc(AD.url)}" placeholder="http://127.0.0.1:3180">
+ <p class="small" style="margin-top:10px">Status: ${AD.on?(AD.ok===true?'<b style="color:var(--accent)">✓ verbunden – Würfe werden übernommen</b>':AD.ok===false?'<b style="color:#ff6b72">✗ keine Verbindung</b>':'verbinde …'):'aus'}</p>
+ ${AD.on&&AD.ok===false?`<div class="card" style="padding:10px 12px;margin-top:8px"><b>Wenn es nicht klappt:</b><ul class="small" style="margin:6px 0 0 18px;padding:0"><li>Autodarts am PC starten und die Erkennung einschalten.</li><li>Fragt der Browser nach Zugriff auf „Geräte im lokalen Netzwerk“: <b>Zulassen</b>.</li><li>Im Browser <b>http://127.0.0.1:3180/api/state</b> öffnen – kommt dort Text, läuft Autodarts.</li><li>Klappt es trotzdem nicht, blockiert der Browser die Verbindung – dann hilft das Zusatz-Skript (siehe unten).</li></ul></div>`:''}
+ <div class="row" style="margin-top:14px">${AD.on?`<button class="ghost sp" onclick="adOff()">Ausschalten</button>`:''}<button class="pri sp" onclick="adOn()">${AD.on?'Speichern':'Verbinden'}</button></div>
+ <p class="muted small" style="margin-top:12px">Korrigieren geht jederzeit wie gewohnt: ↶ Rückgängig und Punkte eintippen.</p>
+ <p class="muted small">Zusatz-Skript (Tampermonkey), falls der Browser blockiert: <a href="autodarts-bridge.user.js" target="_blank" style="color:var(--accent)">autodarts-bridge.user.js</a></p>
+ <button class="ghost" style="width:100%;margin-top:6px" onclick="closeModal()">Schließen</button>`);}
+function adOn(){const u=(document.getElementById('adurl').value||'').trim().replace(/\/+$/,'');AD.url=/^https?:\/\//.test(u)?u:'http://'+u;AD.on=true;AD.ok=null;adSave();adStart();closeModal();render();}
+function adOff(){AD.on=false;AD.ok=null;AD.last=[];AD.cnt=0;adSave();adStop();closeModal();render();}
+function adStart(){adStop();AD.timer=setInterval(adPoll,350);}
+function adStop(){if(AD.timer){clearInterval(AD.timer);AD.timer=null;}}
+let adBusy=false;
+async function adPoll(){if(!AD.on||adBusy)return;const L=S.live;if(!L||L.kind!=='x01'||view!=='live')return;adBusy=true;
+ try{let st;if(typeof window.__adBridge==='function')st=await window.__adBridge(AD.url+'/api/state');else{const r=await fetch(AD.url+'/api/state',{cache:'no-store'});st=await r.json();}
+  if(AD.ok!==true){AD.ok=true;render();}adState(st);}
+ catch(e){if(AD.ok!==false){AD.ok=false;render();}}finally{adBusy=false;}}
+function adState(st){const L=S.live;if(!L||L.kind!=='x01')return;const th=(Array.isArray(st&&st.throws)?st.throws:[]).map(adParse);
+ if(document.getElementById('modal')?.classList.contains('show')){if(th.length<AD.cnt)AD.sent=false;AD.cnt=th.length;AD.last=th;return;}
+ const sig=th.map(x=>x.name).join(',');
+ if(th.length<AD.cnt){if(!AD.sent&&AD.cnt>0)adSubmit(AD.last);AD.sent=false;}
+ AD.cnt=th.length;AD.last=th;
+ if(!AD.sent&&th.length){const sum=th.reduce((a,x)=>a+x.v,0),rem=L.scores[L.cur],lastD=th[th.length-1].dbl;
+  if(sum===rem&&(!L.dOut||lastD)){AD.sent=true;L.input='';toast(`🎯 ${rem} gecheckt!`);finishLeg(rem,th.length);return;}
+  if(sum>rem||(L.dOut&&(rem-sum===1||sum===rem))){AD.sent=true;visit(sum,true);return;}
+  if(th.length>=3){AD.sent=true;visit(sum);return;}}
+ if(sig!==AD.sig){AD.sig=sig;render();}}
+function adSubmit(th){const L=S.live;if(!L||L.kind!=='x01'||!th.length)return;const sum=th.reduce((a,x)=>a+x.v,0);visit(sum);}
+if(AD.on)adStart();
 /* Rest eintippen statt geworfener Punkte */
 function restIn(){const L=S.live;if(!L||L.input===''){toast('Erst deinen Rest eintippen, dann „Rest“ drücken');return;}
  const r=parseInt(L.input,10),prev=L.scores[L.cur],v=prev-r;L.input='';if(v<0){toast(`Rest ${r} ist mehr als dein Stand ${prev}`);render();return;}visit(v);}
