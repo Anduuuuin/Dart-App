@@ -265,7 +265,114 @@ function fresh(){return{users:[
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))||fresh();}catch(e){S=fresh();}
 S.settings=S.settings||{boards:4};S.teams=S.teams||[];
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function save(){saveLocal();if(typeof sySchedule==='function')sySchedule();}
+/* ===================== Server-Abgleich (eigener Vereinsserver) ===================== */
+// Läuft die App unter *.anduuuuin.de, werden alle Vereinsdaten mit dem Server abgeglichen.
+// Auf GitHub Pages oder als Datei bleibt alles wie bisher nur auf diesem Gerät (Testversion).
+const SY={on:/(^|\.)anduuuuin\.de$/i.test(location.hostname)||!!window.DC_API,api:(window.DC_API||'')+'/api/dc/',key:'',rev:0,base:{},busy:false,again:false,t:null,ok:null,err:'',pend:false,force:false,last:0,ready:false};
+const SY_ARR=['users','tournaments','games','trainings','teams'],SY_MAP=['myPlans','planCfg'];
+try{const h=location.hash.match(/[#&]k=([A-Za-z0-9_-]+)/);if(h){localStorage.setItem('dc_clubkey',h[1]);history.replaceState(null,'',location.pathname+location.search);}}catch(e){}
+try{SY.key=localStorage.getItem('dc_clubkey')||'';const b=JSON.parse(localStorage.getItem(KEY+'_sync')||'null');if(b&&b.key===SY.key){SY.rev=b.rev||0;SY.base=b.base||{};SY.ready=!!b.ready;}}catch(e){}
+// Inhalt als Text mit sortierten Schlüsseln (damit gleiche Daten immer gleich aussehen)
+function cs(x){if(x===undefined)return null;return JSON.stringify(x,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((o,kk)=>(o[kk]=v[kk],o),{}):v);}
+const jeq=(a,b)=>cs(a)===cs(b);
+// Zerlegt den Spielstand in einzelne Einträge (jeder Spieler, jedes Turnier, jedes Spiel … einzeln)
+function syItems(st){const o={};SY_ARR.forEach(k=>(st[k]||[]).forEach(x=>{if(x&&x.id)o[k+':'+x.id]=x;}));
+ SY_MAP.forEach(k=>Object.keys(st[k]||{}).forEach(u=>{o[k+':'+u]=st[k][u];}));o.settings=st.settings||{};return o;}
+function syInPlace(t,d){if(t&&d&&typeof t==='object'&&typeof d==='object'&&!Array.isArray(t)&&!Array.isArray(d)){if(t===d)return t;Object.keys(t).forEach(k=>{if(!(k in d))delete t[k];});Object.assign(t,d);return t;}return d;}
+function syApply(key,d){const i=key.indexOf(':');
+ if(i<0){if(key==='settings'&&d)S.settings=syInPlace(S.settings,d);return;}
+ const k=key.slice(0,i),id=key.slice(i+1);
+ if(SY_ARR.includes(k)){const a=S[k]=S[k]||[];const j=a.findIndex(x=>x&&x.id===id);if(d==null){if(j>=0)a.splice(j,1);}else if(j>=0)a[j]=syInPlace(a[j],d);else a.push(d);}
+ else if(SY_MAP.includes(k)){S[k]=S[k]||{};if(d==null)delete S[k][id];else S[k][id]=d;}}
+// Führt zwei Änderungen am selben Eintrag zusammen (b = gemeinsamer Stand, l = dieses Gerät, r = Server).
+// Beispiel: Board 1 und Board 2 tragen gleichzeitig Ergebnisse im selben Turnier ein -> beide bleiben erhalten.
+function jmerge(b,l,r){
+ if(jeq(l,r))return l;if(jeq(b,l))return r;if(jeq(b,r))return l;
+ if(l==null||r==null)return l==null?r:l;
+ if(typeof l!=='object'||typeof r!=='object')return l;
+ const la=Array.isArray(l),ra=Array.isArray(r);
+ if(la&&ra){const bb=Array.isArray(b)?b:[];const idd=a=>a.every(x=>x&&typeof x==='object'&&x.id!=null);
+  if(idd(l)&&idd(r)&&idd(bb)){const bm=new Map(bb.map(x=>[x.id,x])),rm=new Map(r.map(x=>[x.id,x])),lm=new Map(l.map(x=>[x.id,x]));const out=[];
+   l.forEach(x=>{if(rm.has(x.id))out.push(jmerge(bm.get(x.id),x,rm.get(x.id)));else if(!bm.has(x.id)||!jeq(bm.get(x.id),x))out.push(x);});
+   r.forEach(x=>{if(!lm.has(x.id)&&!bm.has(x.id))out.push(x);});return out;}
+  if(l.length===r.length&&bb.length===l.length)return l.map((x,i)=>jmerge(bb[i],x,r[i]));
+  return l;}
+ if(la||ra)return l;
+ const bo=b&&typeof b==='object'&&!Array.isArray(b)?b:{};const out={};
+ new Set([...Object.keys(l),...Object.keys(r)]).forEach(k=>{const v=jmerge(bo[k],l[k],r[k]);if(v!==undefined)out[k]=v;});return out;}
+function syStore(){try{localStorage.setItem(KEY+'_sync',JSON.stringify({key:SY.key,rev:SY.rev,base:SY.base,ready:SY.ready}));}catch(e){}}
+async function syApi(path,body){const r=await fetch(SY.api+path,{method:body?'POST':'GET',cache:'no-store',headers:{'X-Club-Key':SY.key,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+ if(r.status===401){const e=new Error('Falscher Vereins-Code');e.auth=true;throw e;}
+ if(!r.ok)throw new Error('Server antwortet nicht ('+r.status+')');return r.json();}
+// Erstes Verbinden: hat der Server schon Daten, gelten die (nicht die leeren Standardwerte dieses Geräts)
+async function syInit(){const res=await syApi('since?rev=0');SY.base={};
+ if(res.items.some(it=>!it.deleted)){const keep={live:S.live,planRun:S.planRun};S=fresh();SY_ARR.forEach(k=>S[k]=[]);SY_MAP.forEach(k=>S[k]={});if(keep.live)S.live=keep.live;if(keep.planRun)S.planRun=keep.planRun;
+  res.items.forEach(it=>{SY.base[it.key]={r:it.rev,s:it.deleted?null:cs(it.data)};if(!it.deleted)syApply(it.key,it.data);});
+  S.settings=S.settings||{boards:4};S.teams=S.teams||[];}
+ else res.items.forEach(it=>{SY.base[it.key]={r:it.rev,s:null};});
+ SY.rev=res.rev||0;SY.ready=true;syStore();saveLocal();syRender();}
+async function syPull(){const res=await syApi('since?rev='+SY.rev);let ch=false;
+ if(res.items.length){const loc=syItems(S);
+  for(const it of res.items){const b=SY.base[it.key];if(b&&b.r>=it.rev)continue;
+   const rs=it.deleted?null:cs(it.data),ls=cs(loc[it.key]),bs=b?b.s:null;
+   if(ls===bs){if(ls!==rs){syApply(it.key,it.deleted?null:it.data);ch=true;}}
+   else if(ls!==rs){const m=jmerge(bs==null?undefined:JSON.parse(bs),loc[it.key],it.deleted?undefined:it.data);syApply(it.key,m===undefined?null:m);ch=true;}
+   SY.base[it.key]={r:it.rev,s:rs};}}
+ SY.rev=Math.max(SY.rev,res.rev||0);syStore();if(ch){saveLocal();syRender();}}
+async function syPush(){for(let round=0;round<6;round++){
+ const loc=syItems(S),ch=[];
+ new Set([...Object.keys(loc),...Object.keys(SY.base)]).forEach(k=>{const ls=cs(loc[k]),b=SY.base[k];if((b?b.s:null)!==ls)ch.push({key:k,base:b?b.r:0,data:loc[k]===undefined?null:loc[k],s:ls});});
+ if(!ch.length)break;
+ const del=ch.filter(c=>c.data===null).length,tot=Object.values(SY.base).filter(b=>b.s!==null).length;
+ if(!SY.force&&del>50&&del>tot*.8){const e=new Error('Sicherheitsstopp: '+del+' Einträge wären gelöscht worden');e.safety=true;throw e;}
+ let conf=false;
+ for(let i=0;i<ch.length;i+=100){const part=ch.slice(i,i+100);
+  const res=await syApi('put',{items:part.map(c=>({key:c.key,base:c.base,data:c.data}))});
+  for(const o of res.items){const c=part.find(p=>p.key===o.key);if(!c)continue;
+   if(!o.conflict){SY.base[o.key]={r:o.rev,s:c.s};continue;}
+   const b=SY.base[o.key],rs=o.deleted?null:cs(o.data);
+   const m=jmerge(b&&b.s!=null?JSON.parse(b.s):undefined,loc[o.key],o.deleted?undefined:o.data);
+   syApply(o.key,m===undefined?null:m);SY.base[o.key]={r:o.rev,s:rs};conf=true;}}
+ syStore();if(!conf)break;saveLocal();syRender();}
+ SY.force=false;}
+async function syRun(){if(!SY.on||!SY.key||S.demo)return;if(SY.busy){SY.again=true;return;}SY.busy=true;
+ try{if(!SY.ready)await syInit();else await syPull();await syPush();SY.ok=true;SY.err='';}
+ catch(e){SY.ok=false;SY.err=e.message||String(e);if(e.auth){SY.key='';SY.rev=0;SY.base={};SY.ready=false;try{localStorage.removeItem('dc_clubkey');}catch(_){}render();}
+  if(e.safety){S=syRebuild();saveLocal();SY.ok=true;syRender();toast('⚠️ Auf diesem Gerät fehlten plötzlich fast alle Daten – der Stand vom Vereinsserver wurde wiederhergestellt.',6000);}}
+ finally{SY.busy=false;SY.last=Date.now();syBadge();if(SY.again){SY.again=false;setTimeout(syRun,50);}}}
+function sySchedule(ms=400){if(!SY.on)return;clearTimeout(SY.t);SY.t=setTimeout(syRun,ms);}
+// Neu zeichnen, aber nicht während jemand tippt, ein Fenster offen ist oder gerade gespielt wird
+function syRender(){const a=document.activeElement,m=document.getElementById('modal');
+ if((m&&m.classList.contains('show'))||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))||view==='live'){SY.pend=true;return;}
+ SY.pend=false;try{render();}catch(e){console.error(e);const u=me();go(u?(u.role==='player'?'home':'tour'):'login');}}
+function syBadge(){if(!SY.on)return;let el=document.getElementById('sybadge');
+ if(SY.ok!==false||!SY.key||S.demo){if(el)el.remove();return;}
+ if(!el){el=document.createElement('div');el.id='sybadge';el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);top:8px;z-index:30;font-size:12px;padding:5px 10px;border-radius:12px;background:#2a1f05ee;border:1px solid #f2c14e66;color:#f2c14e;pointer-events:none';document.body.appendChild(el);}
+ el.textContent='⚠️ Keine Verbindung zum Vereinsserver – Änderungen werden nachgeholt';el.title=SY.err;}
+setInterval(()=>{if(!SY.on)return;if(!document.hidden&&Date.now()-SY.last>3500)syRun();if(SY.pend)syRender();},4000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)sySchedule(50);});
+window.addEventListener('online',()=>sySchedule(50));
+// Stand aus dem letzten Server-Abgleich wiederherstellen (z. B. nach der Demo)
+function syRebuild(){const n=fresh();SY_ARR.forEach(k=>n[k]=[]);SY_MAP.forEach(k=>n[k]={});const old=S;S=n;
+ try{Object.keys(SY.base).forEach(k=>{const b=SY.base[k];if(b.s!=null)syApply(k,JSON.parse(b.s));});}finally{S=old;}n.settings=n.settings||{boards:4};return n;}
+function endDemo(){if(SY.on&&SY.key)S=syRebuild();else{const lg=S.settings.logo;S=fresh();if(lg)S.settings.logo=lg;}save();setMe(null);go('login');}
+function inviteLink(){return location.origin+location.pathname+'#k='+SY.key;}
+function shareInvite(){const l=inviteLink(),t='Unsere Vereins-App DartClub: Link antippen, dann bist du mit dem Verein verbunden.\n'+l;
+ (async()=>{try{if(navigator.share)await navigator.share({text:t});else{await navigator.clipboard.writeText(l);toast('Einladungslink kopiert');}}catch(e){}})();}
+function vKey(){return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p></div>
+ <div class="card" style="max-width:440px;margin:0 auto"><h3>🔑 Mit dem Verein verbinden</h3><p class="muted small" style="margin-top:0">Am einfachsten öffnest du den <b>Einladungslink</b> deines Vereins. Oder gib hier einmalig den Vereins-Code ein.</p>
+ <label>Vereins-Code</label><input id="ckey" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="Code vom Verein">
+ <button class="pri" style="width:100%;margin-top:12px" onclick="setKey()">Verbinden</button></div>`;}
+async function setKey(){const v=(document.getElementById('ckey').value||'').trim();if(!v)return toast('Bitte den Code eingeben');
+ SY.key=v;SY.rev=0;SY.base={};SY.ready=false;try{await syApi('since?rev=999999999');localStorage.setItem('dc_clubkey',v);await syRun();if(SY.ok)toast('✅ Mit dem Verein verbunden');render();}
+ catch(e){SY.key='';toast(e.auth?'Falscher Vereins-Code':'Keine Verbindung zum Server');}}
+function syInfoCard(){if(!SY.on)return'';const t=SY.last?new Date(SY.last).toLocaleTimeString('de-DE'):'–';
+ return `<div class="card"><h3>☁️ Vereinsserver</h3><p class="muted small" style="margin-top:0">Alle Profile, Turniere, Spiele und Trainings liegen auf eurem eigenen Server und sind auf allen Geräten gleich. ${SY.ok===false?'<b style="color:var(--gold)">Gerade keine Verbindung – Änderungen werden nachgeholt.</b>':'Letzter Abgleich: '+t}</p>
+ <p class="muted small">Neue Mitglieder und Tablets verbindest du mit dem <b>Einladungslink</b>. Gib ihn nur an Vereinsmitglieder weiter.</p>
+ <div class="row"><button class="pri" onclick="shareInvite()">📨 Einladungslink teilen</button><button class="ghost" onclick="navigator.clipboard.writeText(inviteLink()).then(()=>toast('Kopiert'))">🔗 Link kopieren</button></div></div>`;}
+
 let meId=null;try{meId=sessionStorage.getItem(KEY+'_me');}catch(e){}
 const me=()=>S.users.find(u=>u.id===meId)||null;
 function setMe(id){meId=id;try{id?sessionStorage.setItem(KEY+'_me',id):sessionStorage.removeItem(KEY+'_me');}catch(e){}}
@@ -349,7 +456,7 @@ async function installApp(){
  const web=location.protocol==='https:'||location.protocol==='http:';
  modal(`<h2>📲 Als App installieren</h2>${!web?`<p class="muted">Öffne die App über den Vereins-Link im Browser – aus einer heruntergeladenen Datei heraus lässt sie sich nicht installieren.</p>`:ios?`<p class="muted">So geht's auf dem iPhone/iPad (in <b>Safari</b>):</p>${step(1,'Unten auf das <b>Teilen</b>-Symbol tippen (Viereck mit Pfeil nach oben).')}${step(2,'Nach unten scrollen und <b>„Zum Home-Bildschirm“</b> wählen.')}${step(3,'Oben rechts auf <b>„Hinzufügen“</b> tippen – fertig, DartClub liegt jetzt als App auf dem Homescreen.')}`:android?`<p class="muted">So geht's auf Android (in <b>Chrome</b>):</p>${step(1,'Oben rechts auf die <b>drei Punkte ⋮</b> tippen.')}${step(2,'<b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b> wählen.')}${step(3,'Bestätigen – DartClub liegt jetzt als App auf dem Startbildschirm.')}`:`<p class="muted">So geht's am PC/Laptop (in <b>Chrome</b> oder <b>Edge</b>):</p>${step(1,'Rechts in der Adresszeile auf das <b>Installieren-Symbol</b> (Bildschirm mit Pfeil) klicken.')}${step(2,'Alternativ: Menü <b>⋮</b> → <b>„Streamen, speichern und teilen“</b> → <b>„Seite als App installieren“</b>.')}${step(3,'Bestätigen – DartClub öffnet sich danach im eigenen Fenster wie ein Programm.')}`}
  <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal()">Alles klar</button>`);}
-function vLogin(){const ps=players();
+function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=players();
  return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p>${installBtn(false)?`<div style="margin-top:16px">${installBtn(false)}</div>`:''}</div><div class="banner"><div class="row"><div class="sp"><h3 style="margin:0 0 4px">🧪 Demo-Modus</h3><span class="muted small">Alles mit Beispiel-Spielern, Kids-Team und laufenden Turnieren ausprobieren. Oben kannst du jederzeit zwischen Admin, Verein und Spieler wechseln.</span></div><button class="pri" onclick="startDemo()">Demo starten</button></div></div>
  <div class="grid2">
  <div class="card" style="margin:0"><h3>🏠 Spieler-Login</h3><p class="muted small">Für zu Hause: Training, Spielen und deine Statistik.</p>
@@ -1502,7 +1609,7 @@ function vAdmin(){const adm=me().role==='admin';
  if(setTab==='groups')body=`<div class="row" style="margin-bottom:12px"><span class="muted sp">${S.teams.length} Gruppen & Mannschaften</span><button class="pri" onclick="newTeam()">＋ Neue Gruppe</button></div>
   <div class="card">${S.teams.length?S.teams.map(t=>`<div class="setrow"><div style="flex:1;min-width:0"><b>${esc(t.name)}</b> <span class="badge ${t.type==='team'?'y':''}">${TTYPE[t.type]}</span><div class="muted small">${t.members.length} Spieler · Kapitän: ${t.captains.map(c=>esc(U(c).nick)).join(', ')||'–'} · Code <b style="color:var(--gold)">${t.code}</b></div></div>
   <div class="row acts"><button class="sm" onclick="go('team','${t.id}')">Öffnen</button><button class="sm" onclick="renameTeam('${t.id}')">Umbenennen</button>${adm?`<button class="sm" onclick="setTeamCap('${t.id}')">Kapitän</button>`:''}<button class="sm" onclick="t2=S.teams.find(x=>x.id==='${t.id}');t2.code=joinCode();save();render();toast('Neuer Beitrittscode: '+t2.code)">Neuer Code</button><button class="sm red" onclick="ask('Gruppe „${esc(t.name)}“ löschen? Die Statistiken der Spieler bleiben.','Löschen',()=>{S.teams=S.teams.filter(x=>x.id!=='${t.id}');save();render();},true)">Löschen</button></div></div>`).join(''):'<p class="muted">Noch keine Gruppen.</p>'}</div>`;
- if(setTab==='club')body=`<div class="card"><h3>Name der App</h3><p class="muted small" style="margin-top:0">Erscheint neben dem Logo. Leer lassen für „DartClub“.</p>
+ if(setTab==='club')body=`${syInfoCard()}<div class="card"><h3>Name der App</h3><p class="muted small" style="margin-top:0">Erscheint neben dem Logo. Leer lassen für „DartClub“.</p>
   <div class="row"><input id="appn" class="sp" maxlength="24" placeholder="DartClub" value="${esc(appName())}"><button class="pri" onclick="S.settings.name=document.getElementById('appn').value.trim();save();render();toast('Name gespeichert')">Speichern</button></div></div>
   <div class="card"><h3>Vereinslogo</h3><div class="row"><div style="width:72px;height:72px;display:flex;align-items:center;justify-content:center;background:#0d1110;border:1px solid var(--line);border-radius:14px">${logoSVG(60)}</div>
   <div class="sp muted small">Erscheint in der Navigation, oben in der Kopfzeile und groß auf der Login-Seite. Am besten PNG mit transparentem Hintergrund.</div></div>
@@ -1512,8 +1619,8 @@ function vAdmin(){const adm=me().role==='admin';
  if(setTab==='game'){const d=S.settings.defaults;body=`<div class="card"><h3>Standard für neue Spiele & Turniere</h3><p class="muted small" style="margin-top:0">Diese Einstellungen sind vorausgewählt, wenn jemand ein Spiel startet oder ein Turnier anlegt – ändern kann man sie dort trotzdem.</p>
   ${optsHTML(d,'S.settings.defaults',true)}<button class="pri" style="width:100%;margin-top:16px" onclick="save();applyDefaults();toast('Standards gespeichert ✓')">Speichern</button></div>`;}
  if(setTab==='access')body=`<div class="card"><h3>Zugänge</h3>${S.users.filter(u=>u.role!=='player').map(u=>`<div class="setrow"><div class="row" style="flex:1">${AV(u,36)}<div><b>${esc(u.nick)}</b><div class="muted small">${u.role==='admin'?'Admin – darf alles':'Verein – Turniere, Boards, Spieler, Einstellungen'}</div></div></div><div class="acts"><button class="sm" onclick="chPin('${u.id}')">PIN ändern</button></div></div>`).join('')}</div>
-  <div class="card"><h3>Daten</h3><p class="muted small" style="margin-top:0">Im Prototyp liegen alle Daten nur auf diesem Gerät. In der fertigen Version liegen sie auf eurem eigenen Server.</p>
-  <div class="row"><button onclick="demo()">🎲 Demo-Daten erzeugen</button><button onclick="backup()">📋 Backup kopieren</button><button onclick="restore()">Backup einspielen</button><button class="red" onclick="ask('Wirklich ALLE Daten löschen?','Alles löschen',()=>{S=fresh();save();setMe(null);go('login');},true)">Alles zurücksetzen</button></div></div>`;
+  <div class="card"><h3>Daten</h3><p class="muted small" style="margin-top:0">${SY.on?'Ein Backup ist eine Kopie aller Vereinsdaten als Text – zum Aufheben oder Wiederherstellen.':'Testversion: Alle Daten liegen nur auf diesem Gerät.'}</p>
+  <div class="row">${SY.on?'':'<button onclick="demo()">🎲 Demo-Daten erzeugen</button>'}<button onclick="backup()">📋 Backup kopieren</button>${!SY.on||me().role==='admin'?'<button onclick="restore()">Backup einspielen</button>':''}${SY.on?'':`<button class="red" onclick="ask('Wirklich ALLE Daten löschen?','Alles löschen',()=>{S=fresh();save();setMe(null);go('login');},true)">Alles zurücksetzen</button>`}</div></div>`;
  return `<div class="ph"><h1>Einstellungen</h1><p>${adm?'Alles an einem Ort – Spieler, Gruppen, Verein, Zugänge':'Spieler, Gruppen, Verein und Spiel-Standards'}</p></div>
  <div class="seg">${tabsL.map(([k,l])=>`<button class="${setTab===k?'on':''}" onclick="setTab='${k}';render()">${l}</button>`).join('')}</div>${body}`;}
 function applyDefaults(){const d=S.settings.defaults;if(!d)return;setup.start=d.start;setup.fmt={...d.fmt};setup.dOut=d.dOut;}
@@ -1524,7 +1631,7 @@ function doRename(id){const v=document.getElementById('rn').value.trim();if(v.le
 function delP(id){ask(`Profil „${esc(U(id).nick)}“ samt Statistik löschen?`,'Löschen',()=>{S.users=S.users.filter(u=>u.id!==id);S.trainings=S.trainings.filter(t=>t.uid!==id);S.teams.forEach(t=>{t.members=t.members.filter(m=>m!==id);t.captains=t.captains.filter(m=>m!==id);});save();render();},true);}
 function backup(){const txt=JSON.stringify(S);navigator.clipboard?.writeText(txt).then(()=>toast('Backup in die Zwischenablage kopiert'),()=>modal(`<h3>Backup</h3><textarea>${esc(txt)}</textarea><button style="margin-top:10px" onclick="closeModal()">Schließen</button>`));}
 function restore(){modal(`<h3>Backup einspielen</h3><textarea id="bk" placeholder="Backup hier einfügen"></textarea><div class="row" style="margin-top:12px"><button class="ghost sp" onclick="closeModal()">Abbrechen</button><button class="pri sp" onclick="doRestore()">Einspielen</button></div>`);}
-function doRestore(){try{const d=JSON.parse(document.getElementById('bk').value);if(!d.users)throw 0;S=d;save();closeModal();toast('Backup eingespielt');render();}catch(e){toast('Ungültiges Backup');}}
+function doRestore(){try{const d=JSON.parse(document.getElementById('bk').value);if(!d.users)throw 0;if(SY.on){delete d.demo;SY.force=true;}S=d;save();closeModal();toast('Backup eingespielt');render();}catch(e){toast('Ungültiges Backup');}}
 function demo(){demoData();save();toast('Demo-Daten erzeugt – schau unter „Spieler“');render();}
 function demoData(){const names=[['Pfeilblitz','⚡'],['Triple-Tom','🐯'],['Bullseye-Bella','🦊'],['Lucky Leo','🍀'],['Doppel-Dani','🐼'],['Haumichtot','🔥']];
  const ids=names.map(([n,a])=>{let u=S.users.find(x=>x.nick===n);if(!u){u={id:uid(),nick:n,role:'player',avatar:a,pin:'1234',created:Date.now()};S.users.push(u);}return u.id;});
@@ -1648,7 +1755,7 @@ function demoBar(){if(!S.demo||!me()||view==='live')return'';const r=me().role;
  return `<div style="background:#f2c14e18;border-bottom:1px solid #f2c14e44"><div class="row demobar" style="max-width:1000px;margin:0 auto;padding:8px 16px;gap:8px"><b style="color:var(--gold)">🧪 Demo</b><span class="muted small lbl">Ansicht:</span>
  <button class="sm ${r==='admin'?'pri':''}" onclick="setMe('admin');go('tour')">Admin</button><button class="sm ${r==='club'?'pri':''}" onclick="setMe('club');go('boards')">Verein</button>
  <select class="sm" style="width:auto;padding:6px 8px" onchange="if(this.value){setMe(this.value);go('home')}"><option value="">Als Spieler…</option>${players().map(p=>`<option value="${p.id}" ${p.id===meId?'selected':''}>${esc(p.nick)}</option>`).join('')}</select>
- <span class="sp"></span><button class="sm ghost" onclick="ask('Demo beenden? Alle Demo-Daten werden gelöscht.','Beenden',()=>{const lg=S.settings.logo;S=fresh();if(lg)S.settings.logo=lg;save();setMe(null);go('login');},true)">Demo beenden</button></div></div>`;}
+ <span class="sp"></span><button class="sm ghost" onclick="ask('Demo beenden? Alle Demo-Daten werden gelöscht.','Beenden',endDemo,true)">Demo beenden</button></div></div>`;}
 /* ===================== Render ===================== */
 function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{sets:false,bo:3,setLegs:3},dOut:true};if(!window.__defApplied){window.__defApplied=1;applyDefaults();}S.planCfg=S.planCfg||{};S.myPlans=S.myPlans||{};const m=me();if(!m&&view!=='login')view='login';
  if(m&&S.live&&view!=='live')view='live';
@@ -1661,10 +1768,11 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
   case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
   case'live':h=S.live.kind==='mg'?vMG():S.live.kind==='ex'?vEx():S.live.kind==='x01'?vX01():S.live.kind==='atc'?vATC():S.live.kind==='bob'?vBob():vScore();break;}
- app.innerHTML=h+(view!=='live'?`<div class="proto">Prototyp · Daten werden nur auf diesem Gerät gespeichert</div>`:'');}
+ app.innerHTML=h+(view!=='live'&&!SY.on?`<div class="proto">Testversion · Daten werden nur auf diesem Gerät gespeichert</div>`:'');syBadge();}
 document.addEventListener('keydown',e=>{if(view!=='live'||!S.live||document.getElementById('modal').classList.contains('show'))return;
  if(!('input' in S.live))return;if(/^\d$/.test(e.key))key(e.key);else if(e.key==='Enter')key('ok');else if(e.key==='Backspace')key('del');});
 render();
+sySchedule(100);
 </script>
 </body>
 </html>
