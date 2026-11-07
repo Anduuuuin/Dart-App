@@ -556,7 +556,7 @@ function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=allPlayers();
  return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p>${installBtn(false)?`<div style="margin-top:16px">${installBtn(false)}</div>`:''}</div>${SY.on?'':`<div class="banner"><div class="row"><div class="sp"><h3 style="margin:0 0 4px">🧪 Demo-Modus</h3><span class="muted small">Alles mit Beispiel-Spielern, Kids-Team und laufenden Turnieren ausprobieren. Oben kannst du jederzeit zwischen Admin, Verein und Spieler wechseln.</span></div><button class="pri" onclick="startDemo()">Demo starten</button></div></div>`}
  <div class="grid2">
  <div class="card" style="margin:0"><h3>🏠 Spieler-Login</h3><p class="muted small">Für zu Hause: Training, Spielen und deine Statistik.</p>
- ${ps.length?`<label>Spitzname</label><select id="lpl">${ps.map(p=>`<option value="${p.id}">${esc(p.nick)}</option>`).join('')}</select>
+ ${ps.length?`<label>Spitzname</label><select id="lpl">${(()=>{const mine=myDevicePlayer();return `<option value="" ${mine?'':'selected'} disabled>– Spitzname wählen –</option>`+ps.map(p=>`<option value="${p.id}" ${p.id===mine?'selected':''}>${esc(p.nick)}</option>`).join('');})()}</select>
  <label>PIN</label><input id="lppin" type="password" inputmode="numeric" maxlength="4" placeholder="4 Ziffern">
  <button class="pri" style="width:100%;margin-top:12px" onclick="loginPlayer()">Anmelden</button>`:'<p class="muted small">Noch keine Profile.</p>'}
  <button class="ghost" style="width:100%;margin-top:8px" onclick="newProfile(true)">＋ Neues Profil anlegen</button></div>
@@ -564,10 +564,13 @@ function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=allPlayers();
  <label>Zugang</label><select id="lacc"><option value="club">Vereinszugang</option><option value="admin">Admin</option></select>
  <label>PIN</label><input id="lpin" type="password" inputmode="numeric" placeholder="PIN">
  <button class="pri" style="width:100%;margin-top:12px" onclick="loginStaff()">Anmelden</button></div></div>`;}
-function loginPlayer(){const id=document.getElementById('lpl').value,pin=document.getElementById('lppin').value;const u=S.users.find(x=>x.id===id);
- if(u&&(u.pin||'')===pin){setMe(id);go('home');}else toast('Falsche PIN');}
+function loginPlayer(){const id=document.getElementById('lpl').value,pin=document.getElementById('lppin').value;if(!id)return toast('Bitte zuerst deinen Spitznamen wählen');const u=S.users.find(x=>x.id===id);
+ if(u&&(u.pin||'')===pin){rememberDevicePlayer(id);setMe(id);go('home');}else toast('Falsche PIN');}
+// Nur auf dem eigenen Gerät ist der eigene Spitzname schon ausgewählt – auf fremden Geräten (z. B. Vereins-Tablet) ist das Feld leer
+function myDevicePlayer(){try{const id=localStorage.getItem('dc_myplayer');return S.users.some(u=>u.id===id)?id:'';}catch(e){return '';}}
+function rememberDevicePlayer(id){try{if(localStorage.getItem('dc_staffdevice'))return;localStorage.setItem('dc_myplayer',id);}catch(e){}} // Vereins-Tablets (Vereinszugang benutzt) merken sich nie einen Spieler
 function loginStaff(){const a=document.getElementById('lacc').value,p=document.getElementById('lpin').value;const u=S.users.find(x=>x.id===a);
- if(u&&u.pin===p){setMe(a);go(a==='club'?'boards':'tour');}else toast('Falsche PIN');}
+ if(u&&u.pin===p){if(a==='club'){try{localStorage.setItem('dc_staffdevice','1');localStorage.removeItem('dc_myplayer');}catch(e){}}setMe(a);go(a==='club'?'boards':'tour');}else toast('Falsche PIN');}
 let newPhoto=null;
 function newProfile(loginAfter){newPhoto=null;
  modal(`<h3>Neues Spielerprofil</h3><label>Spitzname</label><input id="npn" maxlength="20" placeholder="z. B. Pfeilblitz">
@@ -595,7 +598,7 @@ function createProfile(loginAfter){const n=document.getElementById('npn').value.
  if(S.users.some(u=>u.nick.toLowerCase()===n.toLowerCase()))return toast('Spitzname schon vergeben');
  const pin=document.getElementById('npp').value.trim();if(!/^\d{4}$/.test(pin))return toast('PIN muss 4 Ziffern haben');
  const pv=document.getElementById('nppriv');const u={id:uid(),nick:n,role:'player',photo:newPhoto||undefined,pin,created:Date.now()};if(pv&&pv.checked)u.priv=true;S.users.push(u);save();closeModal();
- toast(`Willkommen, ${esc(n)}! 🎯`);if(loginAfter){setMe(u.id);go('home');}else render();}
+ toast(`Willkommen, ${esc(n)}! 🎯`);if(loginAfter){rememberDevicePlayer(u.id);setMe(u.id);go('home');}else render();}
 
 /* ===================== Statistik-Berechnung ===================== */
 function gamesOf(id){return S.games.filter(g=>g.players.some(p=>p.id===id)).sort((a,b)=>a.date-b.date);}
