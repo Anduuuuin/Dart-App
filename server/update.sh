@@ -16,6 +16,8 @@ get() { # $1 = Pfad im Repo, $2 = Ziel auf dem Server, $3 = app|srv
   fi
 }
 for f in index.html sw.js manifest.webmanifest icon-192.png icon-512.png; do get "$f" "$D/pb_public/$f" app; done
+mkdir -p "$D/pb_public/videos" && chown pocketbase:pocketbase "$D/pb_public/videos"
+for v in 1-profil-anlegen 2-app-installieren 3-statistik 4-spiele-und-training; do get "videos/$v.mp4" "$D/pb_public/videos/$v.mp4" app; get "videos/$v.jpg" "$D/pb_public/videos/$v.jpg" app; done
 get server/pb_hooks/dartclub.pb.js "$D/pb_hooks/dartclub.pb.js" srv
 get server/pb_migrations/1762500000_dartclub.js "$D/pb_migrations/1762500000_dartclub.js" srv
 # das Update-Skript selbst aktualisieren (gehört root, nicht PocketBase)

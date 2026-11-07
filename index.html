@@ -329,6 +329,11 @@ body.livebig #toast{font-size:min(5vh,3.4vw);padding:2vh 3vw;bottom:4vh}
 .x01.big .sc-p:not(.cur) .rem{line-height:1}
 .x01.big .sc-p .nm{display:flex;align-items:center;gap:.6em;overflow-x:clip;overflow-y:visible;padding:2px 0}
 .x01.big .sc-p .nm .avi,.x01.big .sc-p .nm img{flex:0 0 auto;aspect-ratio:1;border-radius:50%;line-height:1}
+/* Hilfe-Videos */
+.hvl{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hvt{padding:0;overflow:hidden;display:flex;flex-direction:column;text-align:left;border:1px solid var(--line);background:var(--panel2)}
+.hvt img{width:100%;aspect-ratio:3/4;object-fit:cover;object-position:center 30%;display:block}
+.hvt span{padding:9px 10px;font-weight:700;font-size:14px;line-height:1.25}
 </style>
 </head>
 <body>
@@ -492,7 +497,16 @@ window.addEventListener('popstate',()=>{navTrap=false;
 document.addEventListener('pointerdown',()=>navArm(),{once:true});
 let toastT;function toast(m,ms=2200){const t=document.getElementById('toast');t.innerHTML=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms);}
 function modal(html){document.getElementById('mbox').innerHTML=html;document.getElementById('modal').classList.add('show');}
-function closeModal(){document.getElementById('modal').classList.remove('show');}
+function closeModal(){document.querySelectorAll('#mbox video').forEach(v=>{try{v.pause();}catch(e){}});document.getElementById('modal').classList.remove('show');}
+/* ===================== Hilfe-Videos „So geht's“ ===================== */
+const HELPV=[['1-profil-anlegen','👤','Profil anlegen'],['2-app-installieren','📲','App aufs Handy holen'],['3-statistik','📈','Deine Statistik'],['4-spiele-und-training','🎯','Spielen & Trainieren']];
+function helpVideos(){modal(`<h3 style="margin-top:0">❓ So geht's</h3><p class="muted small" style="margin-top:0">Kurze Videos ohne Ton – einfach antippen.</p>
+ <div class="hvl">${HELPV.map(([f,i,t])=>`<button class="hvt" onclick="playHelp('${f}')"><img src="videos/${f}.jpg" alt="" loading="lazy"><span>${i} ${t}</span></button>`).join('')}</div>
+ <button class="ghost" style="width:100%;margin-top:12px" onclick="closeModal()">Schließen</button>`);}
+function playHelp(f){const v=HELPV.find(x=>x[0]===f);modal(`<div class="row" style="margin-bottom:10px;flex-wrap:nowrap"><b class="sp">${v[1]} ${v[2]}</b><button class="sm ghost" onclick="helpVideos()">← Alle Videos</button></div>
+ <video src="videos/${f}.mp4" poster="videos/${f}.jpg" controls autoplay muted playsinline preload="metadata" style="width:100%;max-height:70vh;border-radius:14px;background:#000;display:block"></video>
+ <button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal()">Schließen</button>`);}
+const helpBtn=(full)=>`<button class="ghost" style="${full?'width:100%;':''}" onclick="helpVideos()">❓ So geht's – kurze Videos</button>`;
 document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
 function ask(text,yesLabel,fn,danger){modal(`<h3>${text}</h3><div class="row" style="margin-top:16px"><button class="ghost sp" onclick="closeModal()">Abbrechen</button><button class="${danger?'red':'pri'} sp" id="askyes">${yesLabel}</button></div>`);document.getElementById('askyes').onclick=()=>{closeModal();fn();};}
 
@@ -553,7 +567,7 @@ async function installApp(){
  modal(`<h2>📲 Als App installieren</h2>${!web?`<p class="muted">Öffne die App über den Vereins-Link im Browser – aus einer heruntergeladenen Datei heraus lässt sie sich nicht installieren.</p>`:ios?`<p class="muted">So geht's auf dem iPhone/iPad (in <b>Safari</b>):</p>${step(1,'Unten auf das <b>Teilen</b>-Symbol tippen (Viereck mit Pfeil nach oben).')}${step(2,'Nach unten scrollen und <b>„Zum Home-Bildschirm“</b> wählen.')}${step(3,'Oben rechts auf <b>„Hinzufügen“</b> tippen – fertig, DartClub liegt jetzt als App auf dem Homescreen.')}`:android?`<p class="muted">So geht's auf Android (in <b>Chrome</b>):</p>${step(1,'Oben rechts auf die <b>drei Punkte ⋮</b> tippen.')}${step(2,'<b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b> wählen.')}${step(3,'Bestätigen – DartClub liegt jetzt als App auf dem Startbildschirm.')}`:`<p class="muted">So geht's am PC/Laptop (in <b>Chrome</b> oder <b>Edge</b>):</p>${step(1,'Rechts in der Adresszeile auf das <b>Installieren-Symbol</b> (Bildschirm mit Pfeil) klicken.')}${step(2,'Alternativ: Menü <b>⋮</b> → <b>„Streamen, speichern und teilen“</b> → <b>„Seite als App installieren“</b>.')}${step(3,'Bestätigen – DartClub öffnet sich danach im eigenen Fenster wie ein Programm.')}`}
  <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal()">Alles klar</button>`);}
 function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=allPlayers();
- return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p>${installBtn(false)?`<div style="margin-top:16px">${installBtn(false)}</div>`:''}</div>${SY.on?'':`<div class="banner"><div class="row"><div class="sp"><h3 style="margin:0 0 4px">🧪 Demo-Modus</h3><span class="muted small">Alles mit Beispiel-Spielern, Kids-Team und laufenden Turnieren ausprobieren. Oben kannst du jederzeit zwischen Admin, Verein und Spieler wechseln.</span></div><button class="pri" onclick="startDemo()">Demo starten</button></div></div>`}
+ return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p>${installBtn(false)?`<div style="margin-top:16px">${installBtn(false)}</div>`:''}<div style="margin-top:12px">${helpBtn(false)}</div></div>${SY.on?'':`<div class="banner"><div class="row"><div class="sp"><h3 style="margin:0 0 4px">🧪 Demo-Modus</h3><span class="muted small">Alles mit Beispiel-Spielern, Kids-Team und laufenden Turnieren ausprobieren. Oben kannst du jederzeit zwischen Admin, Verein und Spieler wechseln.</span></div><button class="pri" onclick="startDemo()">Demo starten</button></div></div>`}
  <div class="grid2">
  <div class="card" style="margin:0"><h3>🏠 Spieler-Login</h3><p class="muted small">Für zu Hause: Training, Spielen und deine Statistik.</p>
  ${ps.length?`<label>Spitzname</label><select id="lpl">${(()=>{const mine=myDevicePlayer();return `<option value="" ${mine?'':'selected'} disabled>– Spitzname wählen –</option>`+ps.map(p=>`<option value="${p.id}" ${p.id===mine?'selected':''}>${esc(p.nick)}</option>`).join('');})()}</select>
@@ -654,7 +668,8 @@ function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
   <div class="stat"><div class="v">${c.atcBest??'–'}</div><div class="k">Rekord ATC</div></div></div>
  <div class="card" style="margin-top:12px"><div class="k muted small" style="margin-bottom:8px">AKTIVITÄT LETZTE 4 WOCHEN</div>${heatHTML(m.id)}</div>
  <div class="sec">Gruppen</div>${homeTeams()}
- <button class="ghost" style="width:100%" onclick="go('stats')">📈 Ganze Statistik ansehen</button>`;}
+ <button class="ghost" style="width:100%" onclick="go('stats')">📈 Ganze Statistik ansehen</button>
+ <div style="margin-top:10px">${helpBtn(true)}</div>`;}
 
 /* ===================== Statistik-Ansicht ===================== */
 let statTab='over';
