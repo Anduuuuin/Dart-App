@@ -249,6 +249,86 @@ label{font-weight:600;font-size:13px;letter-spacing:.2px}
 html,body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
 button,a,label,select,.chk,.pick-item,.seg,nav,header{-webkit-user-select:none;user-select:none;touch-action:manipulation;-webkit-touch-callout:none}
 @media (display-mode: standalone){body{-webkit-user-select:none;user-select:none}input,textarea{-webkit-user-select:text;user-select:text}}
+/* ===== Großanzeige (Tablet am Oche): vom Abwurf aus lesbar ===== */
+.sc-p .turn{display:none}
+.xbig{display:none}
+@media (min-width:600px){.xbig{display:inline-flex}}
+body.livebig .wrap{max-width:none;padding:10px 14px}
+body.livebig header{display:none}
+body.livebig #toast{font-size:min(5vh,3.4vw);padding:2vh 3vw;bottom:4vh}
+.x01.big .xtop{font-size:min(2.4vh,1.6vw);margin-bottom:1vh!important}
+.x01.big{display:flex;flex-direction:column;height:calc(100dvh - 20px);box-sizing:border-box}
+.x01.big .xtop{flex:0 0 auto}
+.x01.big .xgrid{flex:1 1 0;min-height:0;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+
+.x01.big .xl,.x01.big .xr{min-height:0}
+.x01.big .sc-players{display:flex;flex-direction:column;gap:1.2vh;height:100%;margin:0}
+.x01.big .sc-p{flex:1 1 0;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"turn rem" "legs rem" "nm rem" "meta rem" "co co" "ad ad";align-content:center;column-gap:2vw;padding:1vh 2vw;opacity:.5;transition:opacity .2s,flex .2s;overflow:hidden}
+.x01.big .sc-p.cur{flex:2.4 1 0;opacity:1;border-width:4px;background:linear-gradient(180deg,#1fb35a3a,#0e2418)}
+.x01.big .sc-players.n1 .sc-p{opacity:1}
+.x01.big .sc-p .turn{display:block;grid-area:turn;color:var(--accent);font-weight:900;letter-spacing:1px;font-size:min(3.4vh,2.2vw);animation:turnpulse 1.6s ease-in-out infinite}
+@keyframes turnpulse{50%{opacity:.45}}
+.x01.big .sc-p .legs{grid-area:legs;position:static;font-size:min(3.4vh,2.2vw);margin:0}
+.x01.big .sc-p .nm{grid-area:nm;font-size:min(4.6vh,3vw);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.x01.big .sc-p .nm .avi,.x01.big .sc-p .nm img{width:min(5vh,3.2vw);height:min(5vh,3.2vw);font-size:min(2.6vh,1.6vw)}
+.x01.big .sc-p.cur .nm{font-size:min(6vh,3.8vw)}
+.x01.big .sc-p .rem{grid-area:rem;align-self:center;font-size:min(12vh,8vw);line-height:.9;text-align:right}
+.x01.big .sc-p.cur .rem{font-size:min(25vh,15vw);color:#fff;text-shadow:0 0 30px #1fb35a55}
+.x01.big .sc-p .meta{grid-area:meta;font-size:min(2.6vh,1.7vw)}
+.x01.big .sc-p.cur .meta{font-size:min(3vh,1.9vw)}
+.x01.big .sc-p .co{grid-area:co;min-height:0;text-align:center;font-size:min(5.5vh,3.6vw);font-weight:900;margin-top:.5vh}
+.x01.big .sc-p .adw{grid-area:ad}
+.x01.big .xr .card{height:100%;margin:0;box-sizing:border-box;display:flex;flex-direction:column;padding:1.4vh}
+.x01.big .inbox{font-size:min(9vh,5.5vw);min-height:12vh;display:flex;align-items:center;justify-content:center}
+.x01.big .inbox .muted{font-size:min(3vh,2vw)!important}
+.x01.big .quick{gap:.8vh}
+.x01.big .quick button{font-size:min(2.6vh,1.8vw);padding:1.1vh 0}
+.x01.big .pad{flex:1;min-height:0;grid-auto-rows:1fr;gap:1vh}
+.x01.big .pad button{font-size:min(5.5vh,3.6vw);padding:0}
+.x01.big .pad button.undo{font-size:min(2.6vh,1.7vw)!important}
+.x01.big .xr .muted.small{font-size:min(2vh,1.4vw)}
+/* Tablet hochkant: Schrift an der Höhe ausrichten, nicht an der schmalen Breite */
+@media (orientation:portrait){
+.x01.big .xgrid{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1.15fr);gap:1.2vh}
+.x01.big .inbox{min-height:6vh!important;padding-top:.4vh;padding-bottom:.4vh}
+.x01.big .quick button{padding:.6vh 0}
+.x01.big .xr .card{padding:1vh}
+.x01.big .sc-p .turn{font-size:min(2.8vh,3.6vw)}
+.x01.big .sc-p .legs{font-size:min(2.6vh,3.4vw)}
+.x01.big .sc-p .nm{font-size:min(3.4vh,4.6vw)}
+.x01.big .sc-p.cur .nm{font-size:min(4.6vh,6.2vw)}
+.x01.big .sc-p .nm .avi,.x01.big .sc-p .nm img{width:min(4vh,5.4vw);height:min(4vh,5.4vw);font-size:min(2vh,2.6vw)}
+.x01.big .sc-p .rem{font-size:min(9vh,13vw)}
+.x01.big .sc-p.cur .rem{font-size:min(19vh,25vw)}
+.x01.big .sc-p .meta,.x01.big .sc-p.cur .meta{font-size:min(2vh,2.8vw)}
+.x01.big .sc-p .co{font-size:min(4vh,5.6vw)}
+.x01.big .inbox{font-size:min(6vh,8vw);min-height:8vh}
+.x01.big .inbox .muted{font-size:min(2.4vh,3.2vw)!important}
+.x01.big .quick button{font-size:min(2vh,2.8vw)}
+.x01.big .pad button{font-size:min(4vh,6vw)}
+.x01.big .pad button.undo{font-size:min(2vh,2.8vw)!important}
+.x01.big .xtop{font-size:min(1.8vh,2.4vw)}
+}
+/* 3–4 Spieler: aktiver Spieler etwas kompakter, damit der Checkout-Weg immer sichtbar bleibt */
+.x01.big .sc-players.n3 .sc-p.cur .rem,.x01.big .sc-players.n4 .sc-p.cur .rem{font-size:min(17vh,11vw)}
+.x01.big .sc-players.n3 .sc-p .rem,.x01.big .sc-players.n4 .sc-p .rem{font-size:min(9vh,6vw)}
+.x01.big .sc-players.n3 .sc-p.cur .nm,.x01.big .sc-players.n4 .sc-p.cur .nm{font-size:min(4.6vh,3vw)}
+.x01.big .sc-players.n3 .sc-p .meta,.x01.big .sc-players.n4 .sc-p .meta{font-size:min(2.2vh,1.5vw)}
+.x01.big .sc-players.n3 .sc-p .co,.x01.big .sc-players.n4 .sc-p .co{font-size:min(4.6vh,3vw)}
+.x01.big .sc-players.n3 .sc-p .turn,.x01.big .sc-players.n4 .sc-p .turn{font-size:min(2.8vh,1.8vw)}
+.x01.big .sc-players.n4 .sc-p:not(.cur) .legs,.x01.big .sc-players.n4 .sc-p:not(.cur) .meta{display:none}
+@media (orientation:portrait){
+.x01.big .xtop{flex-wrap:nowrap;overflow:hidden}
+.x01.big .sc-players.n3 .sc-p.cur .rem,.x01.big .sc-players.n4 .sc-p.cur .rem{font-size:min(14vh,19vw)}
+.x01.big .sc-players.n3 .sc-p .rem,.x01.big .sc-players.n4 .sc-p .rem{font-size:min(6.5vh,9vw)}
+}
+.x01.big .xr .card{overflow:hidden}
+.x01.big .pad button{min-height:0}
+.x01.big .quick,.x01.big .inbox{flex:0 0 auto}
+.x01.big .sc-players.n3 .sc-p:not(.cur),.x01.big .sc-players.n4 .sc-p:not(.cur){grid-template-areas:"legs rem" "nm rem" "meta rem";padding-top:.4vh;padding-bottom:.4vh}
+.x01.big .sc-p:not(.cur) .rem{line-height:1}
+.x01.big .sc-p .nm{display:flex;align-items:center;gap:.6em;overflow-x:clip;overflow-y:visible;padding:2px 0}
+.x01.big .sc-p .nm .avi,.x01.big .sc-p .nm img{flex:0 0 auto;aspect-ratio:1;border-radius:50%;line-height:1}
 </style>
 </head>
 <body>
@@ -406,7 +486,7 @@ function go(v,p=null){if((view!==v||param!==p)&&view&&view!=='login'&&view!=='li
 window.addEventListener('popstate',()=>{navTrap=false;
  const m=document.getElementById('modal');
  if(m&&m.classList.contains('show')){closeModal();navArm();return;}
- if(view==='live'){navArm();toast('Zum Beenden des Spiels auf „Abbrechen“ tippen');return;}
+ if(view==='live'){navArm();toast('Zum Beenden oben auf „✕ Spiel verlassen“ tippen');return;}
  while(NAV.length){const [v,p]=NAV.pop();if(v!==view||p!==param){view=v;param=p;render();window.scrollTo(0,0);navArm();return;}}
  toast('Nochmal zurück zum Schließen');setTimeout(()=>{if(!navTrap)navArm();},2500);});
 document.addEventListener('pointerdown',()=>navArm(),{once:true});
@@ -689,16 +769,22 @@ function startX01(ps,start,fmt,dOut,tref){if(typeof fmt==='number')fmt={sets:fal
 function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const co=L.dOut&&CO[cur]?CO[cur].join(' · '):(!L.dOut&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
- return `<div class="row muted small" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${L.dOut?'Double Out':'Single Out'}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}</div>
- <div class="sc-players">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
+ const big=bigOn();
+ return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${L.dOut?'Double Out':'Single Out'}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
+ <div class="xgrid"><div class="xl"><div class="sc-players n${L.players.length}">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${i===L.cur&&L.players.length>1?'<div class="turn">🎯 AM WURF</div>':''}${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
   <div class="nm">${AV(U(id))} ${esc(U(id).nick)}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
-  ${i===L.cur?`<div class="co">${co}</div>`:''}${i===L.cur&&AD.on&&AD.ok?adDarts():''}</div>`;}).join('')}</div>
- <div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
+  ${i===L.cur?`<div class="co">${co}</div>`:''}${i===L.cur&&AD.on&&AD.ok?`<div class="adw">${adDarts()}</div>`:''}</div>`;}).join('')}</div></div>
+ <div class="xr"><div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
  <div class="quick">${[26,41,45,60,81,85,100,121,140,180,0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="restIn()" title="Eingetippte Zahl ist dein Rest">Rest</button></div>
  ${[1,2,3].some(d=>canCheck(cur,d))?`<p class="muted small" style="text-align:center;margin:2px 0 8px">🟢 Gecheckt? Grüne <b>1</b>, <b>2</b> oder <b>3</b> lange drücken = mit so vielen Darts</p>`:''}
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>n<=3&&canCheck(cur,n)?`<button class="cok" onpointerdown="lpStart(${n})" onpointerup="lpEnd()" onpointerleave="lpEnd()" oncontextmenu="return false" onclick="if(lpFired){lpFired=false;return;}key('${n}')">${n}</button>`:`<button onclick="key('${n}')">${n}</button>`).join('')}
- <button onclick="undo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div>`;}
+ <button onclick="undo()" class="undo" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div></div></div></div>`;}
+/* Großanzeige fürs Tablet: automatisch ab Tablet-Größe, per Knopf umschaltbar (wird pro Gerät gemerkt) */
+const BIGQ='(min-width:700px) and (min-height:560px)';
+function bigOn(){let m=null;try{m=localStorage.getItem('dc_big');}catch(e){}return m==='on'||(m!=='off'&&matchMedia(BIGQ).matches);}
+function togBig(){const n=bigOn()?'off':'on';try{localStorage.setItem('dc_big',n);}catch(e){}render();}
+try{matchMedia(BIGQ).addEventListener('change',()=>{if(view==='live')render();});}catch(e){}
 function key(k){const L=S.live;if(!L)return;
  if(k==='ok'){const v=L.input===''?0:parseInt(L.input,10);L.input='';if(L.kind==='score')scoreVisit(v);else if(L.kind==='mg')mgVisit(v);else if(L.kind==='ex')exNum(v);else visit(v);return;}
  if(k==='del'){L.input=L.input.slice(0,-1);render();return;}
@@ -1782,7 +1868,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&!S.live&&view==='live')view=m.role==='player'?'home':'tour';
  if(m&&view==='home'&&m.role!=='player')view='tour';
  if(m&&view==='admin'&&!isStaff())view='home';
- renderHeader();renderNav();const app=document.getElementById('app');let h='';
+ renderHeader();renderNav();document.body.classList.toggle('livebig',view==='live'&&S.live&&S.live.kind==='x01'&&bigOn());const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
