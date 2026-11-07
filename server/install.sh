@@ -18,6 +18,11 @@ if ! grep -q '^CLUB_KEY=' "$D/env"; then
   echo "Neuer Vereins-Code erzeugt."
 fi
 chown -R pocketbase:pocketbase "$D"
+# Automatische Updates: alle 5 Minuten neue Version von GitHub holen
+curl -fsSL "$R/server/update.sh" -o /usr/local/bin/dartclub-update && chmod 755 /usr/local/bin/dartclub-update
+echo "*/5 * * * * root /usr/local/bin/dartclub-update >/dev/null 2>&1" > /etc/cron.d/dartclub-update
+chmod 644 /etc/cron.d/dartclub-update
+echo "Automatische Updates sind eingerichtet (alle 5 Minuten)."
 systemctl restart pocketbase@verein
 sleep 2
 systemctl is-active --quiet pocketbase@verein && echo "PocketBase (verein) läuft." || { echo "FEHLER: PocketBase startet nicht:"; journalctl -u pocketbase@verein -n 20 --no-pager; exit 1; }
