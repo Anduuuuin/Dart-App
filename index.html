@@ -384,7 +384,8 @@ function AV(u,sz){u=u||{};const z=sz?`width:${sz}px;height:${sz}px;font-size:${M
  const pal=['#1fb35a','#e3262f','#2a7f62','#b8323a','#3e9b5b','#7a2a33','#20523b','#8c5a1f'];let h=0;for(const ch of (u.nick||''))h=(h*31+ch.charCodeAt(0))>>>0;
  const bg=u.guest?'#2a302e':u.role==='admin'||u.role==='club'?'#0b0e0d':pal[h%pal.length];
  return `<span class="avi" style="${z}background:${bg}">${u.role==='club'?'🏟':u.role==='admin'?'⚙':ini}</span>`;}
-const players=()=>S.users.filter(u=>u.role==='player').sort((a,b)=>a.nick.localeCompare(b.nick));
+const allPlayers=()=>S.users.filter(u=>u.role==='player').sort((a,b)=>a.nick.localeCompare(b.nick));
+const players=()=>allPlayers().filter(u=>!u.priv); // Privatprofile (Familie/Freunde) tauchen in keiner Vereinsliste auf
 const isStaff=()=>me()&&(me().role==='admin'||me().role==='club');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const f1=x=>(isFinite(x)?x:0).toFixed(1);
@@ -456,7 +457,7 @@ async function installApp(){
  const web=location.protocol==='https:'||location.protocol==='http:';
  modal(`<h2>📲 Als App installieren</h2>${!web?`<p class="muted">Öffne die App über den Vereins-Link im Browser – aus einer heruntergeladenen Datei heraus lässt sie sich nicht installieren.</p>`:ios?`<p class="muted">So geht's auf dem iPhone/iPad (in <b>Safari</b>):</p>${step(1,'Unten auf das <b>Teilen</b>-Symbol tippen (Viereck mit Pfeil nach oben).')}${step(2,'Nach unten scrollen und <b>„Zum Home-Bildschirm“</b> wählen.')}${step(3,'Oben rechts auf <b>„Hinzufügen“</b> tippen – fertig, DartClub liegt jetzt als App auf dem Homescreen.')}`:android?`<p class="muted">So geht's auf Android (in <b>Chrome</b>):</p>${step(1,'Oben rechts auf die <b>drei Punkte ⋮</b> tippen.')}${step(2,'<b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b> wählen.')}${step(3,'Bestätigen – DartClub liegt jetzt als App auf dem Startbildschirm.')}`:`<p class="muted">So geht's am PC/Laptop (in <b>Chrome</b> oder <b>Edge</b>):</p>${step(1,'Rechts in der Adresszeile auf das <b>Installieren-Symbol</b> (Bildschirm mit Pfeil) klicken.')}${step(2,'Alternativ: Menü <b>⋮</b> → <b>„Streamen, speichern und teilen“</b> → <b>„Seite als App installieren“</b>.')}${step(3,'Bestätigen – DartClub öffnet sich danach im eigenen Fenster wie ein Programm.')}`}
  <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal()">Alles klar</button>`);}
-function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=players();
+function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=allPlayers();
  return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p>${installBtn(false)?`<div style="margin-top:16px">${installBtn(false)}</div>`:''}</div><div class="banner"><div class="row"><div class="sp"><h3 style="margin:0 0 4px">🧪 Demo-Modus</h3><span class="muted small">Alles mit Beispiel-Spielern, Kids-Team und laufenden Turnieren ausprobieren. Oben kannst du jederzeit zwischen Admin, Verein und Spieler wechseln.</span></div><button class="pri" onclick="startDemo()">Demo starten</button></div></div>
  <div class="grid2">
  <div class="card" style="margin:0"><h3>🏠 Spieler-Login</h3><p class="muted small">Für zu Hause: Training, Spielen und deine Statistik.</p>
@@ -478,6 +479,7 @@ function newProfile(loginAfter){newPhoto=null;
  <label>Profilbild (optional)</label><div class="row"><span id="npav">${AV({nick:'?'},56)}</span><label class="ghost" style="margin:0;cursor:pointer;padding:10px 14px;border:1px solid var(--line);border-radius:12px;color:var(--text)">📷 Bild wählen<input type="file" accept="image/*" style="display:none" onchange="loadImg(this.files[0],d=>{newPhoto=d;document.getElementById('npav').innerHTML=AV({photo:d},56);})"></label></div>
  <label>PIN für den Login zu Hause (4 Ziffern)</label><input id="npp" type="password" inputmode="numeric" maxlength="4" placeholder="z. B. 2580">
  <p class="muted small" style="margin:6px 0 0">Im Verein braucht man die PIN nicht – dort wird das Profil einfach angetippt.</p>
+ <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;cursor:pointer"><input id="nppriv" type="checkbox" style="width:auto;margin-top:3px"><span><b>🔒 Privatprofil</b><br><span class="muted small">Für Familie und Freunde, die zu Hause mitspielen: eigene Statistik, aber nicht in Vereinslisten, Ranglisten, Gruppen oder Turnieren.</span></span></label>
  <div class="row" style="margin-top:16px"><button class="ghost sp" onclick="closeModal()">Abbrechen</button><button class="pri sp" onclick="createProfile(${loginAfter})">Anlegen</button></div>`);
  setTimeout(()=>document.getElementById('npn').focus(),50);}
 
@@ -490,11 +492,14 @@ function changePhoto(id){const u=S.users.find(x=>x.id===id);if(!u)return;
  <label class="pri" style="display:block;text-align:center;cursor:pointer;padding:12px;border-radius:12px;background:linear-gradient(180deg,#25c466,#179a4c);color:#04140a;font-weight:700;margin:0">📷 Bild hochladen<input type="file" accept="image/*" style="display:none" onchange="loadImg(this.files[0],d=>{S.users.find(x=>x.id==='${id}').photo=d;save();closeModal();toast('Profilbild gespeichert');render();})"></label>
  ${u.photo?`<button class="ghost" style="width:100%;margin-top:8px" onclick="delete S.users.find(x=>x.id==='${id}').photo;save();closeModal();render()">Bild entfernen</button>`:''}<button class="ghost sm" style="width:100%;margin-top:8px" onclick="closeModal()">Schließen</button>`);}
 function pickAv(b,a){newAv=a;document.querySelectorAll('#avp button').forEach(x=>x.classList.remove('on'));b.classList.add('on');}
+function togPriv(id){const u=S.users.find(x=>x.id===id);if(!u)return;
+ if(!u.priv){ask(`„${esc(u.nick)}“ zum Privatprofil machen? Es verschwindet aus allen Vereinslisten, Ranglisten und Gruppen. Die eigene Statistik bleibt erhalten.`,'Privat machen',()=>{u.priv=true;S.teams.forEach(t=>{t.members=t.members.filter(m=>m!==id);t.captains=t.captains.filter(m=>m!==id);});save();render();toast('🔒 Jetzt ein Privatprofil');});}
+ else{delete u.priv;save();render();toast('Profil ist wieder im Verein');}}
 function createProfile(loginAfter){const n=document.getElementById('npn').value.trim();
  if(n.length<2)return toast('Spitzname zu kurz');
  if(S.users.some(u=>u.nick.toLowerCase()===n.toLowerCase()))return toast('Spitzname schon vergeben');
  const pin=document.getElementById('npp').value.trim();if(!/^\d{4}$/.test(pin))return toast('PIN muss 4 Ziffern haben');
- const u={id:uid(),nick:n,role:'player',photo:newPhoto||undefined,pin,created:Date.now()};S.users.push(u);save();closeModal();
+ const pv=document.getElementById('nppriv');const u={id:uid(),nick:n,role:'player',photo:newPhoto||undefined,pin,created:Date.now()};if(pv&&pv.checked)u.priv=true;S.users.push(u);save();closeModal();
  toast(`Willkommen, ${esc(n)}! 🎯`);if(loginAfter){setMe(u.id);go('home');}else render();}
 
 /* ===================== Statistik-Berechnung ===================== */
@@ -605,9 +610,9 @@ function vPeople(){const ps=players().map(p=>({p,c:calc(p.id)}));
 /* ===================== Spielerauswahl: Heim/Gast + Suche ===================== */
 let PK=null; // {list:array of slots, idx, allowGuest, onPick}
 function lastAct(id){const c=calc(id);return c.last||0;}
-function pickResults(q,exclude){q=(q||'').trim().toLowerCase();let ps=players().filter(p=>!exclude.includes(p.id));
+function pickResults(q,exclude){q=(q||'').trim().toLowerCase();let ps=allPlayers().filter(p=>!exclude.includes(p.id));
  if(q)ps=ps.filter(p=>p.nick.toLowerCase().includes(q));else ps=ps.sort((a,b)=>lastAct(b.id)-lastAct(a.id)).slice(0,8);
- return `${!q?'<div class="muted small" style="margin:6px 4px">Zuletzt aktiv – oder Namen eintippen:</div>':''}${ps.length?ps.slice(0,30).map(p=>`<button class="pick-item" onclick="pickDone('${p.id}')">${AV(p,36)}<div><b>${esc(p.nick)}</b><div class="muted small">${S.teams.filter(t=>t.members.includes(p.id)).map(t=>esc(t.name)).join(', ')||'Spieler'}</div></div></button>`).join(''):'<p class="muted small" style="margin:8px 4px">Niemand gefunden.</p>'}`;}
+ return `${!q?'<div class="muted small" style="margin:6px 4px">Zuletzt aktiv – oder Namen eintippen:</div>':''}${ps.length?ps.slice(0,30).map(p=>`<button class="pick-item" onclick="pickDone('${p.id}')">${AV(p,36)}<div><b>${esc(p.nick)}</b><div class="muted small">${p.priv?'🔒 Privatprofil':S.teams.filter(t=>t.members.includes(p.id)).map(t=>esc(t.name)).join(', ')||'Spieler'}</div></div></button>`).join(''):'<p class="muted small" style="margin:8px 4px">Niemand gefunden.</p>'}`;}
 function openPicker(opts){PK=opts;const ex=(opts.exclude||[]);
  modal(`<h3>${opts.title||'Profil wählen'}</h3><div class="searchbox"><input id="pkq" placeholder="Namen suchen …" autocomplete="off" oninput="document.getElementById('pkr').innerHTML=pickResults(this.value,PK.exclude||[])"></div>
  <div class="results" id="pkr">${pickResults('',ex)}</div>
@@ -1599,13 +1604,13 @@ function vAdmin(){const adm=me().role==='admin';
  const tabsL=[['players','👤 Spieler'],['groups','👥 Gruppen'],['club','🏟️ Verein'],['game','🎯 Spiel-Standards'],...(adm?[['access','🔐 Zugänge & Daten']]:[])];
  if(!tabsL.some(t=>t[0]===setTab))setTab='players';
  let body='';
- if(setTab==='players'){const q=setQ.toLowerCase();const ps=players().filter(p=>!q||p.nick.toLowerCase().includes(q));
+ if(setTab==='players'){const q=setQ.toLowerCase();const ps=allPlayers().filter(p=>!q||p.nick.toLowerCase().includes(q));
   body=`<div class="row" style="margin-bottom:12px"><div class="searchbox sp" style="min-width:200px"><input placeholder="Spieler suchen …" value="${esc(setQ)}" oninput="setQ=this.value;const q=this.value.toLowerCase();document.querySelectorAll('#stab [data-n]').forEach(e=>e.style.display=e.dataset.n.includes(q)?'':'none')"></div><button class="pri" onclick="newProfile(false)">＋ Profil anlegen</button></div>
-  <div class="card" id="stab">${players().length?players().map(p=>{const c=calc(p.id);const tms=S.teams.filter(t=>t.members.includes(p.id)).map(t=>esc(t.name));const inT=S.tournaments.filter(t=>t.status!=='done'&&t.players.includes(p.id)).length;
-   return `<div class="setrow" data-n="${esc(p.nick.toLowerCase())}"><div class="row" style="flex-wrap:nowrap;flex:1;min-width:0">${AV(p,40)}<div style="min-width:0"><b>${esc(p.nick)}</b>${p.captain?' <span class="badge y">Kapitän</span>':''}
+  <div class="card" id="stab">${allPlayers().length?allPlayers().map(p=>{const c=calc(p.id);const tms=S.teams.filter(t=>t.members.includes(p.id)).map(t=>esc(t.name));const inT=S.tournaments.filter(t=>t.status!=='done'&&t.players.includes(p.id)).length;
+   return `<div class="setrow" data-n="${esc(p.nick.toLowerCase())}"><div class="row" style="flex-wrap:nowrap;flex:1;min-width:0">${AV(p,40)}<div style="min-width:0"><b>${esc(p.nick)}</b>${p.captain?' <span class="badge y">Kapitän</span>':''}${p.priv?' <span class="badge">🔒 Privat</span>':''}
    <div class="muted small">${c.games} Spiele · ${c.trainings} Trainings${tms.length?' · '+tms.join(', '):''}${inT?` · <span style="color:var(--gold)">in ${inT} laufende${inT>1?'n Turnieren':'m Turnier'}</span>`:''}</div></div></div>
-   <div class="row acts">${adm?`<button class="sm ${p.captain?'pri':''}" onclick="togCap('${p.id}')">${p.captain?'⭐ Kapitän':'Kapitän'}</button>`:''}<button class="sm" onclick="changePhoto('${p.id}')" title="Profilbild">📷</button><button class="sm" onclick="chPin('${p.id}')">PIN</button><button class="sm" onclick="renameP('${p.id}')">Umbenennen</button><button class="sm red" onclick="delP('${p.id}')">Entfernen</button></div></div>`;}).join(''):'<p class="muted">Noch keine Spieler.</p>'}</div>
-  <p class="muted small">„Entfernen“ löscht das Profil mit Trainingsdaten und nimmt es aus allen Gruppen. In laufenden Turnieren bleibt es als „Gelöscht“ stehen.${adm?'':' Kapitäne vergibt der Admin.'}</p>`;}
+   <div class="row acts">${adm?`<button class="sm ${p.captain?'pri':''}" onclick="togCap('${p.id}')">${p.captain?'⭐ Kapitän':'Kapitän'}</button>`:''}<button class="sm" onclick="changePhoto('${p.id}')" title="Profilbild">📷</button><button class="sm" onclick="chPin('${p.id}')">PIN</button><button class="sm" onclick="renameP('${p.id}')">Umbenennen</button><button class="sm" onclick="togPriv('${p.id}')" title="Privatprofile erscheinen in keiner Vereinsliste">${p.priv?'In den Verein':'🔒 Privat'}</button><button class="sm red" onclick="delP('${p.id}')">Entfernen</button></div></div>`;}).join(''):'<p class="muted">Noch keine Spieler.</p>'}</div>
+  <p class="muted small">„🔒 Privat“ nimmt ein Profil aus allen Vereinslisten, Ranglisten, Gruppen und Turnieren – die eigene Statistik bleibt. „Entfernen“ löscht das Profil mit Trainingsdaten und nimmt es aus allen Gruppen. In laufenden Turnieren bleibt es als „Gelöscht“ stehen.${adm?'':' Kapitäne vergibt der Admin.'}</p>`;}
  if(setTab==='groups')body=`<div class="row" style="margin-bottom:12px"><span class="muted sp">${S.teams.length} Gruppen & Mannschaften</span><button class="pri" onclick="newTeam()">＋ Neue Gruppe</button></div>
   <div class="card">${S.teams.length?S.teams.map(t=>`<div class="setrow"><div style="flex:1;min-width:0"><b>${esc(t.name)}</b> <span class="badge ${t.type==='team'?'y':''}">${TTYPE[t.type]}</span><div class="muted small">${t.members.length} Spieler · Kapitän: ${t.captains.map(c=>esc(U(c).nick)).join(', ')||'–'} · Code <b style="color:var(--gold)">${t.code}</b></div></div>
   <div class="row acts"><button class="sm" onclick="go('team','${t.id}')">Öffnen</button><button class="sm" onclick="renameTeam('${t.id}')">Umbenennen</button>${adm?`<button class="sm" onclick="setTeamCap('${t.id}')">Kapitän</button>`:''}<button class="sm" onclick="t2=S.teams.find(x=>x.id==='${t.id}');t2.code=joinCode();save();render();toast('Neuer Beitrittscode: '+t2.code)">Neuer Code</button><button class="sm red" onclick="ask('Gruppe „${esc(t.name)}“ löschen? Die Statistiken der Spieler bleiben.','Löschen',()=>{S.teams=S.teams.filter(x=>x.id!=='${t.id}');save();render();},true)">Löschen</button></div></div>`).join(''):'<p class="muted">Noch keine Gruppen.</p>'}</div>`;
