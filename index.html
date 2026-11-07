@@ -245,6 +245,10 @@ label{font-weight:600;font-size:13px;letter-spacing:.2px}
 @media (max-width:560px){.inbox{padding-left:12px}.inbox .muted{font-size:18px!important}}
 @media (max-width:560px){.sc-p{padding:10px 12px}.sc-p .nm{font-size:19px}.sc-p .meta{font-size:13px;gap:8px}}
 @media (max-width:560px){.sc-p .rem{font-size:62px}.pad button{padding:13px 0}.wrap{padding:12px}}
+/* App-Gefühl */
+html,body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+button,a,label,select,.chk,.pick-item,.seg,nav,header{-webkit-user-select:none;user-select:none;touch-action:manipulation;-webkit-touch-callout:none}
+@media (display-mode: standalone){body{-webkit-user-select:none;user-select:none}input,textarea{-webkit-user-select:text;user-select:text}}
 </style>
 </head>
 <body>
@@ -394,7 +398,18 @@ const DAY=864e5;
 
 /* ===================== UI-Helfer ===================== */
 let view='home',param=null;
-function go(v,p=null){view=v;param=p;render();window.scrollTo(0,0);}
+/* Zurück-Taste wie in einer echten App: geht eine Ansicht zurück, schließt Fenster, beendet die App erst auf der Startseite */
+const NAV=[];let navTrap=false;
+function navArm(){if(navTrap)return;try{history.pushState({dc:1},'');navTrap=true;}catch(e){}}
+function go(v,p=null){if((view!==v||param!==p)&&view&&view!=='login'&&view!=='live'){NAV.push([view,param]);if(NAV.length>40)NAV.shift();}
+ if(v==='login')NAV.length=0;view=v;param=p;render();window.scrollTo(0,0);navArm();}
+window.addEventListener('popstate',()=>{navTrap=false;
+ const m=document.getElementById('modal');
+ if(m&&m.classList.contains('show')){closeModal();navArm();return;}
+ if(view==='live'){navArm();toast('Zum Beenden des Spiels auf „Abbrechen“ tippen');return;}
+ while(NAV.length){const [v,p]=NAV.pop();if(v!==view||p!==param){view=v;param=p;render();window.scrollTo(0,0);navArm();return;}}
+ toast('Nochmal zurück zum Schließen');setTimeout(()=>{if(!navTrap)navArm();},2500);});
+document.addEventListener('pointerdown',()=>navArm(),{once:true});
 let toastT;function toast(m,ms=2200){const t=document.getElementById('toast');t.innerHTML=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms);}
 function modal(html){document.getElementById('mbox').innerHTML=html;document.getElementById('modal').classList.add('show');}
 function closeModal(){document.getElementById('modal').classList.remove('show');}
