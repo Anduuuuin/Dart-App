@@ -465,6 +465,11 @@ body.livetab #app>.watchmode{flex:1 1 0;min-height:0;display:flex;flex-direction
 @keyframes fxshake{25%{transform:translateX(-3vw) rotate(-6deg)}75%{transform:translateX(3vw) rotate(6deg)}}
 .tro{font-size:.8em}
 body.livetab .bobq{font-size:min(3.4vh,4.6vw)!important;font-weight:700;color:var(--text)!important}
+/* ===== Online-Modus ===== */
+.onlblock{position:relative}
+.onlblock>*:not(.onlwait){opacity:.18;pointer-events:none;filter:grayscale(1)}
+.onlwait{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;text-align:center;font-size:min(3.4vh,22px);padding:16px}
+.onlwait b{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -488,7 +493,7 @@ S.settings=S.settings||{boards:4};S.teams=S.teams||[];
 /* PIN-Felder bewusst KEINE Passwortfelder: sonst bietet der Browser an, die PIN zu speichern (und Google synchronisiert sie auf alle Geräte bzw. der Nächste am Vereins-Tablet bekommt sie angeboten). Punkte statt Ziffern per CSS. */
 const PINT=(window.CSS&&CSS.supports&&CSS.supports('-webkit-text-security','disc'))?'text':'password';
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
-function save(){try{scrUpdate();}catch(e){}saveLocal();if(typeof sySchedule==='function')sySchedule();}
+function save(){try{scrUpdate();}catch(e){}try{onlPush();}catch(e){}saveLocal();if(typeof sySchedule==='function')sySchedule();}
 /* Zuschauer-Anzeige: Läuft auf diesem Gerät ein Spiel, wird der Stand als „Bildschirm“ an den Server geschickt */
 function DEV(){let d=null;try{d=localStorage.getItem('dc_dev');if(!d){d=uid();localStorage.setItem('dc_dev',d);}}catch(e){d=d||'x';}return d;}
 function scrUpdate(){if(typeof SY==='undefined'||!SY.on||!SY.key||S.demo)return;S.screens=S.screens||{};const d=DEV();
@@ -497,7 +502,7 @@ function scrUpdate(){if(typeof SY==='undefined'||!SY.on||!SY.key||S.demo)return;
 // Läuft die App unter *.anduuuuin.de, werden alle Vereinsdaten mit dem Server abgeglichen.
 // Auf GitHub Pages oder als Datei bleibt alles wie bisher nur auf diesem Gerät (Testversion).
 const SY={on:/(^|\.)anduuuuin\.de$/i.test(location.hostname)||!!window.DC_API,api:(window.DC_API||'')+'/api/dc/',key:'',rev:0,base:{},busy:false,again:false,t:null,ok:null,err:'',pend:false,force:false,last:0,ready:false};
-const SY_ARR=['users','tournaments','games','trainings','teams'],SY_MAP=['myPlans','planCfg','screens'];
+const SY_ARR=['users','tournaments','games','trainings','teams'],SY_MAP=['myPlans','planCfg','screens','online'];
 try{const h=location.hash.match(/[#&]k=([A-Za-z0-9_-]+)/);if(h){localStorage.setItem('dc_clubkey',h[1]);history.replaceState(null,'',location.pathname+location.search);}}catch(e){}
 try{SY.key=localStorage.getItem('dc_clubkey')||'';const b=JSON.parse(localStorage.getItem(KEY+'_sync')||'null');if(b&&b.key===SY.key){SY.rev=b.rev||0;SY.base=b.base||{};SY.ready=!!b.ready;}}catch(e){}
 // Inhalt als Text mit sortierten Schlüsseln (damit gleiche Daten immer gleich aussehen)
@@ -546,7 +551,7 @@ async function syPull(){const res=await syApi('since?rev='+SY.rev);let ch=false;
    if(ls===bs){if(ls!==rs){syApply(it.key,it.deleted?null:it.data);ch=true;}}
    else if(ls!==rs){const m=jmerge(bs==null?undefined:JSON.parse(bs),loc[it.key],it.deleted?undefined:it.data);syApply(it.key,m===undefined?null:m);ch=true;}
    SY.base[it.key]={r:it.rev,s:rs};}}
- SY.rev=Math.max(SY.rev,res.rev||0);syStore();if(ch){saveLocal();syRender();}}
+ SY.rev=Math.max(SY.rev,res.rev||0);syStore();if(ch){try{onlHook();}catch(e){console.error(e);}saveLocal();syRender();}}
 async function syPush(){for(let round=0;round<6;round++){
  const loc=syItems(S),ch=[];
  new Set([...Object.keys(loc),...Object.keys(SY.base)]).forEach(k=>{const ls=cs(loc[k]),b=SY.base[k];if((b?b.s:null)!==ls)ch.push({key:k,base:b?b.r:0,data:loc[k]===undefined?null:loc[k],s:ls});});
@@ -662,7 +667,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=19;
+const APPV=20;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -732,6 +737,105 @@ function vMySettings(){const m=me();const q=getQuick();const bm=bigMode();
  ${sec('🖥️ Großanzeige auf diesem Gerät','Große Spieleranzeige beim Spielen. „Automatisch“ = groß auf Tablet und PC, normal auf dem Handy.',
   `<div class="chips">${[['auto','Automatisch'],['on','Immer groß'],['off','Immer normal']].map(([k,l])=>`<button class="${bm===k?'on':''}" onclick="setBigMode('${k}')">${l}</button>`).join('')}</div>`)}
  ${sec('🎯 Spielbeginn','Wer bei X01, Minispielen und Turnierspielen anfängt (gilt für dieses Gerät).',starterHTML().replace('<label>Wer fängt an?</label>',''))}`;}
+/* ===================== Online-Modus (Stufe 1): gegen Vereinsmitglieder, jeder an seinem eigenen Board ===================== */
+let ONL_PUSH=false;const ONL_SEEN=new Set();let ONL_FIRST=true;
+const onlG=id=>(S.online||{})[id];
+function onlCurId(L){return L.kind==='x01'?L.players[L.cur]:L.ps[L.cur];}
+function onlMine(){const L=S.live;return !L||!L.online||onlCurId(L)===meId;}
+function onlLastMine(){const L=S.live;if(!L||!L.online||!L.hist||!L.hist.length)return false;const h=L.hist[L.hist.length-1];
+ if(L.kind==='x01')return L.players[h.i]===meId;try{const o=JSON.parse(h);return o.ps[o.cur]===meId;}catch(e){return false;}}
+function onlOk(undo){const L=S.live;if(!L||!L.online)return true;const ok=onlMine()||(undo&&onlLastMine());
+ if(!ok){toast(`⏳ ${esc(U(onlCurId(L)).nick)} ist am Zug`);return false;}ONL_PUSH=true;setTimeout(()=>{ONL_PUSH=false;},0);return true;}
+/* eigenen Spielstand an die anderen schicken (nur nach eigener Eingabe) */
+function onlPush(){const L=S.live;if(!L||!L.online||!ONL_PUSH)return;const g=onlG(L.online);if(!g||g.status!=='live')return;
+ L.seq=(L.seq||0)+1;const c=JSON.parse(JSON.stringify(L));delete c.input;delete c.coOff;g.live=c;g.at=Date.now();g.by=meId;}
+function onlDone(L,txt){const g=onlG(L.online);if(!g)return;const c=JSON.parse(JSON.stringify(L));delete c.input;g.live=c;g.status='done';g.result=txt;g.at=Date.now();g.by=meId;}
+/* neuer Stand vom Server angekommen */
+function onlHook(){const all=S.online||{};
+ if(!ONL_FIRST)Object.values(all).forEach(g=>{if(g.status==='invite'&&g.players.includes(meId)&&!g.acc.includes(meId)&&!(g.dec||[]).includes(meId)&&!ONL_SEEN.has('i'+g.id)){ONL_SEEN.add('i'+g.id);toast(`🌐 ${esc(U(g.host).nick)} lädt dich zu einem Online-Spiel ein!`,5000);}});
+ if(ONL_FIRST){ONL_FIRST=false;Object.values(all).forEach(g=>ONL_SEEN.add('i'+g.id));}
+ const L=S.live;
+ if(L&&L.online){const g=all[L.online];
+  if(!g||g.status==='done'||g.status==='abandoned'){S.live=null;view='online';param=null;render();
+   if(g&&!ONL_SEEN.has('d'+g.id)){ONL_SEEN.add('d'+g.id);modal(`<h2>${esc(g.status==='abandoned'?`🏳️ ${U(g.by).nick} hat aufgegeben`:g.result||'Spiel beendet')}</h2><p class="muted">${esc(onlTitle(g))}</p><p class="muted small">Das Ergebnis steht in der Statistik.</p><button class="pri" style="width:100%" onclick="closeModal()">OK</button>`);}
+   return;}
+  if(g.live&&(g.live.seq||0)>(L.seq||0)){const keep={input:onlMine()?L.input:'',coOff:L.coOff};S.live={...JSON.parse(JSON.stringify(g.live)),...keep};
+   if(onlMine()&&L.kind&&onlCurId(L)!==meId)toast('🎯 Du bist dran!');render();}
+  return;}
+ /* wartet jemand im Warteraum auf den Start? */
+ if(view==='online'&&param){const g=all[param];if(g&&g.status==='live'&&g.players.includes(meId)&&g.live){onlResume(g.id);}}}
+function onlTitle(g){const c=g.cfg||{};return g.kind==='x01'?`${c.start} · Best of ${c.bo} Legs · ${{double:'Double Out',single:'Single Out',master:'Master Out'}[c.out]}`:`${MG[c.mg]?.name||'Minispiel'}${c.sets>1?` · Best of ${c.sets}`:''}`;}
+/* Einladen */
+let onlNew={kind:'x01',opp:[],start:501,bo:3,out:'double',mg:'killer',sets:3};
+function onlTogOpp(id){const i=onlNew.opp.indexOf(id);const max=onlNew.kind==='x01'?3:(MG[onlNew.mg]?.max||8)-1;
+ if(i>=0)onlNew.opp.splice(i,1);else{if(onlNew.opp.length>=max)return toast(`Maximal ${max+1} Spieler`);onlNew.opp.push(id);}render();}
+function onlInvite(){const m=me();if(!onlNew.opp.length)return toast('Wähle mindestens einen Gegner');
+ if(onlNew.kind==='mg'){const g=MG[onlNew.mg];const n=onlNew.opp.length+1;if(n<g.min||n>g.max)return toast(`${g.name}: ${g.min}–${g.max} Spieler`);}
+ const c=onlNew.kind==='x01'?{start:onlNew.start,bo:onlNew.bo,out:onlNew.out}:{mg:onlNew.mg,sets:onlNew.sets,lives:mgCfg(onlNew.mg).lives};
+ const id=uid();S.online=S.online||{};S.online[id]={id,host:m.id,players:[m.id,...onlNew.opp],acc:[m.id],dec:[],kind:onlNew.kind,cfg:c,status:'invite',live:null,created:Date.now(),at:Date.now()};
+ onlNew.opp=[];save();sySchedule(50);go('online',id);}
+function onlAccept(id){const g=onlG(id);if(!g||g.status!=='invite')return;if(!g.acc.includes(meId))g.acc.push(meId);
+ if(g.players.every(p=>g.acc.includes(p)))onlStart(g);save();sySchedule(50);if(g.status==='live')onlResume(id);else go('online',id);}
+function onlDecline(id){const g=onlG(id);if(!g)return;g.dec=g.dec||[];if(!g.dec.includes(meId))g.dec.push(meId);g.players=g.players.filter(p=>p!==meId);
+ if(g.players.length<2)g.status='declined';else if(g.players.every(p=>g.acc.includes(p)))onlStart(g);g.at=Date.now();save();render();}
+function onlCancel(id){const g=onlG(id);if(!g)return;g.status='declined';g.at=Date.now();save();go('online');}
+function onlStartNow(id){const g=onlG(id);if(!g)return;g.players=g.players.filter(p=>g.acc.includes(p));if(g.players.length<2)return toast('Es hat noch niemand angenommen');onlStart(g);save();sySchedule(50);onlResume(id);}
+function onlStart(g){const n=g.players.length,r=Math.floor(Math.random()*n);const ps=[...g.players.slice(r),...g.players.slice(0,r)];const c=g.cfg;
+ const L=g.kind==='x01'?buildX01(ps,c.start,{sets:false,bo:c.bo,setLegs:3},c.out==='double',null,{out:c.out,din:false}):newMG(c.mg,ps,{n:c.sets,no:1,wins:{},need:Math.floor(c.sets/2)+1},c.lives);
+ L.online=g.id;L.seq=1;delete L.coOff;g.live=L;g.status='live';g.at=Date.now();}
+function onlResume(id){const g=onlG(id);if(!g||!g.live)return;S.live={...JSON.parse(JSON.stringify(g.live)),input:'',coOff:!!(me()&&me().coHide)};saveLocal();go('live');
+ if(onlMine())toast('🎯 Du bist dran!');}
+function onlLeave(){const L=S.live;modal(`<h2>Online-Spiel verlassen?</h2><p class="muted">Du kannst später unter „🌐 Online spielen“ einfach weiterspielen.</p>
+ <div style="display:grid;gap:8px"><button class="pri" onclick="closeModal();S.live=null;saveLocal();go('online')">⏸️ Pause – später weiterspielen</button>
+ <button class="red" onclick="closeModal();onlGiveUp()">🏳️ Aufgeben</button><button class="ghost" onclick="closeModal()">Weiterspielen</button></div>`);}
+function onlGiveUp(){const L=S.live;const g=L&&onlG(L.online);if(g){g.status='abandoned';g.by=meId;g.at=Date.now();}S.live=null;save();sySchedule(50);go('online');toast('Du hast aufgegeben');}
+/* Sperre der Eingabe, wenn man nicht dran ist */
+function onlBlock(){const L=S.live;if(view!=='live'||!L||!L.online||onlMine())return;
+ const t=document.querySelector('.xr')||document.querySelector('.mgr')||document.querySelector('.mgvis,.mgpad');if(!t||t.querySelector('.onlwait'))return;
+ t.classList.add('onlblock');const w=document.createElement('div');w.className='onlwait';
+ w.innerHTML=`<div>⏳ <b>${esc(U(onlCurId(L)).nick)}</b> ist am Zug</div><div class="muted small">Sein Wurf erscheint hier sofort.</div>${onlLastMine()?`<button class="ghost sm" onclick="${L.kind==='x01'?'undo()':'mgUndo()'}">↶ Meine letzte Eingabe korrigieren</button>`:''}`;t.appendChild(w);}
+/* Startseite: offene Einladungen und Spiele, in denen man dran ist */
+function onlHomeBanner(){if(!SY.on)return '';const all=Object.values(S.online||{});
+ const inv=all.filter(g=>g.status==='invite'&&g.players.includes(meId)&&!g.acc.includes(meId));
+ const turn=all.filter(g=>g.status==='live'&&g.live&&onlCurId(g.live)===meId&&!(S.live&&S.live.online===g.id));
+ if(!inv.length&&!turn.length)return '';
+ return `<div class="banner" style="margin-bottom:12px;cursor:pointer" onclick="go('online')">🌐 ${inv.length?`<b>${inv.length} Online-Einladung${inv.length>1?'en':''}</b> von ${inv.map(g=>esc(U(g.host).nick)).join(', ')}`:''}${inv.length&&turn.length?' · ':''}${turn.length?`<b>Du bist dran</b> in ${turn.length} Online-Spiel${turn.length>1?'en':''}`:''} – antippen</div>`;}
+function vOnline(id){const m=me();S.online=S.online||{};
+ if(m.role!=='player')return `<div class="ph"><h1>🌐 Online spielen</h1></div><div class="card"><p class="muted" style="margin:0">Online-Spiele gehen nur mit einem eigenen Spielerprofil. Melde dich mit deinem Spitznamen an.</p></div>`;
+ const now=Date.now();Object.values(S.online).forEach(g=>{if(g.host===meId&&['done','abandoned','declined'].includes(g.status)&&now-(g.at||0)>3*864e5)delete S.online[g.id];});
+ if(id){const g=onlG(id);if(g&&g.status==='invite'){const waiting=g.players.filter(p=>!g.acc.includes(p));
+  return `<div class="ph"><div class="row"><h1 class="sp">🌐 Warteraum</h1><button class="ghost" onclick="go('online')">← Zurück</button></div><p>${esc(onlTitle(g))}</p></div>
+  <div class="card" style="text-align:center"><div style="font-size:54px">⏳</div><h3 style="margin:6px 0">Warte auf ${waiting.map(p=>esc(U(p).nick)).join(', ')} …</h3><p class="muted small">Sobald alle angenommen haben, startet das Spiel hier von selbst. Wer anfängt, entscheidet der Zufall.</p>
+  ${g.players.map(p=>`<div class="row" style="justify-content:center;margin:6px 0">${AV(U(p),26)} ${esc(U(p).nick)} ${g.acc.includes(p)?'<span class="badge g">✓ bereit</span>':'<span class="badge">wartet</span>'}</div>`).join('')}
+  <div class="row" style="margin-top:12px">${g.host===meId?`<button class="ghost sp" onclick="onlCancel('${g.id}')">Einladung zurückziehen</button>${g.acc.length>=2&&waiting.length?`<button class="pri sp" onclick="onlStartNow('${g.id}')">Ohne die anderen starten</button>`:''}`:''}</div></div>`;}
+  if(g&&g.status==='live'){onlResume(id);return '';}}
+ const all=Object.values(S.online).filter(g=>g.players.includes(meId)||g.host===meId).sort((a,b)=>(b.at||0)-(a.at||0));
+ const inv=all.filter(g=>g.status==='invite'&&!g.acc.includes(meId));
+ const wait=all.filter(g=>g.status==='invite'&&g.acc.includes(meId));
+ const live=all.filter(g=>g.status==='live');
+ const done=all.filter(g=>['done','abandoned'].includes(g.status)).slice(0,5);
+ const others=players().filter(u=>u.id!==meId);
+ const mgList=Object.entries(MG).filter(([k,g])=>g.max>=2);
+ const kind=onlNew.kind;
+ return `<div class="ph"><h1>🌐 Online spielen</h1><p>Spiel gegen Vereinsmitglieder – jeder an seinem eigenen Board, jeder tippt seine eigenen Würfe ein. Der andere sieht alles sofort.</p></div>
+ ${inv.length?`<div class="sec">📨 Einladungen an dich</div>${inv.map(g=>`<div class="card"><div class="row"><div class="sp"><b>${esc(U(g.host).nick)}</b> lädt dich ein<div class="muted small">${esc(onlTitle(g))}${g.players.length>2?` · mit ${g.players.filter(p=>p!==g.host&&p!==meId).map(p=>esc(U(p).nick)).join(', ')}`:''}</div></div></div>
+  <div class="row" style="margin-top:10px"><button class="ghost sp" onclick="onlDecline('${g.id}')">Ablehnen</button><button class="pri sp" onclick="onlAccept('${g.id}')">✓ Annehmen & spielen</button></div></div>`).join('')}`:''}
+ ${live.length?`<div class="sec">🎯 Laufende Spiele</div>${live.map(g=>{const cur=g.live?onlCurId(g.live):null;return `<div class="card"><div class="row"><div class="sp"><b>${g.players.map(p=>esc(U(p).nick)).join(' vs ')}</b><div class="muted small">${esc(onlTitle(g))} · ${cur===meId?'<b style="color:var(--accent)">du bist dran</b>':`${esc(U(cur).nick)} ist dran`}</div></div><button class="pri" onclick="onlResume('${g.id}')">▶ Weiter</button></div></div>`;}).join('')}`:''}
+ ${wait.length?`<div class="sec">⏳ Warten auf Zusage</div>${wait.map(g=>`<button class="card" style="width:100%;text-align:left;display:block" onclick="go('online','${g.id}')"><b>${g.players.filter(p=>p!==meId).map(p=>esc(U(p).nick)).join(', ')}</b><div class="muted small">${esc(onlTitle(g))} · antippen für Warteraum</div></button>`).join('')}`:''}
+ <div class="sec">➕ Neues Online-Spiel</div>
+ <div class="card"><label style="margin-top:0">Spielart</label><div class="chips"><button class="${kind==='x01'?'on':''}" onclick="onlNew.kind='x01';render()">🎯 X01</button><button class="${kind==='mg'?'on':''}" onclick="onlNew.kind='mg';render()">🎲 Minispiel</button></div>
+ ${kind==='x01'?`<label>Startpunkte</label><div class="chips">${[301,501,701].map(v=>`<button class="${onlNew.start===v?'on':''}" onclick="onlNew.start=${v};render()">${v}</button>`).join('')}</div>
+  <label>Legs</label><div class="chips">${[1,3,5,7].map(v=>`<button class="${onlNew.bo===v?'on':''}" onclick="onlNew.bo=${v};render()">Best of ${v}</button>`).join('')}</div>
+  <label>Check-out</label><div class="chips">${[['double','Double Out'],['master','Master Out'],['single','Single Out']].map(([k,l])=>`<button class="${onlNew.out===k?'on':''}" onclick="onlNew.out='${k}';render()">${l}</button>`).join('')}</div>`
+ :`<label>Minispiel</label><select onchange="onlNew.mg=this.value;render()" style="width:100%">${mgList.map(([k,g])=>`<option value="${k}" ${onlNew.mg===k?'selected':''}>${g.name}${k==='blindkiller'?' (nur online)':''} · ${g.min}–${g.max} Sp.</option>`).join('')}</select>
+  <p class="muted small" style="margin:6px 0 0">${esc(MG[onlNew.mg]?.desc||'')}</p>
+  <label>Durchgänge</label><div class="chips">${[[1,'1 Spiel'],[3,'Best of 3'],[5,'Best of 5']].map(([v,l])=>`<button class="${onlNew.sets===v?'on':''}" onclick="onlNew.sets=${v};render()">${l}</button>`).join('')}</div>`}
+ <label>Gegner (${onlNew.opp.length} gewählt)</label>
+ ${others.length?`<div class="chips">${others.map(u=>`<button class="${onlNew.opp.includes(u.id)?'on':''}" onclick="onlTogOpp('${u.id}')">${AV(u,20)} ${esc(u.nick)}</button>`).join('')}</div>`:'<p class="muted small">Noch keine anderen Spieler im Verein.</p>'}
+ <button class="pri" style="width:100%;margin-top:16px;padding:16px" onclick="onlInvite()" ${onlNew.opp.length?'':'disabled'}>📨 Einladen</button>
+ <p class="muted small" style="margin:8px 0 0">Wer anfängt, entscheidet der Zufall. Die Spiele zählen ganz normal in die Statistik.</p></div>
+ ${done.length?`<div class="sec">🏁 Zuletzt gespielt</div>${done.map(g=>`<div class="card" style="padding:10px 14px"><b>${g.players.map(p=>esc(U(p).nick)).join(' vs ')}</b><div class="muted small">${esc(onlTitle(g))} · ${esc(g.status==='abandoned'?`${U(g.by).nick} hat aufgegeben`:g.result||'beendet')} · ${dstr(g.at)}</div></div>`).join('')}`:''}`;}
+setInterval(()=>{if(!document.hidden&&SY.on&&SY.key&&((S.live&&S.live.online)||view==='online'))syRun();},1000);
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -930,11 +1034,12 @@ function heatHTML(id,days=28){const acts=[...gamesOf(id).map(g=>g.date),...train
 function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  return `<div class="ph"><h1>${h<11?'Guten Morgen':h<18?'Hi':'Guten Abend'}, ${esc(m.nick)} ${AV(m)}</h1><p>${c.week?`Diese Woche schon ${c.week}× trainiert – stark!`:'Diese Woche noch nicht trainiert – Zeit für eine Runde!'}</p></div>
  ${isStandalone()?'':`<div class="banner"><b>📲 DartClub aufs Handy</b> <span class="muted small">– als App auf dem Startbildschirm, ohne Play Store, startet im Vollbild.</span><div style="margin-top:10px">${installBtn(true)}</div></div>`}
+ ${onlHomeBanner()}
  <div class="quickrow">
   <button class="qbtn hero" onclick="trTab='ex';go('train')"><span class="i">📋</span><b>Übung starten</b><small>${Object.keys(EX).length} Übungen mit Anleitung</small></button>
   <button class="qbtn" onclick="trTab='plans';go('train')"><span class="i">🗂️</span><b>Trainingsplan</b><small>Mehrere Übungen am Stück</small></button>
   <button class="qbtn" onclick="trTab='play';go('train')"><span class="i">🎯</span><b>X01 spielen</b><small>170 bis 1001</small></button>
-  <button class="qbtn" onclick="trTab='games';go('train')"><span class="i">🕐</span><b>Trainingsspiele</b><small>ATC, Bob's 27, Scoring</small></button></div>
+  <button class="qbtn" onclick="trTab='games';go('train')"><span class="i">🕐</span><b>Trainingsspiele</b><small>ATC, Bob's 27, Scoring</small></button>${SY.on?`<button class="qbtn" onclick="go('online')"><span class="i">🌐</span><b>Online spielen</b><small>Gegen Vereinsmitglieder von zu Hause</small></button>`:''}</div>
  <div class="sec">Deine Woche</div>
  <div class="stats">
   <div class="stat"><div class="v">${c.week}</div><div class="k">Einheiten 7 Tage</div></div>
@@ -1070,14 +1175,15 @@ function hcHTML(){if(setup.slots.length<2)return '';const on=!!setup.hcOn;const 
   <div class="chips" style="margin-top:6px">${[['','Check-out wie alle'],['single','Single Out'],['master','Master Out'],['double','Double Out']].map(([k,l])=>`<button class="${(h.out||'')===k?'on':''}" onclick="hcSet(${i},'out','${k}')">${l}</button>`).join('')}</div></div>`;}).join('')}`:''}`;}
 
 /* ===================== X01-Scorer ===================== */
-function startX01(ps,start,fmt,dOut,tref,mode){if(typeof fmt==='number')fmt={sets:false,bo:fmt,setLegs:3};const out=(mode&&mode.out)||(dOut?'double':'single'),din=!!(mode&&mode.din);
- S.live={kind:'x01',players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,coOff:!!(me()&&me().coHide),legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
-  st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,ch:0,co:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};save();go('live');}
+function startX01(ps,start,fmt,dOut,tref,mode){S.live=buildX01(ps,start,fmt,dOut,tref,mode);save();go('live');}
+function buildX01(ps,start,fmt,dOut,tref,mode){if(typeof fmt==='number')fmt={sets:false,bo:fmt,setLegs:3};const out=(mode&&mode.out)||(dOut?'double':'single'),din=!!(mode&&mode.din);
+ return {kind:'x01',players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,coOff:!!(me()&&me().coHide),legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
+  st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,ch:0,co:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};}
 function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=notIn?'Double In: erst ein Doppel treffen':L.coOff?'':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
  const big=bigOn();
- return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost" onclick="togCo()" title="Checkout-Wege anzeigen oder ausblenden">${L.coOff?'🧮 Wege: aus':'🧮 Wege: an'}</button><button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
+ return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.online?'<span class="badge g">🌐 Online</span> ':''}${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost" onclick="togCo()" title="Checkout-Wege anzeigen oder ausblenden">${L.coOff?'🧮 Wege: aus':'🧮 Wege: an'}</button><button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
  <div class="xgrid"><div class="xl"><div class="sc-players n${L.players.length}">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${i===L.cur&&L.players.length>1?'<div class="turn">🎯 AM WURF</div>':''}${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
   <div class="nm">${AV(U(id))} ${esc(U(id).nick)}${hcLabel(L,i)?` <span class="badge y" title="Handicap">⚖️ ${hcLabel(L,i)}</span>`:''}${L.din&&L.inn&&!L.inn[i]?' <span class="badge" title="Noch kein Doppel getroffen">🔒 D-In</span>':''}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
@@ -1092,11 +1198,11 @@ const BIGQ='(min-width:700px) and (min-height:560px)';
 function bigOn(){if(WATCH)return true;let m=null;try{m=localStorage.getItem('dc_big');}catch(e){}return m==='on'||(m!=='off'&&matchMedia(BIGQ).matches);}
 function togBig(){const n=bigOn()?'off':'on';try{localStorage.setItem('dc_big',n);}catch(e){}render();}
 try{matchMedia(BIGQ).addEventListener('change',()=>{if(view==='live')render();});}catch(e){}
-function key(k){const L=S.live;if(!L)return;
+function key(k){const L=S.live;if(!L)return;if(!onlOk())return;
  if(k==='ok'){const v=L.input===''?0:parseInt(L.input,10);L.input='';if(L.kind==='score')scoreVisit(v);else if(L.kind==='mg')mgVisit(v);else if(L.kind==='ex')exNum(v);else visit(v);return;}
  if(k==='del'){L.input=L.input.slice(0,-1);render();return;}
  if(L.input.length>=3)return;L.input=(L.input+k).replace(/^0+(?=\d)/,'');render();}
-function visit(v,forceBust){const L=S.live;L.input='';
+function visit(v,forceBust){const L=S.live;if(!onlOk())return;L.input='';
  if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
  const i=L.cur,prev=L.scores[i],rest=prev-v,s=L.st[i],T=coTable(L);
  let bust=!!forceBust||rest<0||(T&&rest===1);
@@ -1157,7 +1263,7 @@ function canCheck(rem,d){const L=S.live;if(!L||rem<=0)return false;if(L.din&&L.i
 let lpT=null,lpFired=false;
 function lpStart(d){lpEnd();lpFired=false;lpT=setTimeout(()=>{lpFired=true;lpT=null;try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}const L=S.live;if(!L||L.kind!=='x01')return;const rem=L.scores[L.cur];if(!canCheck(rem,d))return;L.input='';toast(`🎯 ${rem} gecheckt mit ${d} Dart${d>1?'s':''}!`);finishLeg(rem,d);},550);}
 function lpEnd(){if(lpT){clearTimeout(lpT);lpT=null;}}
-function undo(){const L=S.live;if(L.input){L.input='';render();return;}const h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
+function undo(){const L=S.live;if(L.input){L.input='';render();return;}if(!onlOk(true))return;const h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
  L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;save();render();}
 /* Ergebnis entscheiden: wer zuerst die nötige Anzahl hat – sonst nach allen Legs/Sets: Höchster gewinnt, Gleichstand = Unentschieden */
 /* First 9/12/15/18: Punkte der ersten N Darts je Leg sammeln */
@@ -1165,7 +1271,7 @@ function firstN(s,d,v){const a=s.ld||0;s.ld=a+d;s.lp=(s.lp||0)+v;[9,12,15,18].fo
 function decide(arr,bo){const need=fmtNeed(bo);const w=arr.findIndex(x=>x>=need);if(w>=0)return{done:true,w};
  const tot=arr.reduce((a,b)=>a+b,0);if(tot<bo)return{done:false};const mx=Math.max(...arr);const top=arr.map((x,i)=>x===mx?i:-1).filter(i=>i>=0);
  return{done:true,w:top.length===1?top[0]:null};}
-function finishLeg(v,d){const L=S.live;const i=L.cur,s=L.st[i];const f=L.fmt;if(coTable(L)){s.ch=(s.ch||0)+1;s.co=(s.co||0)+1;}
+function finishLeg(v,d){const L=S.live;if(!onlOk())return;const i=L.cur,s=L.st[i];const f=L.fmt;if(coTable(L)){s.ch=(s.ch||0)+1;s.co=(s.co||0)+1;}
  firstN(s,d,v);s.darts+=d;s.pts+=v;s.last=v;s.hiCo=Math.max(s.hiCo,v);if(v>=100){s.hf=s.hf||[];s.hf.push(v);}if(v>=140)s.s140++;else if(v>=100)s.s100++;
  L.legs[i]++;L.legsTotal[i]++;let msg=`Leg für ${esc(U(L.players[i]).nick)}!`;
  if(f.sets){if(L.legs[i]>=fmtNeed(f.setLegs)){L.sets[i]++;L.legs=L.players.map(()=>0);msg=`🎯 Set für ${esc(U(L.players[i]).nick)}!`;
@@ -1177,15 +1283,16 @@ function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const befo
  const sc=f.sets?L.sets:L.legsTotal;
  const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
   players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?i===wi:true),...(({last,ld,lp,...r})=>r)(L.st[i])}))};
- S.games.push(g);
+ if(L.online)g.online=true;S.games.push(g);
+ if(L.online)onlDone(L,draw?'🤝 Unentschieden':`🏆 ${U(L.players[wi]).nick} gewinnt`);
  if(L.tref)applyResult(L.tref.tid,L.tref.mid,draw?'DRAW':L.players[wi],sc[0],sc[1]);
  S.live=null;save();
  const rec=g.players.filter(p=>!isGuest(p.id)&&p.darts&&p.pts/p.darts*3>before[p.id]&&gamesOf(p.id).length>1);
- if(L.tref?.board){view='board';param=L.tref.board;}else if(g.tid){view='tourview';param=g.tid;}else view='play';render();
+ if(L.online){view='online';param=null;}else if(L.tref?.board){view='board';param=L.tref.board;}else if(g.tid){view='tourview';param=g.tid;}else view='play';render();
  modal(`<h2>${draw?'🤝 Unentschieden!':`🏆 ${esc(U(L.players[wi]).nick)} gewinnt!`}</h2><p class="muted small">${fmtStr(f)}</p><table>${g.players.map((p,i)=>`<tr><td>${AV(U(p.id))} ${esc(U(p.id).nick)}</td><td>${f.sets?`<b>${L.sets[i]}</b> Sets · ${p.legs} Legs`:(f.bo>1?`<b>${p.legs}</b> Legs`:'')}</td><td>Ø ${f1(p.pts/p.darts*3)}</td></tr>`).join('')}</table>
  ${rec.length?`<div class="banner" style="margin-top:12px">⭐ Neuer persönlicher Rekord-Average: ${rec.map(p=>esc(U(p.id).nick)).join(', ')}!</div>`:''}
- <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal();${L.tref?.board?`go('board',${L.tref.board})`:g.tid?`go('tourview','${g.tid}')`:`go('${me().role==='player'?'home':'play'}')`}">Weiter</button>`);}
-function leaveLive(){const wasTr=S.live&&S.live.kind!=='x01';ask('Spiel abbrechen? Der Spielstand geht verloren.','Abbrechen bestätigen',()=>{const t=S.live?.tref;S.live=null;save();t?.board?go('board',t.board):t?go('tourview',t.tid):go(wasTr?(S.planRun?'planrun':'train'):me().role==='player'?'home':'play');},true);}
+ <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal();${L.tref?.board?`go('board',${L.tref.board})`:g.tid?`go('tourview','${g.tid}')`:L.online?`go('online')`:`go('${me().role==='player'?'home':'play'}')`}">Weiter</button>`);}
+function leaveLive(){if(S.live&&S.live.online)return onlLeave();const wasTr=S.live&&S.live.kind!=='x01';ask('Spiel abbrechen? Der Spielstand geht verloren.','Abbrechen bestätigen',()=>{const t=S.live?.tref;S.live=null;save();t?.board?go('board',t.board):t?go('tourview',t.tid):go(wasTr?(S.planRun?'planrun':'train'):me().role==='player'?'home':'play');},true);}
 
 /* ===================== Training ===================== */
 let trUsers=[];
@@ -1591,8 +1698,8 @@ function killerGame(blind){return{name:blind?'Blind Killer':'Killer',cat:'💀 G
  dart(st,p,d){if(d.m!==2||d.n===25)return;const me=st.p[p];const o=st.p.findIndex(x=>x.num===d.n&&x.lives>0);if(o<0)return;
   if(o===p){if(!me.k){me.k=true;toast('🔪 Du bist Killer!');}else{me.lives--;me.rev=true;mgFx(st,me.lives>0?'🤦':'💀',me.lives>0?`${U(st.ps[p]).nick} trifft sich selbst!`:`${U(st.ps[p]).nick} ist raus!`);if(me.lives<=0)st.endTurn=true;}}
   else if(me.k){st.p[o].lives--;st.p[o].rev=true;mgFx(st,st.p[o].lives>0?'😱':'💀',st.p[o].lives>0?`${U(st.ps[o]).nick} verliert ein Leben!`:`${U(st.ps[o]).nick} ist raus!`);}},
- status:(st,i)=>`${st.p[i].rev?'Zahl '+st.p[i].num:'Zahl ?'} · ${hearts(st.p[i].lives)}${st.p[i].k?' 🔪':''}`,
- hint:(st,p)=>st.p[p].k?'Triff die Doppel der anderen!':`Werde Killer: Doppel ${st.p[p].num}`,result:st=>byDesc(st,x=>x.lives*10+(x.k?1:0))};}
+ status:(st,i)=>`${st.p[i].rev||(st.online&&!WATCH&&st.ps[i]===meId)?'Zahl '+st.p[i].num:'Zahl ?'} · ${hearts(st.p[i].lives)}${st.p[i].k?' 🔪':''}`,
+ hint:(st,p)=>st.p[p].k?'Triff die Doppel der anderen!':(st.online&&!st.p[p].rev&&(WATCH||st.ps[p]!==meId))?'Sucht sein geheimes Doppel 🤫':`Werde Killer: Doppel ${st.p[p].num}`,result:st=>byDesc(st,x=>x.lives*10+(x.k?1:0))};}
 
 const MG={
  football:{name:'Fußball',cat:'⚽ Sport',min:2,max:6,dur:10,desc:'Mit dem Bull holst du dir den Ball, jedes Doppel ist dann ein Tor.',
@@ -1749,7 +1856,7 @@ function startMG(id){const g=MG[id];const ps=slotIds(mgSlots);if(ps.length<g.min
 function mgActive(st,i){const g=MG[st.id];return g.active?g.active(st,i):true;}
 function mgRules(){const g=MG[S.live.id];modal(`<h3>${g.name}</h3>${mgRulesOf(S.live.id,S.live.lv).map(r=>`<p>• ${r}</p>`).join('')}<button class="pri" style="width:100%" onclick="closeModal()">OK</button>`);}
 function mgMult(m){S.live.mult=S.live.mult===m?1:m;render();}
-function mgThrow(n){const st=S.live,g=MG[st.id];let m=n===0?0:st.mult;if(n===25&&m===3)m=2;
+function mgThrow(n){const st=S.live,g=MG[st.id];if(!onlOk())return;let m=n===0?0:st.mult;if(n===25&&m===3)m=2;
  const d={n,m,v:n===0?0:n===25?(m===2?50:25):n*m};
  st.hist.push(JSON.stringify({...st,hist:undefined}));if(st.hist.length>60)st.hist.shift();
  st.darts.push(d);st.mult=1;g.dart(st,st.cur,d);st.dart++;
@@ -1764,26 +1871,26 @@ function mgNext(){const st=S.live,g=MG[st.id];g.endTurn?.(st,st.cur);if(st.winne
  const alive=st.ps.map((x,j)=>j).filter(j=>mgActive(st,j));if(!alive.length){st.done=true;return;}if(n>1&&alive.length<=1){st.winner=alive[0];st.done=true;return;}
  if(!mgActive(st,i)){i=alive[0];}
  st.cur=i;st.dart=0;st.darts=[];st.endTurn=false;g.start?.(st,i);}
-function mgVisit(v){const st=S.live,g=MG[st.id];if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
+function mgVisit(v){const st=S.live,g=MG[st.id];if(!onlOk())return;if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
  st.hist.push(JSON.stringify({...st,hist:undefined}));if(st.hist.length>60)st.hist.shift();
  g.visit(st,st.cur,v);if(st.winner!==null||st.done)return mgEnd();st.endTurn=true;mgNext();if(st.winner!==null||st.done)return mgEnd();save();render();}
-function mgUndo(){const st=S.live;const h=st.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen');const o=JSON.parse(h);o.hist=st.hist;S.live=o;save();render();}
+function mgUndo(){const st=S.live;if(!onlOk(true))return;const h=st.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen');const o=JSON.parse(h);o.hist=st.hist;S.live=o;save();render();}
 function mgEnd(){const st=S.live,g=MG[st.id];let rank=g.result(st);if(st.winner!==null){rank=[st.winner,...rank.filter(i=>i!==st.winner)];}
  let draw=st.draw;mgFxShow(st);
  const ss=st.sets;if(ss&&ss.n>1){const w=draw?null:st.ps[rank[0]];if(w)ss.wins[w]=(ss.wins[w]||0)+1;
   const champ=w&&ss.wins[w]>=ss.need;
   if(!champ&&ss.no<ss.n){const ps2=[...st.ps.slice(1),st.ps[0]];const order=[...st.ps].sort((a,b)=>(ss.wins[b]||0)-(ss.wins[a]||0));
-   S.live=newMG(st.id,ps2,{...ss,no:ss.no+1},st.lv);save();render();
+   S.live=newMG(st.id,ps2,{...ss,no:ss.no+1},st.lv);if(st.online){S.live.online=st.online;S.live.seq=(st.seq||0);}save();render();
    modal(`<h2>${w?`🏆 Durchgang ${ss.no} an ${esc(U(w).nick)}!`:`🤝 Durchgang ${ss.no} unentschieden`}</h2><p class="muted">${g.name} · Best of ${ss.n} – wer zuerst ${ss.need} Durchgänge gewinnt, holt das Spiel.</p>
     <table>${order.map(id=>`<tr><td>${AV(U(id),26)} ${esc(U(id).nick)}</td><td style="text-align:right"><b>${ss.wins[id]||0}</b> ${'🏆'.repeat(ss.wins[id]||0)}</td></tr>`).join('')}</table>
     <p class="muted small" style="margin:12px 0 0">Im nächsten Durchgang fängt ${esc(U(ps2[0]).nick)} an.</p>
     <button class="pri" style="width:100%;margin-top:12px;padding:14px" onclick="closeModal()">▶ Durchgang ${ss.no+1} starten</button>`);return;}
   const pos=i=>rank.indexOf(i);const idx=st.ps.map((x,i)=>i).sort((a,b)=>(ss.wins[st.ps[b]]||0)-(ss.wins[st.ps[a]]||0)||pos(a)-pos(b));
   rank=idx;const top=ss.wins[st.ps[idx[0]]]||0;draw=idx.length>1&&(ss.wins[st.ps[idx[1]]]||0)===top;st.draw=draw;}st.ps.forEach((id,i)=>{if(!isGuest(id))S.trainings.push({id:uid(),uid:id,date:Date.now(),mode:'mg',mg:st.id,gid:st.gid,rank:draw?1:rank.indexOf(i)+1,n:st.ps.length});});
- S.live=null;save();view='mg';param=st.id;render();
+ if(st.online)onlDone(st,draw?'🤝 Unentschieden':`🏆 ${U(st.ps[rank[0]]).nick} gewinnt`);S.live=null;save();if(st.online){view='online';param=null;}else{view='mg';param=st.id;}render();
  modal(`<h2>${draw?'🤝 Unentschieden!':`🏆 ${esc(U(st.ps[rank[0]]).nick)} gewinnt!`}</h2><p class="muted">${g.name}</p>
  <table>${rank.map((i,k)=>`<tr><td>${draw?'–':k+1+'.'}</td><td>${AV(U(st.ps[i]),26)} ${esc(U(st.ps[i]).nick)}</td><td style="text-align:right">${ss&&ss.n>1?`<b>${ss.wins[st.ps[i]]||0}</b> ${'🏆'.repeat(ss.wins[st.ps[i]]||0)}`:g.status(st,i)}</td></tr>`).join('')}</table>
- <div class="row" style="margin-top:14px"><button class="ghost sp" onclick="closeModal()">Schließen</button><button class="pri sp" onclick="closeModal();startMG('${st.id}')">Revanche</button></div>`);}
+ <div class="row" style="margin-top:14px"><button class="ghost sp" onclick="closeModal()">Schließen</button>${st.online?'':`<button class="pri sp" onclick="closeModal();startMG('${st.id}')">Revanche</button>`}</div>`);}
 function vMG(){const st=S.live,g=MG[st.id];const p=st.cur;
  const nums=[...Array(20).keys()].map(i=>i+1);
  const padHTML=`${g.visitInput?`<div class="card mgvis" style="padding:12px"><div class="inbox">${st.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div><div class="quick" style="margin-bottom:8px">${[...getQuick(),0].map(v=>`<button onclick="mgVisit(${v})">${v}</button>`).join('')}<button onclick="quickEdit()" title="Schnellwahl-Tasten festlegen">⚙️</button></div>
@@ -1793,7 +1900,7 @@ function vMG(){const st=S.live,g=MG[st.id];const p=st.cur;
  <div class="mggrid">${nums.map(n=>`<button onclick="mgThrow(${n})">${st.mult===3?'T':st.mult===2?'D':''}${n}</button>`).join('')}</div>
  <div class="row" style="gap:6px;margin-top:6px"><button class="sp" style="padding:14px 0;font-weight:800" onclick="mgThrow(25)">${st.mult>=2?'Bullseye 50':'Bull 25'}</button><button class="sp red" style="padding:14px 0" onclick="mgThrow(0)">Daneben</button><button style="padding:14px 18px" onclick="mgUndo()">↶</button></div></div>`}`;
  if(bigOn())return vMGbig(st,g,p,padHTML);
- return `<div class="row muted small" style="margin-bottom:8px"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="row muted small" style="margin-bottom:8px">${st.online?'<span class="badge g">🌐 Online</span>':''}<b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="card mgpl" style="padding:10px 12px">${st.ps.map((id,i)=>`<div class="row ${i===p?'mgcur':''}" style="flex-wrap:nowrap;padding:8px;border-radius:12px;${i===p?'background:linear-gradient(90deg,#1fb35a26,transparent);box-shadow:inset 3px 0 0 var(--accent)':''};${mgActive(st,i)?'':'opacity:.45'}">${AV(U(id),36)}<div class="sp" style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(U(id).nick)}</b><div class="muted small" style="margin-top:2px">${g.status(st,i)}</div></div>${i===p?'<span class="badge g">am Zug</span>':''}</div>`).join('')}</div>
  ${g.extra?g.extra(st):''}
  <div class="card mgtask" style="text-align:center;padding:14px"><div class="muted small">${esc(U(st.ps[p]).nick)} ist dran${g.visitInput?' · Aufnahme eintippen':` · Dart ${st.dart+1} von 3`}</div>
@@ -1807,7 +1914,7 @@ function vMGbig(st,g,p,padHTML){const n=st.ps.length;
   <div class="nm">${AV(U(id))}<span>${esc(U(id).nick)}${mgTro(st,id)}</span></div>
   <div class="stv">${g.status(st,i)}</div>
   ${cur?`<div class="hint">${g.hint(st,p)}</div>${g.visitInput?'':`<div class="dts">${[0,1,2].map(k=>`<span class="${k===st.dart?'on':''}">${st.darts[k]?dName(st.darts[k]):'·'}</span>`).join('')}</div>`}`:''}</div>`;}).join('');
- return `<div class="mgb"><div class="row muted small mgtop"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="mgb"><div class="row muted small mgtop">${st.online?'<span class="badge g">🌐 Online</span>':''}<b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="mggrid2"><div class="mgl"><div class="mgps n${Math.min(n,8)}">${cards}</div>${g.extra?`<div class="mgx">${g.extra(st)}</div>`:''}</div><div class="mgr">${padHTML}</div></div></div>`;}
 
 /* ===================== Turniere ===================== */
@@ -2203,11 +2310,11 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&view==='home'&&m.role!=='player')view='tour';
  if(m&&view==='admin'&&!isStaff())view='home';
  if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null;
- renderHeader();renderNav();setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
+ renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
-  case'mysettings':h=vMySettings();break;case'watch':h=isStaff()||m.role==='player'?vWatch(param):'';break;case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
+  case'online':h=vOnline(param);break;case'mysettings':h=vMySettings();break;case'watch':h=isStaff()||m.role==='player'?vWatch(param):'';break;case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
   case'live':h=S.live.kind==='mg'?vMG():S.live.kind==='ex'?vEx():S.live.kind==='x01'?vX01():S.live.kind==='atc'?vATC():S.live.kind==='bob'?vBob():vScore();break;}
  app.innerHTML=h+(view!=='live'&&!SY.on?`<div class="proto">Testversion · Daten werden nur auf diesem Gerät gespeichert</div>`:'');syBadge();try{document.querySelectorAll('#app .seg').forEach(g=>{const b=g.querySelector('button.on');if(b&&g.scrollWidth>g.clientWidth)g.scrollLeft=b.offsetLeft-g.clientWidth/2+b.offsetWidth/2;});}catch(e){}}
 document.addEventListener('keydown',e=>{if(view!=='live'||!S.live||document.getElementById('modal').classList.contains('show'))return;
