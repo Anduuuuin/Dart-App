@@ -607,14 +607,14 @@ function syInfoCard(){if(!SY.on)return'';const t=SY.last?new Date(SY.last).toLoc
 let meId=null;try{meId=sessionStorage.getItem(KEY+'_me');}catch(e){}
 const me=()=>S.users.find(u=>u.id===meId)||null;
 function setMe(id){meId=id;try{id?sessionStorage.setItem(KEY+'_me',id):sessionStorage.removeItem(KEY+'_me');}catch(e){}}
-const U=id=>{if(typeof id==='string'&&id.startsWith('g:'))return{id,nick:id.slice(2),guest:true};return S.users.find(u=>u.id===id)||{nick:'Gelöscht',gone:true};};
-const isGuest=id=>typeof id==='string'&&id.startsWith('g:');
+const U=id=>{if(typeof id==='string'&&id.startsWith('g:'))return{id,nick:id.slice(2),guest:true};if(typeof id==='string'&&id.startsWith('bot:'))return{id,nick:'Dartbot Ø '+(parseInt(id.slice(4),10)||60),guest:true,bot:true,avatar:'🤖'};return S.users.find(u=>u.id===id)||{nick:'Gelöscht',gone:true};};
+const isGuest=id=>typeof id==='string'&&(id.startsWith('g:')||id.startsWith('bot:'));
 function AV(u,sz){u=u||{};const z=sz?`width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.4)}px;`:'';
  if(u.photo)return `<img class="avi" style="${z}" src="${u.photo}" alt="">`;
  const ini=(u.nick||'?').split(/[\s\-_.]+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('')||'?';
  const pal=['#1fb35a','#e3262f','#2a7f62','#b8323a','#3e9b5b','#7a2a33','#20523b','#8c5a1f'];let h=0;for(const ch of (u.nick||''))h=(h*31+ch.charCodeAt(0))>>>0;
  const bg=u.guest?'#2a302e':u.role==='admin'||u.role==='club'?'#0b0e0d':pal[h%pal.length];
- return `<span class="avi" style="${z}background:${bg}">${u.role==='club'?'🏟':u.role==='admin'?'⚙':ini}</span>`;}
+ return `<span class="avi" style="${z}background:${bg}">${u.bot?'🤖':u.role==='club'?'🏟':u.role==='admin'?'⚙':ini}</span>`;}
 const allPlayers=()=>S.users.filter(u=>u.role==='player').sort((a,b)=>a.nick.localeCompare(b.nick));
 const players=()=>allPlayers().filter(u=>!u.priv); // Privatprofile (Familie/Freunde) tauchen in keiner Vereinsliste auf
 const isStaff=()=>me()&&(me().role==='admin'||me().role==='club');
@@ -667,7 +667,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=21;
+const APPV=22;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -836,6 +836,64 @@ function vOnline(id){const m=me();S.online=S.online||{};
  <p class="muted small" style="margin:8px 0 0">Wer anfängt, entscheidet der Zufall. Die Spiele zählen ganz normal in die Statistik.</p></div>
  ${done.length?`<div class="sec">🏁 Zuletzt gespielt</div>${done.map(g=>`<div class="card" style="padding:10px 14px"><b>${g.players.map(p=>esc(U(p).nick)).join(' vs ')}</b><div class="muted small">${esc(onlTitle(g))} · ${esc(g.status==='abandoned'?`${U(g.by).nick} hat aufgegeben`:g.result||'beendet')} · ${dstr(g.at)}</div></div>`).join('')}`:''}`;}
 setInterval(()=>{if(!document.hidden&&SY.on&&SY.key&&((S.live&&S.live.online)||view==='online'))syRun();},1000);
+/* ===================== Dartbot: wirft Pfeil für Pfeil auf ein echtes Board-Modell (Streuung je nach Stärke) ===================== */
+const BOT_ORDER=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+const BOT_LV=[[20,'Anfänger'],[30,'Einsteiger'],[40,'Hobby'],[50,'Kneipe'],[60,'Liga'],[70,'Gut'],[80,'Stark'],[90,'Top-Amateur'],[100,'Profi'],[110,'Weltklasse']];
+const isBot=id=>typeof id==='string'&&id.startsWith('bot:');
+const botLv=id=>parseInt(String(id).slice(4),10)||60;
+function botAim(t){/* Zielpunkt in mm, Mitte = 0,0 */
+ if(t==='Bull'||t==='25')return[0,0];const m=/^([TD]?)(\d+)$/.exec(t);if(!m)return[0,0];const n=+m[2],i=BOT_ORDER.indexOf(n);
+ const r=m[1]==='T'?103:m[1]==='D'?166:134;const a=(90-i*18)*Math.PI/180;return[r*Math.cos(a),r*Math.sin(a)];}
+function botHit(x,y){const r=Math.hypot(x,y);if(r<=6.35)return{n:25,m:2,v:50};if(r<=15.9)return{n:25,m:1,v:25};if(r>170)return{n:0,m:0,v:0};
+ const deg=Math.atan2(y,x)*180/Math.PI;const a=((90-deg+9)%360+360)%360;const n=BOT_ORDER[Math.floor(a/18)%20];
+ const m=r>=99&&r<=107?3:r>=162?2:1;return{n,m,v:n*m};}
+let BOT_RNG=Math.random;
+function botGauss(){let u=0,v=0;while(!u)u=BOT_RNG();while(!v)v=BOT_RNG();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function botThrow(t,sig){const[x,y]=botAim(t);return botHit(x+botGauss()*sig,y+botGauss()*sig);}
+const botName=d=>d.v===0?'0':d.n===25?(d.m===2?'Bull':'25'):(d.m===3?'T':d.m===2?'D':'')+d.n;
+/* Wohin zielen? rest = Rest, k = Darts übrig in der Aufnahme */
+function botTarget(rest,k,out,inn){
+ if(!inn)return 'D20';
+ if(out==='single'){if(rest<=20)return String(rest);if(rest===25||rest===50)return rest===50?'Bull':'25';if(rest<=60&&rest%3===0)return 'T'+rest/3;if(rest<=40&&rest%2===0)return 'D'+rest/2;
+  if(rest<=60){return rest-20<=20?'20':'T20';}return 'T20';}
+ const T=out==='master'?MCO:CO;const r=T[rest];if(r&&r.length<=k)return r[0];
+ if(rest>60){const after=rest-60;if(after>=2&&after!==1)return 'T20';return 'T19';}
+ /* Rest ohne Finish in k Darts: auf einen guten Doppel-Rest stellen */
+ for(const f of [32,40,16,24,36,20,8,12,28,4,2]){const s=rest-f;if(s>=1&&s<=20)return String(s);}
+ return rest>40?'T20':'1';}
+/* eine ganze Aufnahme simulieren */
+function botVisit(rest,out,inn,sig){const ds=[];let r=rest,inNow=inn,sum=0;
+ for(let k=3;k>=1;k--){const t=botTarget(r,k,out,inNow);const d=botThrow(t,sig);ds.push(d);
+  if(!inNow){if(d.m===2){inNow=true;}else continue;}
+  const nr=r-d.v;const okFin=out==='single'?true:out==='master'?d.m>=2:d.m===2;
+  if(nr<0||(out!=='single'&&nr===1)||(nr===0&&!okFin))return{ds,bust:true,sum:0,inn:inNow};
+  sum+=d.v;r=nr;if(r===0)return{ds,fin:true,sum,darts:ds.length,inn:true};}
+ return{ds,sum,inn:inNow};}
+/* Streuung passend zum gewünschten Average finden (einmal je Stufe, dann gemerkt) */
+const BOT_SIG={20:36.0,30:26.5,40:20.0,50:15.8,60:13.2,70:11.3,80:9.0,90:7.5,100:6.4,110:5.4};
+function botSigma(avg){if(BOT_SIG[avg])return BOT_SIG[avg];let s0=1;const seed=()=>{s0=1;BOT_RNG=()=>{s0=(s0*16807)%2147483647;return s0/2147483647;};};
+ const sim=sig=>{seed();let pts=0,darts=0;for(let leg=0;leg<80;leg++){let r=501;for(let v=0;v<60&&r>0;v++){const x=botVisit(r,'double',true,sig);if(x.fin){pts+=r;darts+=x.darts;r=0;}else{pts+=x.sum;r-=x.sum;darts+=3;}}}return pts/darts*3;};
+ let lo=2,hi=400;for(let it=0;it<22;it++){const mid=(lo+hi)/2;if(sim(mid)>avg)lo=mid;else hi=mid;}
+ BOT_RNG=Math.random;return BOT_SIG[avg]=(lo+hi)/2;}
+
+/* Bot im X01-Spiel: ist er dran, wirft er von selbst – Pfeil für Pfeil sichtbar */
+const BOT={t:null,key:null,show:[],acting:false};
+function botCur(){const L=S.live;return !!(L&&L.kind==='x01'&&!L.online&&isBot(L.players[L.cur]));}
+function botStop(){clearTimeout(BOT.t);BOT.t=null;BOT.key=null;BOT.show=[];}
+function botTick(){if(WATCH||view!=='live'||!botCur()){if(!botCur())BOT.show=[];return;}
+ const L=S.live,key=L.legsTotal.join()+'|'+L.hist.length+'|'+L.cur;if(BOT.key===key)return;botStop();BOT.key=key;
+ const i=L.cur,id=L.players[i],sig=botSigma(botLv(id)),rest=L.scores[i],out=outOf(L,i),inn=!L.din||!L.inn||L.inn[i];
+ const res=botVisit(rest,out,inn,sig);const live=L;let k=0;
+ const step=()=>{if(S.live!==live||BOT.key!==key)return;
+  if(k<res.ds.length){BOT.show.push(botName(res.ds[k]));k++;render();BOT.t=setTimeout(step,k<res.ds.length?650:900);return;}
+  BOT.acting=true;try{if(res.fin){finishLeg(rest,res.darts);toast(`🤖 ${esc(U(id).nick)} checkt ${rest}!`);}else if(res.bust)visit(0,true);else visit(res.sum);}
+  finally{BOT.acting=false;BOT.show=[];}};
+ BOT.t=setTimeout(step,700);}
+function botLevelsHTML(){const cur=(setup.slots.find(sl=>isBot(sl.id))||{}).id;
+ return `<label>🤖 Gegen den Dartbot</label><div class="chips">${BOT_LV.map(([v,l])=>`<button class="${cur==='bot:'+v?'on':''}" onclick="botPick(${v})">Ø ${v}<small style="display:block;font-size:11px;opacity:.75">${l}</small></button>`).join('')}${cur?`<button onclick="botPick(0)">✕ ohne Bot</button>`:''}</div>
+ <p class="muted small" style="margin:6px 0 0">Der Bot wirft Pfeil für Pfeil auf ein echtes Board-Modell – mit Fehlwürfen, Busts und Checkouts passend zu seinem Average. Bot-Spiele zählen für dich in die Statistik.</p>`;}
+function botPick(v){const i=setup.slots.findIndex(sl=>isBot(sl.id));if(!v){if(i>=0)setup.slots.splice(i,1);render();return;}
+ if(i>=0)setup.slots[i].id='bot:'+v;else{const g=setup.slots.findIndex((sl,j)=>j>0&&!sl.id);if(g>=0)setup.slots[g]={id:'bot:'+v,label:'Bot'};else if(setup.slots.length<4)setup.slots.push({id:'bot:'+v,label:'Bot'});else return toast('Maximal 4 Spieler');}render();}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -1115,7 +1173,7 @@ function pickDone(id){const o=PK;closeModal();o.onPick(id);render();}
 /* Slots: [{id|null,label}] */
 function slotsHTML(listExpr,list,{max=4,min=1,allowGuest=true,addLabel='Spieler hinzufügen',fixedFirst=false}={}){
  return `<div class="slots">${list.map((sl,i)=>{const u=sl.id?U(sl.id):{nick:sl.label,guest:true};const fixed=fixedFirst&&i===0;
-  return `<div class="slot ${sl.id?'':'guest'}" ${fixed?'':`onclick="slotPick('${listExpr}',${i},${allowGuest})"`}>${AV(u,40)}<div class="who"><b>${esc(sl.id?u.nick:sl.label)}</b><small>${fixed?'Du':sl.id?'Profil · Statistik wird gespeichert':allowGuest?'Gast · antippen für Profil':'Antippen und Profil wählen'}</small></div>
+  return `<div class="slot ${sl.id?'':'guest'}" ${fixed?'':`onclick="slotPick('${listExpr}',${i},${allowGuest})"`}>${AV(u,40)}<div class="who"><b>${esc(sl.id?u.nick:sl.label)}</b><small>${fixed?'Du':sl.id&&isBot(sl.id)?'Computergegner':sl.id?'Profil · Statistik wird gespeichert':allowGuest?'Gast · antippen für Profil':'Antippen und Profil wählen'}</small></div>
   ${list.length>min&&!fixed?`<button class="x" title="Entfernen" onclick="event.stopPropagation();${listExpr}.splice(${i},1);render()">✕</button>`:''}</div>`;}).join('')}
  ${list.length<max?`<button class="slot add" onclick="${listExpr}.push({id:null,label:'Spieler ${list.length+1}'});render()">＋ ${addLabel}</button>`:''}</div>`;}
 function slotPick(listExpr,i,allowGuest){const list=eval(listExpr);const sl=list[i];
@@ -1129,6 +1187,7 @@ function vPlay(){const self=me().role==='player';
  if(!self&&!setup.slots.length)setup.slots=[{id:null,label:'Heim'},{id:null,label:'Gast'}];
  return `<div class="card"><label style="margin-top:0">Spieler</label>${slotsHTML('setup.slots',setup.slots,{allowGuest:true,fixedFirst:self,addLabel:self?'Gast dazunehmen':'Spieler hinzufügen'})}
  <p class="muted small" style="margin:8px 0 0">${self?'Allein spielen oder einen Gast dazunehmen – deine Werte landen in deiner Statistik.':'Standard ist Heim gegen Gast. Wer seine Statistik will, tippt auf den Platz und wählt sein Profil.'}</p>
+ ${botLevelsHTML()}
  ${optsHTML(setup,'setup',true)}
  ${hcHTML()}
  ${starterHTML()}
@@ -1180,7 +1239,7 @@ function buildX01(ps,start,fmt,dOut,tref,mode){if(typeof fmt==='number')fmt={set
  return {kind:'x01',players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,coOff:!!(me()&&me().coHide),legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
   st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,ch:0,co:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};}
 function vX01(){const L=S.live;const f=L.fmt;
- const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=notIn?'Double In: erst ein Doppel treffen':L.coOff?'':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
+ const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=botCur()?`🤖 ${BOT.show.length?BOT.show.join(' · '):'zielt …'}`:notIn?'Double In: erst ein Doppel treffen':L.coOff?'':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
  const big=bigOn();
  return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.online?'<span class="badge g">🌐 Online</span> ':''}${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost" onclick="togCo()" title="Checkout-Wege anzeigen oder ausblenden">${L.coOff?'🧮 Wege: aus':'🧮 Wege: an'}</button><button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
@@ -1198,11 +1257,11 @@ const BIGQ='(min-width:700px) and (min-height:560px)';
 function bigOn(){if(WATCH)return true;let m=null;try{m=localStorage.getItem('dc_big');}catch(e){}return m==='on'||(m!=='off'&&matchMedia(BIGQ).matches);}
 function togBig(){const n=bigOn()?'off':'on';try{localStorage.setItem('dc_big',n);}catch(e){}render();}
 try{matchMedia(BIGQ).addEventListener('change',()=>{if(view==='live')render();});}catch(e){}
-function key(k){const L=S.live;if(!L)return;if(!onlOk())return;
+function key(k){const L=S.live;if(!L)return;if(!onlOk())return;if(botCur()&&!BOT.acting&&k!=='del'){toast('🤖 Der Dartbot ist dran');return;}
  if(k==='ok'){const v=L.input===''?0:parseInt(L.input,10);L.input='';if(L.kind==='score')scoreVisit(v);else if(L.kind==='mg')mgVisit(v);else if(L.kind==='ex')exNum(v);else visit(v);return;}
  if(k==='del'){L.input=L.input.slice(0,-1);render();return;}
  if(L.input.length>=3)return;L.input=(L.input+k).replace(/^0+(?=\d)/,'');render();}
-function visit(v,forceBust){const L=S.live;if(!onlOk())return;L.input='';
+function visit(v,forceBust){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acting){toast('🤖 Der Dartbot ist dran');return;}L.input='';
  if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
  const i=L.cur,prev=L.scores[i],rest=prev-v,s=L.st[i],T=coTable(L);
  let bust=!!forceBust||rest<0||(T&&rest===1);
@@ -1263,7 +1322,8 @@ function canCheck(rem,d){const L=S.live;if(!L||rem<=0)return false;if(L.din&&L.i
 let lpT=null,lpFired=false;
 function lpStart(d){lpEnd();lpFired=false;lpT=setTimeout(()=>{lpFired=true;lpT=null;try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}const L=S.live;if(!L||L.kind!=='x01')return;const rem=L.scores[L.cur];if(!canCheck(rem,d))return;L.input='';toast(`🎯 ${rem} gecheckt mit ${d} Dart${d>1?'s':''}!`);finishLeg(rem,d);},550);}
 function lpEnd(){if(lpT){clearTimeout(lpT);lpT=null;}}
-function undo(){const L=S.live;if(L.input){L.input='';render();return;}if(!onlOk(true))return;const h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
+function undo(){const L=S.live;if(L.input){L.input='';render();return;}if(!onlOk(true))return;botStop();let h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
+ while(h&&isBot(L.players[h.i])&&L.hist.length&&!L.players.every(isBot)){L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;h=L.hist.pop();}
  L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;save();render();}
 /* Ergebnis entscheiden: wer zuerst die nötige Anzahl hat – sonst nach allen Legs/Sets: Höchster gewinnt, Gleichstand = Unentschieden */
 /* First 9/12/15/18: Punkte der ersten N Darts je Leg sammeln */
@@ -1271,7 +1331,7 @@ function firstN(s,d,v){const a=s.ld||0;s.ld=a+d;s.lp=(s.lp||0)+v;[9,12,15,18].fo
 function decide(arr,bo){const need=fmtNeed(bo);const w=arr.findIndex(x=>x>=need);if(w>=0)return{done:true,w};
  const tot=arr.reduce((a,b)=>a+b,0);if(tot<bo)return{done:false};const mx=Math.max(...arr);const top=arr.map((x,i)=>x===mx?i:-1).filter(i=>i>=0);
  return{done:true,w:top.length===1?top[0]:null};}
-function finishLeg(v,d){const L=S.live;if(!onlOk())return;const i=L.cur,s=L.st[i];const f=L.fmt;if(coTable(L)){s.ch=(s.ch||0)+1;s.co=(s.co||0)+1;}
+function finishLeg(v,d){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acting)return;const i=L.cur,s=L.st[i];const f=L.fmt;if(coTable(L)){s.ch=(s.ch||0)+1;s.co=(s.co||0)+1;}
  firstN(s,d,v);s.darts+=d;s.pts+=v;s.last=v;s.hiCo=Math.max(s.hiCo,v);if(v>=100){s.hf=s.hf||[];s.hf.push(v);}if(v>=140)s.s140++;else if(v>=100)s.s100++;
  L.legs[i]++;L.legsTotal[i]++;let msg=`Leg für ${esc(U(L.players[i]).nick)}!`;
  if(f.sets){if(L.legs[i]>=fmtNeed(f.setLegs)){L.sets[i]++;L.legs=L.players.map(()=>0);msg=`🎯 Set für ${esc(U(L.players[i]).nick)}!`;
@@ -2310,7 +2370,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&view==='home'&&m.role!=='player')view='tour';
  if(m&&view==='admin'&&!isStaff())view='home';
  if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null;
- renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
+ renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
