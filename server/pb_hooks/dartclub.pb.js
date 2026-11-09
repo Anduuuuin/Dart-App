@@ -90,3 +90,13 @@ routerAdd("POST", "/api/dc/feedback/admin", (e) => {
   const recs = $app.findRecordsByFilter("dc_feedback", "id != ''", "-created", 500, 0);
   return e.json(200, { items: recs.map((r) => ({ id: r.id, kind: r.getString("kind"), text: r.getString("text"), sender: r.getString("sender"), ctx: r.get("ctx"), status: r.getString("status"), created: r.getString("created") })) });
 });
+
+// App-Dateien nie veraltet aus dem Browser-Zwischenspeicher holen:
+// Der Browser fragt jedes Mal kurz nach, ob es eine neue Version gibt (Videos ausgenommen).
+routerUse((e) => {
+  const p = e.request.url.path || "/";
+  if (!p.startsWith("/api/") && !p.startsWith("/videos/")) {
+    e.response.header().set("Cache-Control", "no-cache");
+  }
+  return e.next();
+});

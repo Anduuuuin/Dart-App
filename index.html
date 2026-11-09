@@ -650,6 +650,16 @@ function watchBtn(wide){const m=me();if(!m)return '';const on=!!m.watchOk;
   :`<button class="sm ghost" style="${on?'border-color:var(--accent);color:var(--accent)':''}" onclick="togWatch()" title="Darf ein anderes Gerät dieses Spiel live anzeigen?">${on?'📺 Zuschauer: an':'📺 Zuschauer: aus'}</button>`;}
 function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render();
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
+
+/* ===================== Version & automatisches Update ===================== */
+const APPV=16;
+async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
+ try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
+ const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
+ if(!busy){location.reload();return;}
+ if(!window.__updToast){window.__updToast=1;toast('🔄 Neue App-Version da – sie wird nach dem Spiel automatisch geladen');}}catch(e){}}
+setInterval(checkUpdate,60000);setTimeout(checkUpdate,4000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate();});
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -683,7 +693,7 @@ function fbBody(){const it=(FB.items||[]).filter(x=>FB.filter==='all'||x.status!
   <div class="row" style="margin-top:10px">${x.status==='neu'?`<button class="sm" onclick="fbAct('${x.id}','gelesen')">👁 Gelesen</button>`:''}${x.status!=='erledigt'?`<button class="sm pri" onclick="fbAct('${x.id}','erledigt')">✔ Erledigt</button>`:`<button class="sm" onclick="fbAct('${x.id}','gelesen')">↺ Wieder öffnen</button>`}<span class="sp"></span><button class="sm red" onclick="fbAct('${x.id}','delete')">🗑</button></div></div>`;}).join(''):`<div class="card"><p class="muted" style="margin:0">${FB.filter==='open'?'Keine offenen Rückmeldungen 🎉':'Noch keine Rückmeldungen.'}</p></div>`}`;}
 /* ===================== Hilfe-Videos „So geht's“ ===================== */
 const HELPV=[['1-profil-anlegen','👤','Profil anlegen'],['2-app-installieren','📲','App aufs Handy holen'],['3-statistik','📈','Deine Statistik'],['4-spiele-und-training','🎯','Spielen & Trainieren'],['5-feedback-geben','💬','Feedback geben'],['6-zuschauer-anzeige','📺','Zuschauer-Anzeige (PC/TV)']];
-function helpVideos(){modal(`<h3 style="margin-top:0">❓ So geht's</h3><p class="muted small" style="margin-top:0">Kurze Videos ohne Ton – einfach antippen.</p>
+function helpVideos(){modal(`<h3 style="margin-top:0">❓ So geht's</h3><p class="muted small" style="margin-top:0">Kurze Videos ohne Ton – einfach antippen. · App-Version ${APPV}</p>
  <div class="hvl">${HELPV.map(([f,i,t])=>`<button class="hvt" onclick="playHelp('${f}')"><img src="videos/${f}.jpg" alt="" loading="lazy"><span>${i} ${t}</span></button>`).join('')}</div>
  ${SY.on&&SY.key?`<div style="margin-top:12px">${fbBtn(true)}</div>`:''}<button class="ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Schließen</button>`);}
 function playHelp(f){const v=HELPV.find(x=>x[0]===f);modal(`<div class="row" style="margin-bottom:10px;flex-wrap:nowrap"><b class="sp">${v[1]} ${v[2]}</b><button class="sm ghost" onclick="helpVideos()">← Alle Videos</button></div>
@@ -1685,7 +1695,7 @@ function vMG(){const st=S.live,g=MG[st.id];const p=st.cur;
  <div class="mggrid">${nums.map(n=>`<button onclick="mgThrow(${n})">${st.mult===3?'T':st.mult===2?'D':''}${n}</button>`).join('')}</div>
  <div class="row" style="gap:6px;margin-top:6px"><button class="sp" style="padding:14px 0;font-weight:800" onclick="mgThrow(25)">${st.mult>=2?'Bullseye 50':'Bull 25'}</button><button class="sp red" style="padding:14px 0" onclick="mgThrow(0)">Daneben</button><button style="padding:14px 18px" onclick="mgUndo()">↶</button></div></div>`}`;
  if(bigOn())return vMGbig(st,g,p,padHTML);
- return `<div class="row muted small" style="margin-bottom:8px"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span>${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="row muted small" style="margin-bottom:8px"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="card mgpl" style="padding:10px 12px">${st.ps.map((id,i)=>`<div class="row ${i===p?'mgcur':''}" style="flex-wrap:nowrap;padding:8px;border-radius:12px;${i===p?'background:linear-gradient(90deg,#1fb35a26,transparent);box-shadow:inset 3px 0 0 var(--accent)':''};${mgActive(st,i)?'':'opacity:.45'}">${AV(U(id),36)}<div class="sp" style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(U(id).nick)}</b><div class="muted small" style="margin-top:2px">${g.status(st,i)}</div></div>${i===p?'<span class="badge g">am Zug</span>':''}</div>`).join('')}</div>
  ${g.extra?g.extra(st):''}
  <div class="card mgtask" style="text-align:center;padding:14px"><div class="muted small">${esc(U(st.ps[p]).nick)} ist dran${g.visitInput?' · Aufnahme eintippen':` · Dart ${st.dart+1} von 3`}</div>
@@ -1699,7 +1709,7 @@ function vMGbig(st,g,p,padHTML){const n=st.ps.length;
   <div class="nm">${AV(U(id))}<span>${esc(U(id).nick)}</span></div>
   <div class="stv">${g.status(st,i)}</div>
   ${cur?`<div class="hint">${g.hint(st,p)}</div>${g.visitInput?'':`<div class="dts">${[0,1,2].map(k=>`<span class="${k===st.dart?'on':''}">${st.darts[k]?dName(st.darts[k]):'·'}</span>`).join('')}</div>`}`:''}</div>`;}).join('');
- return `<div class="mgb"><div class="row muted small mgtop"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span>${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="mgb"><div class="row muted small mgtop"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="mggrid2"><div class="mgl"><div class="mgps n${Math.min(n,8)}">${cards}</div>${g.extra?`<div class="mgx">${g.extra(st)}</div>`:''}</div><div class="mgr">${padHTML}</div></div></div>`;}
 
 /* ===================== Turniere ===================== */
