@@ -336,6 +336,7 @@ body.livebig #toast{font-size:min(5vh,3.4vw);padding:2vh 3vw;bottom:4vh}
 .hvt span{padding:9px 10px;font-weight:700;font-size:14px;line-height:1.25}
 .fbc.neu{border-color:#f2c14e88}
 .fbc.erledigt{opacity:.6}
+.pinf{-webkit-text-security:disc;letter-spacing:3px}
 </style>
 </head>
 <body>
@@ -356,6 +357,8 @@ function fresh(){return{users:[
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))||fresh();}catch(e){S=fresh();}
 S.settings=S.settings||{boards:4};S.teams=S.teams||[];
+/* PIN-Felder bewusst KEINE Passwortfelder: sonst bietet der Browser an, die PIN zu speichern (und Google synchronisiert sie auf alle Geräte bzw. der Nächste am Vereins-Tablet bekommt sie angeboten). Punkte statt Ziffern per CSS. */
+const PINT=(window.CSS&&CSS.supports&&CSS.supports('-webkit-text-security','disc'))?'text':'password';
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 function save(){saveLocal();if(typeof sySchedule==='function')sySchedule();}
 /* ===================== Server-Abgleich (eigener Vereinsserver) ===================== */
@@ -613,12 +616,12 @@ function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=allPlayers();
  <div class="grid2">
  <div class="card" style="margin:0"><h3>🏠 Spieler-Login</h3><p class="muted small">Für zu Hause: Training, Spielen und deine Statistik.</p>
  ${ps.length?`<label>Spitzname</label><select id="lpl">${(()=>{const mine=myDevicePlayer();return `<option value="" ${mine?'':'selected'} disabled>– Spitzname wählen –</option>`+ps.map(p=>`<option value="${p.id}" ${p.id===mine?'selected':''}>${esc(p.nick)}</option>`).join('');})()}</select>
- <label>PIN</label><input id="lppin" type="password" inputmode="numeric" maxlength="4" placeholder="4 Ziffern">
+ <label>PIN</label><input id="lppin" type="${PINT}" class="pinf" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" maxlength="4" placeholder="4 Ziffern">
  <button class="pri" style="width:100%;margin-top:12px" onclick="loginPlayer()">Anmelden</button>`:'<p class="muted small">Noch keine Profile.</p>'}
  <button class="ghost" style="width:100%;margin-top:8px" onclick="newProfile(true)">＋ Neues Profil anlegen</button></div>
  <div class="card" style="margin:0"><h3>🏟️ Verein & Admin</h3><p class="muted small">Für Laptop und Tablets im Vereinsheim: Turniere, Boards, Training.</p>
  <label>Zugang</label><select id="lacc"><option value="club">Vereinszugang</option><option value="admin">Admin</option></select>
- <label>PIN</label><input id="lpin" type="password" inputmode="numeric" placeholder="PIN">
+ <label>PIN</label><input id="lpin" type="${PINT}" class="pinf" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="PIN">
  <button class="pri" style="width:100%;margin-top:12px" onclick="loginStaff()">Anmelden</button></div></div>`;}
 function loginPlayer(){const id=document.getElementById('lpl').value,pin=document.getElementById('lppin').value;if(!id)return toast('Bitte zuerst deinen Spitznamen wählen');const u=S.users.find(x=>x.id===id);
  if(u&&(u.pin||'')===pin){rememberDevicePlayer(id);setMe(id);go('home');}else toast('Falsche PIN');}
@@ -631,7 +634,7 @@ let newPhoto=null;
 function newProfile(loginAfter){newPhoto=null;
  modal(`<h3>Neues Spielerprofil</h3><label>Spitzname</label><input id="npn" maxlength="20" placeholder="z. B. Pfeilblitz">
  <label>Profilbild (optional)</label><div class="row"><span id="npav">${AV({nick:'?'},56)}</span><label class="ghost" style="margin:0;cursor:pointer;padding:10px 14px;border:1px solid var(--line);border-radius:12px;color:var(--text)">📷 Bild wählen<input type="file" accept="image/*" style="display:none" onchange="loadImg(this.files[0],d=>{newPhoto=d;document.getElementById('npav').innerHTML=AV({photo:d},56);})"></label></div>
- <label>PIN für den Login zu Hause (4 Ziffern)</label><input id="npp" type="password" inputmode="numeric" maxlength="4" placeholder="z. B. 2580">
+ <label>PIN für den Login zu Hause (4 Ziffern)</label><input id="npp" type="${PINT}" class="pinf" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" maxlength="4" placeholder="z. B. 2580">
  <p class="muted small" style="margin:6px 0 0">Im Verein braucht man die PIN nicht – dort wird das Profil einfach angetippt.</p>
  <label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;cursor:pointer"><input id="nppriv" type="checkbox" style="width:auto;margin-top:3px"><span><b>🔒 Privatprofil</b><br><span class="muted small">Für Familie und Freunde, die zu Hause mitspielen: eigene Statistik, aber nicht in Vereinslisten, Ranglisten, Gruppen oder Turnieren.</span></span></label>
  <div class="row" style="margin-top:16px"><button class="ghost sp" onclick="closeModal()">Abbrechen</button><button class="pri sp" onclick="createProfile(${loginAfter})">Anlegen</button></div>`);
