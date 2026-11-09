@@ -12,6 +12,8 @@ videos/3-statistik.mp4 pb_public/videos/3-statistik.mp4 app
 videos/3-statistik.jpg pb_public/videos/3-statistik.jpg app
 videos/4-spiele-und-training.mp4 pb_public/videos/4-spiele-und-training.mp4 app
 videos/4-spiele-und-training.jpg pb_public/videos/4-spiele-und-training.jpg app
+videos/5-feedback-geben.mp4 pb_public/videos/5-feedback-geben.mp4 app
+videos/5-feedback-geben.jpg pb_public/videos/5-feedback-geben.jpg app
 server/pb_hooks/dartclub.pb.js pb_hooks/dartclub.pb.js srv
 server/pb_migrations/1762500000_dartclub.js pb_migrations/1762500000_dartclub.js srv
 server/pb_migrations/1762700000_feedback.js pb_migrations/1762700000_feedback.js srv
