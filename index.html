@@ -667,7 +667,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=20;
+const APPV=21;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -817,7 +817,7 @@ function vOnline(id){const m=me();S.online=S.online||{};
  const others=players().filter(u=>u.id!==meId);
  const mgList=Object.entries(MG).filter(([k,g])=>g.max>=2);
  const kind=onlNew.kind;
- return `<div class="ph"><h1>🌐 Online spielen</h1><p>Spiel gegen Vereinsmitglieder – jeder an seinem eigenen Board, jeder tippt seine eigenen Würfe ein. Der andere sieht alles sofort.</p></div>
+ return `<div class="ph"><div class="row"><h1 class="sp">🌐 Online spielen</h1><button class="ghost" onclick="go('watch')">📺 Live zuschauen${liveScreens().length?` <span class="badge g">${liveScreens().length} live</span>`:''}</button></div><p>Spiel gegen Vereinsmitglieder – jeder an seinem eigenen Board, jeder tippt seine eigenen Würfe ein. Der andere sieht alles sofort.</p></div>
  ${inv.length?`<div class="sec">📨 Einladungen an dich</div>${inv.map(g=>`<div class="card"><div class="row"><div class="sp"><b>${esc(U(g.host).nick)}</b> lädt dich ein<div class="muted small">${esc(onlTitle(g))}${g.players.length>2?` · mit ${g.players.filter(p=>p!==g.host&&p!==meId).map(p=>esc(U(p).nick)).join(', ')}`:''}</div></div></div>
   <div class="row" style="margin-top:10px"><button class="ghost sp" onclick="onlDecline('${g.id}')">Ablehnen</button><button class="pri sp" onclick="onlAccept('${g.id}')">✓ Annehmen & spielen</button></div></div>`).join('')}`:''}
  ${live.length?`<div class="sec">🎯 Laufende Spiele</div>${live.map(g=>{const cur=g.live?onlCurId(g.live):null;return `<div class="card"><div class="row"><div class="sp"><b>${g.players.map(p=>esc(U(p).nick)).join(' vs ')}</b><div class="muted small">${esc(onlTitle(g))} · ${cur===meId?'<b style="color:var(--accent)">du bist dran</b>':`${esc(U(cur).nick)} ist dran`}</div></div><button class="pri" onclick="onlResume('${g.id}')">▶ Weiter</button></div></div>`;}).join('')}`:''}
@@ -1039,7 +1039,7 @@ function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
   <button class="qbtn hero" onclick="trTab='ex';go('train')"><span class="i">📋</span><b>Übung starten</b><small>${Object.keys(EX).length} Übungen mit Anleitung</small></button>
   <button class="qbtn" onclick="trTab='plans';go('train')"><span class="i">🗂️</span><b>Trainingsplan</b><small>Mehrere Übungen am Stück</small></button>
   <button class="qbtn" onclick="trTab='play';go('train')"><span class="i">🎯</span><b>X01 spielen</b><small>170 bis 1001</small></button>
-  <button class="qbtn" onclick="trTab='games';go('train')"><span class="i">🕐</span><b>Trainingsspiele</b><small>ATC, Bob's 27, Scoring</small></button>${SY.on?`<button class="qbtn" onclick="go('online')"><span class="i">🌐</span><b>Online spielen</b><small>Gegen Vereinsmitglieder von zu Hause</small></button>`:''}</div>
+  <button class="qbtn" onclick="trTab='games';go('train')"><span class="i">🕐</span><b>Trainingsspiele</b><small>ATC, Bob's 27, Scoring</small></button>${SY.on?`<button class="qbtn" onclick="go('online')"><span class="i">🌐</span><b>Online spielen</b><small>Gegen Vereinsmitglieder von zu Hause</small></button><button class="qbtn" onclick="go('watch')"><span class="i">📺</span><b>Live zuschauen</b><small>${liveScreens().length?`<span class="badge g">● ${liveScreens().length} live</span>`:'Laufende Spiele groß ansehen'}</small></button>`:''}</div>
  <div class="sec">Deine Woche</div>
  <div class="stats">
   <div class="stat"><div class="v">${c.week}</div><div class="k">Einheiten 7 Tage</div></div>
