@@ -482,7 +482,7 @@ function save(){try{scrUpdate();}catch(e){}saveLocal();if(typeof sySchedule==='f
 /* Zuschauer-Anzeige: Läuft auf diesem Gerät ein Spiel, wird der Stand als „Bildschirm“ an den Server geschickt */
 function DEV(){let d=null;try{d=localStorage.getItem('dc_dev');if(!d){d=uid();localStorage.setItem('dc_dev',d);}}catch(e){d=d||'x';}return d;}
 function scrUpdate(){if(typeof SY==='undefined'||!SY.on||!SY.key||S.demo)return;S.screens=S.screens||{};const d=DEV();
- if(S.live){const m=me();S.screens[d]={by:m?m.nick:'?',live:JSON.parse(JSON.stringify(S.live)),at:Date.now()};}else if(S.screens[d])delete S.screens[d];}
+ const m=me();if(S.live&&m&&m.watchOk){S.screens[d]={by:m.nick,live:JSON.parse(JSON.stringify(S.live)),at:Date.now()};}else if(S.screens[d])delete S.screens[d];}
 /* ===================== Server-Abgleich (eigener Vereinsserver) ===================== */
 // Läuft die App unter *.anduuuuin.de, werden alle Vereinsdaten mit dem Server abgeglichen.
 // Auf GitHub Pages oder als Datei bleibt alles wie bisher nur auf diesem Gerät (Testversion).
@@ -635,7 +635,7 @@ function scrTitle(x){const L=x.live||{};const g=L.kind==='mg'?(MG[L.id]?.name||'
 function vWatch(id){
  if(!id){const list=liveScreens();return `<div class="ph"><div class="row"><h1 class="sp">📺 Zuschauer-Anzeige</h1><button class="ghost" onclick="go(isStaff()?'boards':'home')">← Zurück</button></div><p>Zeigt live und groß, was gerade auf einem anderen Gerät gespielt wird – z. B. hier am PC, während der Caller am Tablet eintippt.</p></div>
   ${list.length?list.map(([d,x])=>{const t=scrTitle(x);return `<button class="card" style="width:100%;text-align:left;display:block" onclick="go('watch','${d}')"><div class="row"><b class="sp" style="font-size:18px">${esc(t.g)}</b><span class="badge g">● live</span></div><div class="muted" style="margin-top:6px">${t.ps.map(esc).join(' · ')}</div><div class="muted small" style="margin-top:4px">eingetippt von ${esc(x.by||'?')}</div></button>`;}).join('')
-  :'<div class="card"><p class="muted" style="margin:0">Gerade läuft auf keinem anderen Gerät ein Spiel. Sobald jemand am Tablet ein Spiel startet, erscheint es hier von selbst.</p></div>'}`;}
+  :'<div class="card"><p class="muted" style="margin:0">Gerade läuft auf keinem anderen Gerät ein Spiel, das man anschauen darf. Sobald jemand am Tablet ein Spiel startet, erscheint es hier von selbst.</p><p class="muted small" style="margin:10px 0 0">Wichtig: Der Spieler, der am Tablet eingeloggt ist, muss <b>📺 Zuschauen erlauben</b> eingeschaltet haben – auf seiner Startseite oder während des Spiels oben.</p></div>'}`;}
  const x=(S.screens||{})[id];
  const exit=`<button class="watchx" onclick="go('watch',null)" title="Anzeige beenden">✕</button>`;
  if(!x||!x.live)return `${exit}<div class="watchwait"><div class="big">🎯</div><h1>Warte auf das nächste Spiel …</h1><p class="muted">Sobald am Tablet ein neues Spiel startet, erscheint es hier automatisch.</p></div>`;
@@ -644,6 +644,12 @@ function vWatch(id){
  finally{S.live=keep;WATCH=false;}
  return `${exit}<div class="watchmode"><div class="watchlive">● LIVE · ${esc(scrTitle(x).g)}</div>${h}</div>`;}
 setInterval(()=>{if(view==='watch'&&!document.hidden&&SY.on&&SY.key)syRun();},1000);
+
+function watchBtn(wide){const m=me();if(!m)return '';const on=!!m.watchOk;
+ return wide?`<button class="ghost" style="width:100%;${on?'border-color:var(--accent);color:var(--accent)':''}" onclick="togWatch()">${on?'📺 Zuschauen erlaubt – antippen zum Ausschalten':'📺 Zuschauen erlauben (ist aus)'}</button>`
+  :`<button class="sm ghost" style="${on?'border-color:var(--accent);color:var(--accent)':''}" onclick="togWatch()" title="Darf ein anderes Gerät dieses Spiel live anzeigen?">${on?'📺 Zuschauer: an':'📺 Zuschauer: aus'}</button>`;}
+function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render();
+ toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -676,7 +682,7 @@ function fbBody(){const it=(FB.items||[]).filter(x=>FB.filter==='all'||x.status!
   <div class="muted small">Ansicht: ${esc(c.view||'–')}${c.app?' · '+esc(c.app):''}${c.screen?' · '+esc(c.screen):''}</div>
   <div class="row" style="margin-top:10px">${x.status==='neu'?`<button class="sm" onclick="fbAct('${x.id}','gelesen')">👁 Gelesen</button>`:''}${x.status!=='erledigt'?`<button class="sm pri" onclick="fbAct('${x.id}','erledigt')">✔ Erledigt</button>`:`<button class="sm" onclick="fbAct('${x.id}','gelesen')">↺ Wieder öffnen</button>`}<span class="sp"></span><button class="sm red" onclick="fbAct('${x.id}','delete')">🗑</button></div></div>`;}).join(''):`<div class="card"><p class="muted" style="margin:0">${FB.filter==='open'?'Keine offenen Rückmeldungen 🎉':'Noch keine Rückmeldungen.'}</p></div>`}`;}
 /* ===================== Hilfe-Videos „So geht's“ ===================== */
-const HELPV=[['1-profil-anlegen','👤','Profil anlegen'],['2-app-installieren','📲','App aufs Handy holen'],['3-statistik','📈','Deine Statistik'],['4-spiele-und-training','🎯','Spielen & Trainieren'],['5-feedback-geben','💬','Feedback geben']];
+const HELPV=[['1-profil-anlegen','👤','Profil anlegen'],['2-app-installieren','📲','App aufs Handy holen'],['3-statistik','📈','Deine Statistik'],['4-spiele-und-training','🎯','Spielen & Trainieren'],['5-feedback-geben','💬','Feedback geben'],['6-zuschauer-anzeige','📺','Zuschauer-Anzeige (PC/TV)']];
 function helpVideos(){modal(`<h3 style="margin-top:0">❓ So geht's</h3><p class="muted small" style="margin-top:0">Kurze Videos ohne Ton – einfach antippen.</p>
  <div class="hvl">${HELPV.map(([f,i,t])=>`<button class="hvt" onclick="playHelp('${f}')"><img src="videos/${f}.jpg" alt="" loading="lazy"><span>${i} ${t}</span></button>`).join('')}</div>
  ${SY.on&&SY.key?`<div style="margin-top:12px">${fbBtn(true)}</div>`:''}<button class="ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Schließen</button>`);}
@@ -728,7 +734,7 @@ function renderNav(){const m=me();const n=document.getElementById('nav');const o
   if(!on){n.innerHTML='';return;}const k=navKey();
   n.innerHTML=`<div class="nlogo">${LOGO(38)}</div>${tabs().map(([v,i,l])=>`<button class="${k===v?'on':''}" onclick="${v==='train'?"trTab=trTab||'play';":''}go('${v}')"><span class="i">${i}</span><span>${l}</span></button>`).join('')}`;}
 function renderHeader(){const m=me();const h=document.getElementById('hdr');
-  if(!m||view==='live'){h.innerHTML=`<div class="top">${LOGO(30)}${view==='live'?`<div class="me"><button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button></div>`:''}</div>`;return;}
+  if(!m||view==='live'){h.innerHTML=`<div class="top">${LOGO(30)}${view==='live'?`<div class="me">${SY.on&&S.live&&S.live.kind!=='mg'?watchBtn():''}<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button></div>`:''}</div>`;return;}
   const roleL=m.captain?'Kapitän':{admin:'Admin',club:'Verein',player:'Spieler'}[m.role];
   h.innerHTML=`<div class="top">${LOGO(30)}<div class="me">${AV(m)} ${esc(m.nick)} <span class="badge">${roleL}</span><button class="sm ghost" onclick="logout()" title="Abmelden">Abmelden</button></div></div>
   ${demoBar()}`;}
@@ -854,7 +860,7 @@ function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  <div class="card" style="margin-top:12px"><div class="k muted small" style="margin-bottom:8px">AKTIVITÄT LETZTE 4 WOCHEN</div>${heatHTML(m.id)}</div>
  <div class="sec">Gruppen</div>${homeTeams()}
  <button class="ghost" style="width:100%" onclick="go('stats')">📈 Ganze Statistik ansehen</button>
- <div style="margin-top:10px">${helpBtn(true)}</div>${SY.on?`<div style="margin-top:8px">${fbBtn(true)}</div>`:''}`;}
+ <div style="margin-top:10px">${helpBtn(true)}</div>${SY.on?`<div style="margin-top:8px">${watchBtn(true)}</div>`:''}${SY.on?`<div style="margin-top:8px">${fbBtn(true)}</div>`:''}`;}
 
 /* ===================== Statistik-Ansicht ===================== */
 let statTab='over';
@@ -976,7 +982,7 @@ function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=notIn?'Double In: erst ein Doppel treffen':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
  const big=bigOn();
- return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
+ return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
  <div class="xgrid"><div class="xl"><div class="sc-players n${L.players.length}">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${i===L.cur&&L.players.length>1?'<div class="turn">🎯 AM WURF</div>':''}${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
   <div class="nm">${AV(U(id))} ${esc(U(id).nick)}${L.din&&L.inn&&!L.inn[i]?' <span class="badge" title="Noch kein Doppel getroffen">🔒 D-In</span>':''}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
@@ -1679,7 +1685,7 @@ function vMG(){const st=S.live,g=MG[st.id];const p=st.cur;
  <div class="mggrid">${nums.map(n=>`<button onclick="mgThrow(${n})">${st.mult===3?'T':st.mult===2?'D':''}${n}</button>`).join('')}</div>
  <div class="row" style="gap:6px;margin-top:6px"><button class="sp" style="padding:14px 0;font-weight:800" onclick="mgThrow(25)">${st.mult>=2?'Bullseye 50':'Bull 25'}</button><button class="sp red" style="padding:14px 0" onclick="mgThrow(0)">Daneben</button><button style="padding:14px 18px" onclick="mgUndo()">↶</button></div></div>`}`;
  if(bigOn())return vMGbig(st,g,p,padHTML);
- return `<div class="row muted small" style="margin-bottom:8px"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span><button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="row muted small" style="margin-bottom:8px"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span>${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="card mgpl" style="padding:10px 12px">${st.ps.map((id,i)=>`<div class="row ${i===p?'mgcur':''}" style="flex-wrap:nowrap;padding:8px;border-radius:12px;${i===p?'background:linear-gradient(90deg,#1fb35a26,transparent);box-shadow:inset 3px 0 0 var(--accent)':''};${mgActive(st,i)?'':'opacity:.45'}">${AV(U(id),36)}<div class="sp" style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(U(id).nick)}</b><div class="muted small" style="margin-top:2px">${g.status(st,i)}</div></div>${i===p?'<span class="badge g">am Zug</span>':''}</div>`).join('')}</div>
  ${g.extra?g.extra(st):''}
  <div class="card mgtask" style="text-align:center;padding:14px"><div class="muted small">${esc(U(st.ps[p]).nick)} ist dran${g.visitInput?' · Aufnahme eintippen':` · Dart ${st.dart+1} von 3`}</div>
@@ -1693,7 +1699,7 @@ function vMGbig(st,g,p,padHTML){const n=st.ps.length;
   <div class="nm">${AV(U(id))}<span>${esc(U(id).nick)}</span></div>
   <div class="stv">${g.status(st,i)}</div>
   ${cur?`<div class="hint">${g.hint(st,p)}</div>${g.visitInput?'':`<div class="dts">${[0,1,2].map(k=>`<span class="${k===st.dart?'on':''}">${st.darts[k]?dName(st.darts[k]):'·'}</span>`).join('')}</div>`}`:''}</div>`;}).join('');
- return `<div class="mgb"><div class="row muted small mgtop"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span><button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="mgb"><div class="row muted small mgtop"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span>${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="mggrid2"><div class="mgl"><div class="mgps n${Math.min(n,8)}">${cards}</div>${g.extra?`<div class="mgx">${g.extra(st)}</div>`:''}</div><div class="mgr">${padHTML}</div></div></div>`;}
 
 /* ===================== Turniere ===================== */
