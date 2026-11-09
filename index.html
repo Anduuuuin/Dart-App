@@ -662,7 +662,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=18;
+const APPV=19;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -714,6 +714,24 @@ function quickSave(reset){const m=me();if(!m)return closeModal();
   const bad=vals.find(v=>isNaN(v)||v<0||v>180||IMPOSSIBLE.includes(v));if(bad!==undefined)return toast(`${isNaN(bad)?'Ungültige Zahl':bad+' ist nicht möglich'}`);
   if(!vals.length)return toast('Mindestens eine Zahl eintragen');m.quick=vals.slice(0,10);}
  save();closeModal();render();toast('⚡ Schnellwahl gespeichert');}
+
+/* ===================== Eigene Einstellungen ===================== */
+function togCo(){const L=S.live;if(!L)return;L.coOff=!L.coOff;save();render();toast(L.coOff?'Checkout-Wege ausgeblendet':'Checkout-Wege werden angezeigt');}
+function setCoHide(v){const m=me();if(!m)return;m.coHide=v;save();render();}
+function bigMode(){try{return localStorage.getItem('dc_big')||'auto';}catch(e){return 'auto';}}
+function setBigMode(v){try{if(v==='auto')localStorage.removeItem('dc_big');else localStorage.setItem('dc_big',v);}catch(e){}render();}
+function vMySettings(){const m=me();const q=getQuick();const bm=bigMode();
+ const sec=(t,sub,body)=>`<div class="card"><h3 style="margin:0 0 4px">${t}</h3>${sub?`<p class="muted small" style="margin:0 0 10px">${sub}</p>`:''}${body}</div>`;
+ return `<div class="ph"><div class="row"><h1 class="sp">⚙️ Einstellungen</h1><button class="ghost" onclick="go(me().role==='player'?'home':'tour')">← Zurück</button></div><p>Gilt für ${esc(m.nick)}${m.role==='player'?'':' (dieses Konto)'}.</p></div>
+ ${sec('🧮 Checkout-Wege','Bei X01 unter deinem Rest anzeigen, wie du checken kannst (z. B. T20 · T19 · D12). Im Spiel jederzeit oben über „🧮 Wege“ umschaltbar.',
+  `<div class="chips"><button class="${m.coHide?'':'on'}" onclick="setCoHide(false)">Anzeigen</button><button class="${m.coHide?'on':''}" onclick="setCoHide(true)">Ausblenden</button></div>`)}
+ ${sec('⚡ Schnellwahl-Tasten','Deine 10 Punktzahlen für die Schnelltasten bei X01 und bei Minispielen mit Aufnahme-Eingabe (0–180). Felder leer lassen = weniger Tasten.',
+  `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">${q.concat(Array(10).fill('')).slice(0,10).map(v=>`<input class="qk" inputmode="numeric" maxlength="3" value="${v}" style="text-align:center;font-size:18px;padding:10px 0">`).join('')}</div>
+  <div class="row" style="margin-top:10px"><button class="ghost sp" onclick="quickSave(true)">Standard</button><button class="pri sp" onclick="quickSave()">Speichern</button></div>`)}
+ ${SY.on?sec('📺 Zuschauer-Anzeige','Dürfen andere Geräte (z. B. der PC neben dem Board) deine laufenden Spiele live anzeigen?',watchBtn(true)):''}
+ ${sec('🖥️ Großanzeige auf diesem Gerät','Große Spieleranzeige beim Spielen. „Automatisch“ = groß auf Tablet und PC, normal auf dem Handy.',
+  `<div class="chips">${[['auto','Automatisch'],['on','Immer groß'],['off','Immer normal']].map(([k,l])=>`<button class="${bm===k?'on':''}" onclick="setBigMode('${k}')">${l}</button>`).join('')}</div>`)}
+ ${sec('🎯 Spielbeginn','Wer bei X01, Minispielen und Turnierspielen anfängt (gilt für dieses Gerät).',starterHTML().replace('<label>Wer fängt an?</label>',''))}`;}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -802,7 +820,7 @@ function renderNav(){const m=me();const n=document.getElementById('nav');const o
 function renderHeader(){const m=me();const h=document.getElementById('hdr');
   if(!m||view==='live'){h.innerHTML=`<div class="top">${LOGO(30)}${view==='live'?`<div class="me">${SY.on&&S.live&&S.live.kind!=='mg'?watchBtn():''}<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button></div>`:''}</div>`;return;}
   const roleL=m.captain?'Kapitän':{admin:'Admin',club:'Verein',player:'Spieler'}[m.role];
-  h.innerHTML=`<div class="top">${LOGO(30)}<div class="me">${AV(m)} ${esc(m.nick)} <span class="badge">${roleL}</span><button class="sm ghost" onclick="logout()" title="Abmelden">Abmelden</button></div></div>
+  h.innerHTML=`<div class="top">${LOGO(30)}<div class="me">${AV(m)} ${esc(m.nick)} <span class="badge">${roleL}</span><button class="sm ghost" onclick="go('mysettings')" title="Einstellungen">⚙️</button><button class="sm ghost" onclick="logout()" title="Abmelden">Abmelden</button></div></div>
   ${demoBar()}`;}
 function logout(){setMe(null);go('login');}
 
@@ -926,7 +944,7 @@ function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  <div class="card" style="margin-top:12px"><div class="k muted small" style="margin-bottom:8px">AKTIVITÄT LETZTE 4 WOCHEN</div>${heatHTML(m.id)}</div>
  <div class="sec">Gruppen</div>${homeTeams()}
  <button class="ghost" style="width:100%" onclick="go('stats')">📈 Ganze Statistik ansehen</button>
- <div style="margin-top:10px">${helpBtn(true)}</div>${SY.on?`<div style="margin-top:8px">${watchBtn(true)}</div>`:''}${SY.on?`<div style="margin-top:8px">${fbBtn(true)}</div>`:''}`;}
+ <div style="margin-top:10px">${helpBtn(true)}</div><div style="margin-top:8px"><button class="ghost" style="width:100%" onclick="go('mysettings')">⚙️ Einstellungen – Checkout-Wege, Schnellwahl & mehr</button></div>${SY.on?`<div style="margin-top:8px">${watchBtn(true)}</div>`:''}${SY.on?`<div style="margin-top:8px">${fbBtn(true)}</div>`:''}`;}
 
 /* ===================== Statistik-Ansicht ===================== */
 let statTab='over';
@@ -1053,13 +1071,13 @@ function hcHTML(){if(setup.slots.length<2)return '';const on=!!setup.hcOn;const 
 
 /* ===================== X01-Scorer ===================== */
 function startX01(ps,start,fmt,dOut,tref,mode){if(typeof fmt==='number')fmt={sets:false,bo:fmt,setLegs:3};const out=(mode&&mode.out)||(dOut?'double':'single'),din=!!(mode&&mode.din);
- S.live={kind:'x01',players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
+ S.live={kind:'x01',players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,coOff:!!(me()&&me().coHide),legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
   st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,ch:0,co:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};save();go('live');}
 function vX01(){const L=S.live;const f=L.fmt;
- const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=notIn?'Double In: erst ein Doppel treffen':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
+ const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=notIn?'Double In: erst ein Doppel treffen':L.coOff?'':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
  const big=bigOn();
- return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
+ return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost" onclick="togCo()" title="Checkout-Wege anzeigen oder ausblenden">${L.coOff?'🧮 Wege: aus':'🧮 Wege: an'}</button><button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
  <div class="xgrid"><div class="xl"><div class="sc-players n${L.players.length}">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${i===L.cur&&L.players.length>1?'<div class="turn">🎯 AM WURF</div>':''}${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
   <div class="nm">${AV(U(id))} ${esc(U(id).nick)}${hcLabel(L,i)?` <span class="badge y" title="Handicap">⚖️ ${hcLabel(L,i)}</span>`:''}${L.din&&L.inn&&!L.inn[i]?' <span class="badge" title="Noch kein Doppel getroffen">🔒 D-In</span>':''}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
@@ -2189,7 +2207,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
-  case'watch':h=isStaff()||m.role==='player'?vWatch(param):'';break;case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
+  case'mysettings':h=vMySettings();break;case'watch':h=isStaff()||m.role==='player'?vWatch(param):'';break;case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
   case'live':h=S.live.kind==='mg'?vMG():S.live.kind==='ex'?vEx():S.live.kind==='x01'?vX01():S.live.kind==='atc'?vATC():S.live.kind==='bob'?vBob():vScore();break;}
  app.innerHTML=h+(view!=='live'&&!SY.on?`<div class="proto">Testversion · Daten werden nur auf diesem Gerät gespeichert</div>`:'');syBadge();try{document.querySelectorAll('#app .seg').forEach(g=>{const b=g.querySelector('button.on');if(b&&g.scrollWidth>g.clientWidth)g.scrollLeft=b.offsetLeft-g.clientWidth/2+b.offsetWidth/2;});}catch(e){}}
 document.addEventListener('keydown',e=>{if(view!=='live'||!S.live||document.getElementById('modal').classList.contains('show'))return;
