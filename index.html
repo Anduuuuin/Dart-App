@@ -662,13 +662,14 @@ function vWatch(id){
   ${list.length?list.map(([d,x])=>{const t=scrTitle(x);return `<button class="card" style="width:100%;text-align:left;display:block" onclick="go('watch','${d}')"><div class="row"><b class="sp" style="font-size:18px">${esc(t.g)}</b><span class="badge g">● live</span></div><div class="muted" style="margin-top:6px">${t.ps.map(esc).join(' · ')}</div><div class="muted small" style="margin-top:4px">eingetippt von ${esc(x.by||'?')}</div></button>`;}).join('')
   :'<div class="card"><p class="muted" style="margin:0">Gerade läuft auf keinem anderen Gerät ein Spiel, das man anschauen darf. Sobald jemand am Tablet ein Spiel startet, erscheint es hier von selbst.</p><p class="muted small" style="margin:10px 0 0">Wichtig: Der Spieler, der am Tablet eingeloggt ist, muss <b>📺 Zuschauen erlauben</b> eingeschaltet haben – auf seiner Startseite oder während des Spiels oben.</p></div>'}`;}
  const x=(S.screens||{})[id];
- const exit=`<button class="watchx" onclick="go('watch',null)" title="Anzeige beenden">✕</button>`;
+ const exit=`<button class="watchx" onclick="watchExit()" title="Anzeige beenden">✕</button>`;
  if(!x||!x.live)return `${exit}<div class="watchwait"><div class="big">🎯</div><h1>Warte auf das nächste Spiel …</h1><p class="muted">Sobald am Tablet ein neues Spiel startet, erscheint es hier automatisch.</p></div>`;
  const keep=S.live;let h='';WATCH=true;S.live=x.live;
  try{const k=x.live.kind;h=k==='mg'?vMG():k==='ex'?vEx():k==='x01'?vX01():k==='atc'?vATC():k==='bob'?vBob():vScore();}catch(e){console.error(e);h='<p class="muted">Diese Anzeige ist gerade nicht möglich.</p>';}
  finally{S.live=keep;WATCH=false;}
  return `${exit}<div class="watchmode"><div class="watchlive">● LIVE · ${esc(scrTitle(x).g)}</div>${h}</div>`;}
 setInterval(()=>{if(view==='watch'&&!document.hidden&&SY.on&&SY.key)syRun();},1000);
+function watchExit(){const m=me();go(!m?'login':isStaff()?'boards':m.role==='player'?'home':'tour');}
 
 function watchBtn(wide){const m=me();if(!m)return '';const on=!!m.watchOk;
  return wide?`<button class="ghost" style="width:100%;${on?'border-color:var(--accent);color:var(--accent)':''}" onclick="togWatch()">${on?'📺 Zuschauen erlaubt – antippen zum Ausschalten':'📺 Zuschauen erlauben (ist aus)'}</button>`
@@ -677,7 +678,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=24;
+const APPV=25;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
