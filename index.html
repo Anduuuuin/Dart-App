@@ -604,9 +604,15 @@ function syInfoCard(){if(!SY.on)return'';const t=SY.last?new Date(SY.last).toLoc
  <p class="muted small">Neue Mitglieder und Tablets verbindest du mit dem <b>Einladungslink</b>. Gib ihn nur an Vereinsmitglieder weiter.</p>
  <div class="row"><button class="pri" onclick="shareInvite()">📨 Einladungslink teilen</button><button class="ghost" onclick="navigator.clipboard.writeText(inviteLink()).then(()=>toast('Kopiert'))">🔗 Link kopieren</button></div></div>`;}
 
-let meId=null;try{meId=sessionStorage.getItem(KEY+'_me');}catch(e){}
+/* Anmeldung bleibt erhalten, auch wenn die App kurz geschlossen wird – erst nach 1 Stunde ohne Benutzung wird abgemeldet */
+const IDLE_MAX=60*60*1000;
+let meId=null;try{meId=sessionStorage.getItem(KEY+'_me');if(!meId){const o=JSON.parse(localStorage.getItem(KEY+'_login')||'null');if(o&&o.id&&Date.now()-(o.at||0)<IDLE_MAX)meId=o.id;}}catch(e){}
 const me=()=>S.users.find(u=>u.id===meId)||null;
-function setMe(id){meId=id;try{id?sessionStorage.setItem(KEY+'_me',id):sessionStorage.removeItem(KEY+'_me');}catch(e){}}
+function setMe(id){meId=id;try{id?sessionStorage.setItem(KEY+'_me',id):sessionStorage.removeItem(KEY+'_me');id?localStorage.setItem(KEY+'_login',JSON.stringify({id,at:Date.now()})):localStorage.removeItem(KEY+'_login');}catch(e){}}
+let ACT_T=0;function touchLogin(){if(!meId)return;const n=Date.now();if(n-ACT_T<20000)return;ACT_T=n;try{localStorage.setItem(KEY+'_login',JSON.stringify({id:meId,at:n}));}catch(e){}}
+function idleCheck(){if(!meId)return;try{const o=JSON.parse(localStorage.getItem(KEY+'_login')||'null');if(!o||Date.now()-(o.at||0)>=IDLE_MAX){if(S.live&&!S.live.online)return;setMe(null);closeModal();go('login');toast('Nach einer Stunde ohne Benutzung abgemeldet');}}catch(e){}}
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,touchLogin,{passive:true}));
+document.addEventListener('visibilitychange',()=>{if(document.hidden)touchLogin();else idleCheck();});setInterval(idleCheck,60000);
 const U=id=>{if(typeof id==='string'&&id.startsWith('g:'))return{id,nick:id.slice(2),guest:true};if(typeof id==='string'&&id.startsWith('bot:'))return{id,nick:'Dartbot Ø '+(parseInt(id.slice(4),10)||60),guest:true,bot:true,avatar:'🤖'};return S.users.find(u=>u.id===id)||{nick:'Gelöscht',gone:true};};
 const isGuest=id=>typeof id==='string'&&(id.startsWith('g:')||id.startsWith('bot:'));
 function AV(u,sz){u=u||{};const z=sz?`width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.4)}px;`:'';
@@ -667,7 +673,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=22;
+const APPV=23;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -926,7 +932,7 @@ function fbBody(){const it=(FB.items||[]).filter(x=>FB.filter==='all'||x.status!
   <div class="muted small">Ansicht: ${esc(c.view||'–')}${c.app?' · '+esc(c.app):''}${c.screen?' · '+esc(c.screen):''}</div>
   <div class="row" style="margin-top:10px">${x.status==='neu'?`<button class="sm" onclick="fbAct('${x.id}','gelesen')">👁 Gelesen</button>`:''}${x.status!=='erledigt'?`<button class="sm pri" onclick="fbAct('${x.id}','erledigt')">✔ Erledigt</button>`:`<button class="sm" onclick="fbAct('${x.id}','gelesen')">↺ Wieder öffnen</button>`}<span class="sp"></span><button class="sm red" onclick="fbAct('${x.id}','delete')">🗑</button></div></div>`;}).join(''):`<div class="card"><p class="muted" style="margin:0">${FB.filter==='open'?'Keine offenen Rückmeldungen 🎉':'Noch keine Rückmeldungen.'}</p></div>`}`;}
 /* ===================== Hilfe-Videos „So geht's“ ===================== */
-const HELPV=[['1-profil-anlegen','👤','Profil anlegen'],['2-app-installieren','📲','App aufs Handy holen'],['3-statistik','📈','Deine Statistik'],['4-spiele-und-training','🎯','Spielen & Trainieren'],['5-feedback-geben','💬','Feedback geben'],['6-zuschauer-anzeige','📺','Zuschauer-Anzeige (PC/TV)']];
+const HELPV=[['1-profil-anlegen','👤','Profil anlegen'],['2-app-installieren','📲','App aufs Handy holen'],['3-statistik','📈','Deine Statistik'],['4-spiele-und-training','🎯','Spielen & Trainieren'],['5-feedback-geben','💬','Feedback geben'],['6-zuschauer-anzeige','📺','Zuschauer-Anzeige (PC/TV)'],['7-dartbot','🤖','Gegen den Dartbot']];
 function helpVideos(){modal(`<h3 style="margin-top:0">❓ So geht's</h3><p class="muted small" style="margin-top:0">Kurze Videos ohne Ton – einfach antippen. · App-Version ${APPV}</p>
  <div class="hvl">${HELPV.map(([f,i,t])=>`<button class="hvt" onclick="playHelp('${f}')"><img src="videos/${f}.jpg" alt="" loading="lazy"><span>${i} ${t}</span></button>`).join('')}</div>
  ${SY.on&&SY.key?`<div style="margin-top:12px">${fbBtn(true)}</div>`:''}<button class="ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Schließen</button>`);}

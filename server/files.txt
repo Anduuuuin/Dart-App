@@ -19,3 +19,5 @@ server/pb_migrations/1762500000_dartclub.js pb_migrations/1762500000_dartclub.js
 server/pb_migrations/1762700000_feedback.js pb_migrations/1762700000_feedback.js srv
 videos/6-zuschauer-anzeige.mp4 pb_public/videos/6-zuschauer-anzeige.mp4 app
 videos/6-zuschauer-anzeige.jpg pb_public/videos/6-zuschauer-anzeige.jpg app
+videos/7-dartbot.mp4 pb_public/videos/7-dartbot.mp4 app
+videos/7-dartbot.jpg pb_public/videos/7-dartbot.jpg app
