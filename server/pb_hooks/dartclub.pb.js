@@ -54,3 +54,39 @@ routerAdd("POST", "/api/dc/put", (e) => {
   });
   return e.json(200, { items: out });
 });
+
+// ---------- Rückmeldungen ----------
+// Senden: jeder mit Vereins-Code. Lesen/Ändern: nur mit Admin-PIN (wird gegen den Admin-Eintrag auf dem Server geprüft).
+routerAdd("POST", "/api/dc/feedback", (e) => {
+  const key = $os.getenv("CLUB_KEY");
+  if (!key || e.request.header.get("X-Club-Key") !== key) throw new UnauthorizedError("Falscher Vereins-Code");
+  const b = e.requestInfo().body || {};
+  const text = String(b.text || "").trim();
+  if (text.length < 3) throw new BadRequestError("Bitte etwas mehr schreiben");
+  const kinds = ["idee", "fehler", "sonst"];
+  const col = $app.findCollectionByNameOrId("dc_feedback");
+  const r = new Record(col);
+  r.set("kind", kinds.indexOf(b.kind) >= 0 ? b.kind : "sonst");
+  r.set("text", text.slice(0, 3000));
+  r.set("sender", String(b.sender || "anonym").slice(0, 100));
+  r.set("ctx", b.ctx && typeof b.ctx === "object" ? b.ctx : {});
+  r.set("status", "neu");
+  $app.save(r);
+  return e.json(200, { ok: true });
+});
+
+routerAdd("POST", "/api/dc/feedback/admin", (e) => {
+  const key = $os.getenv("CLUB_KEY");
+  if (!key || e.request.header.get("X-Club-Key") !== key) throw new UnauthorizedError("Falscher Vereins-Code");
+  let pin = null;
+  try { const a = $app.findFirstRecordByData("dc_items", "key", "users:admin"); const d = JSON.parse(a.getString("data") || "null"); pin = d && d.pin; } catch (_) {}
+  if (!pin || e.request.header.get("X-Admin-Pin") !== String(pin)) throw new ForbiddenError("Nur für den Admin");
+  const b = e.requestInfo().body || {};
+  if (b.id && b.action) {
+    const r = $app.findRecordById("dc_feedback", String(b.id));
+    if (b.action === "delete") $app.delete(r);
+    else if (["neu", "gelesen", "erledigt"].indexOf(b.action) >= 0) { r.set("status", b.action); $app.save(r); }
+  }
+  const recs = $app.findRecordsByFilter("dc_feedback", "id != ''", "-created", 500, 0);
+  return e.json(200, { items: recs.map((r) => ({ id: r.id, kind: r.getString("kind"), text: r.getString("text"), sender: r.getString("sender"), ctx: r.get("ctx"), status: r.getString("status"), created: r.getString("created") })) });
+});

@@ -15,11 +15,15 @@ get() { # $1 = Pfad im Repo, $2 = Ziel auf dem Server, $3 = app|srv
     if [ "$3" = srv ]; then changed_srv=1; else changed_app=1; fi
   fi
 }
-for f in index.html sw.js manifest.webmanifest icon-192.png icon-512.png; do get "$f" "$D/pb_public/$f" app; done
-mkdir -p "$D/pb_public/videos" && chown pocketbase:pocketbase "$D/pb_public/videos"
-for v in 1-profil-anlegen 2-app-installieren 3-statistik 4-spiele-und-training; do get "videos/$v.mp4" "$D/pb_public/videos/$v.mp4" app; get "videos/$v.jpg" "$D/pb_public/videos/$v.jpg" app; done
-get server/pb_hooks/dartclub.pb.js "$D/pb_hooks/dartclub.pb.js" srv
-get server/pb_migrations/1762500000_dartclub.js "$D/pb_migrations/1762500000_dartclub.js" srv
+# Dateiliste vom Repo holen; ohne Liste (alte Version) nichts tun
+if curl -fsSL --max-time 30 "$R/server/files.txt" -o "$T/files" && [ -s "$T/files" ]; then
+  while read -r src dst kind; do
+    case "$src" in ''|'#'*) continue;; esac
+    case "$dst" in *..*|/*) continue;; esac          # nur Pfade innerhalb von /opt/pb/verein
+    mkdir -p "$(dirname "$D/$dst")"; chown pocketbase:pocketbase "$(dirname "$D/$dst")"
+    get "$src" "$D/$dst" "$kind"
+  done < "$T/files"
+fi
 # das Update-Skript selbst aktualisieren (gehört root, nicht PocketBase)
 if curl -fsSL --max-time 30 "$R/server/update.sh" -o "$T/u" && [ -s "$T/u" ] && bash -n "$T/u" && ! cmp -s "$T/u" /usr/local/bin/dartclub-update; then
   install -o root -g root -m 755 "$T/u" /usr/local/bin/dartclub-update

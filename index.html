@@ -334,6 +334,8 @@ body.livebig #toast{font-size:min(5vh,3.4vw);padding:2vh 3vw;bottom:4vh}
 .hvt{padding:0;overflow:hidden;display:flex;flex-direction:column;text-align:left;border:1px solid var(--line);background:var(--panel2)}
 .hvt img{width:100%;aspect-ratio:3/4;object-fit:cover;object-position:center 30%;display:block}
 .hvt span{padding:9px 10px;font-weight:700;font-size:14px;line-height:1.25}
+.fbc.neu{border-color:#f2c14e88}
+.fbc.erledigt{opacity:.6}
 </style>
 </head>
 <body>
@@ -498,11 +500,43 @@ document.addEventListener('pointerdown',()=>navArm(),{once:true});
 let toastT;function toast(m,ms=2200){const t=document.getElementById('toast');t.innerHTML=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms);}
 function modal(html){document.getElementById('mbox').innerHTML=html;document.getElementById('modal').classList.add('show');}
 function closeModal(){document.querySelectorAll('#mbox video').forEach(v=>{try{v.pause();}catch(e){}});document.getElementById('modal').classList.remove('show');}
+
+/* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
+// Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
+let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
+function fbBtn(full){return SY.on&&SY.key?`<button class="ghost" style="${full?'width:100%;':''}" onclick="feedback()">💬 Feedback & Fehler melden</button>`:'';}
+function fbSel(k,el){fbKind=k;document.querySelectorAll('#fbk button').forEach(b=>b.classList.toggle('on',b===el));const t=document.getElementById('fbt');if(t)t.placeholder=k==='fehler'?'Was ist passiert? Was hast du gerade gemacht? Auf welchem Gerät?':'Schreib einfach los …';}
+function feedback(){const u=me();modal(`<h3 style="margin-top:0">💬 Feedback & Fehler melden</h3><p class="muted small" style="margin-top:0">Hast du eine Idee, was besser sein könnte, oder einen Fehler gefunden? Deine Nachricht geht direkt an den Admin.</p>
+ <div class="chips" id="fbk">${[['idee','💡 Idee'],['fehler','🐞 Fehler'],['sonst','💬 Sonstiges']].map(([k,l])=>`<button class="${fbKind===k?'on':''}" onclick="fbSel('${k}',this)">${l}</button>`).join('')}</div>
+ <label>Deine Nachricht</label><textarea id="fbt" rows="5" maxlength="3000" style="width:100%" placeholder="${fbKind==='fehler'?'Was ist passiert? Was hast du gerade gemacht? Auf welchem Gerät?':'Schreib einfach los …'}"></textarea>
+ ${u&&u.role==='player'?`<label style="display:flex;gap:10px;align-items:center;margin-top:10px;cursor:pointer"><input id="fbn" type="checkbox" checked style="width:auto"> Mit meinem Spitznamen „${esc(u.nick)}“ senden</label>`:''}
+ <div class="row" style="margin-top:14px"><button class="ghost sp" onclick="closeModal()">Abbrechen</button><button class="pri sp" id="fbs" onclick="sendFeedback()">Senden</button></div>`);}
+async function sendFeedback(){const t=(document.getElementById('fbt').value||'').trim();if(t.length<3)return toast('Bitte schreib kurz, worum es geht');
+ const u=me(),nb=document.getElementById('fbn');const sender=u?(u.role==='player'?(nb&&!nb.checked?'anonym':u.nick):(u.role==='admin'?'Admin':'Vereinszugang')):'nicht angemeldet';
+ const ctx={view,param:param==null?null:String(param).slice(0,40),screen:innerWidth+'×'+innerHeight,app:matchMedia('(display-mode: standalone)').matches?'installiert':'Browser',ua:navigator.userAgent.slice(0,160)};
+ const b=document.getElementById('fbs');b.disabled=true;b.textContent='Wird gesendet …';
+ try{const r=await fetch(SY.api+'feedback',{method:'POST',headers:{'X-Club-Key':SY.key,'Content-Type':'application/json'},body:JSON.stringify({kind:fbKind,text:t,sender,ctx})});if(!r.ok)throw 0;closeModal();fbKind='idee';toast('✅ Danke! Deine Nachricht ist angekommen.');}
+ catch(e){b.disabled=false;b.textContent='Senden';toast('Keine Verbindung – bitte später nochmal senden');}}
+async function fbLoad(action){if(!SY.on||!SY.key)return;const a=S.users.find(u=>u.id==='admin');if(!a)return;FB.busy=true;
+ try{const r=await fetch(SY.api+'feedback/admin',{method:'POST',cache:'no-store',headers:{'X-Club-Key':SY.key,'X-Admin-Pin':String(a.pin||''),'Content-Type':'application/json'},body:JSON.stringify(action||{})});
+  if(!r.ok)throw new Error(r.status===403?'Die Admin-PIN ist auf dem Server noch nicht aktuell – kurz warten und auf „Aktualisieren“ tippen.':'Server antwortet nicht ('+r.status+')');FB.items=(await r.json()).items||[];FB.err='';}
+ catch(e){FB.err=e.message||'Keine Verbindung zum Server';}FB.busy=false;if(view==='admin')render();}
+function fbAct(id,action){if(action==='delete')return ask('Diese Rückmeldung endgültig löschen?','Löschen',()=>fbLoad({id,action}),true);fbLoad({id,action});}
+const fbNew=()=>(FB.items||[]).filter(x=>x.status==='neu').length;
+function fbBody(){const it=(FB.items||[]).filter(x=>FB.filter==='all'||x.status!=='erledigt');const K={idee:['💡','Idee'],fehler:['🐞','Fehler'],sonst:['💬','Sonstiges']};const ST={neu:['Neu','y'],gelesen:['Gelesen',''],erledigt:['Erledigt','g']};
+ const dt=c=>{const d=new Date(String(c).replace(' ','T'));return isNaN(d)?'':d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});};
+ return `<div class="row" style="margin-bottom:12px"><div class="seg"><button class="${FB.filter==='open'?'on':''}" onclick="FB.filter='open';render()">Offen</button><button class="${FB.filter==='all'?'on':''}" onclick="FB.filter='all';render()">Alle</button></div><span class="sp"></span><button class="sm ghost" onclick="fbLoad()">${FB.busy?'…':'↻ Aktualisieren'}</button></div>
+ <p class="muted small" style="margin-top:0">Hier landen alle Nachrichten aus „💬 Feedback & Fehler melden“. Nur du als Admin kannst sie sehen.</p>
+ ${FB.err?`<div class="banner" style="margin-bottom:12px">⚠️ ${esc(FB.err)}</div>`:''}
+ ${FB.items===null?'<p class="muted">Lade …</p>':it.length?it.map(x=>{const k=K[x.kind]||K.sonst,st=ST[x.status]||ST.neu,c=x.ctx||{};return `<div class="card fbc ${x.status}"><div class="row" style="flex-wrap:nowrap;align-items:flex-start"><div class="sp"><b>${k[0]} ${k[1]}</b> <span class="badge ${st[1]}">${st[0]}</span><div class="muted small">von <b>${esc(x.sender||'anonym')}</b> · ${dt(x.created)}</div></div></div>
+  <p style="white-space:pre-wrap;margin:10px 0">${esc(x.text)}</p>
+  <div class="muted small">Ansicht: ${esc(c.view||'–')}${c.app?' · '+esc(c.app):''}${c.screen?' · '+esc(c.screen):''}</div>
+  <div class="row" style="margin-top:10px">${x.status==='neu'?`<button class="sm" onclick="fbAct('${x.id}','gelesen')">👁 Gelesen</button>`:''}${x.status!=='erledigt'?`<button class="sm pri" onclick="fbAct('${x.id}','erledigt')">✔ Erledigt</button>`:`<button class="sm" onclick="fbAct('${x.id}','gelesen')">↺ Wieder öffnen</button>`}<span class="sp"></span><button class="sm red" onclick="fbAct('${x.id}','delete')">🗑</button></div></div>`;}).join(''):`<div class="card"><p class="muted" style="margin:0">${FB.filter==='open'?'Keine offenen Rückmeldungen 🎉':'Noch keine Rückmeldungen.'}</p></div>`}`;}
 /* ===================== Hilfe-Videos „So geht's“ ===================== */
 const HELPV=[['1-profil-anlegen','👤','Profil anlegen'],['2-app-installieren','📲','App aufs Handy holen'],['3-statistik','📈','Deine Statistik'],['4-spiele-und-training','🎯','Spielen & Trainieren']];
 function helpVideos(){modal(`<h3 style="margin-top:0">❓ So geht's</h3><p class="muted small" style="margin-top:0">Kurze Videos ohne Ton – einfach antippen.</p>
  <div class="hvl">${HELPV.map(([f,i,t])=>`<button class="hvt" onclick="playHelp('${f}')"><img src="videos/${f}.jpg" alt="" loading="lazy"><span>${i} ${t}</span></button>`).join('')}</div>
- <button class="ghost" style="width:100%;margin-top:12px" onclick="closeModal()">Schließen</button>`);}
+ ${SY.on&&SY.key?`<div style="margin-top:12px">${fbBtn(true)}</div>`:''}<button class="ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Schließen</button>`);}
 function playHelp(f){const v=HELPV.find(x=>x[0]===f);modal(`<div class="row" style="margin-bottom:10px;flex-wrap:nowrap"><b class="sp">${v[1]} ${v[2]}</b><button class="sm ghost" onclick="helpVideos()">← Alle Videos</button></div>
  <video src="videos/${f}.mp4" poster="videos/${f}.jpg" controls autoplay muted playsinline preload="metadata" style="width:100%;max-height:70vh;border-radius:14px;background:#000;display:block"></video>
  <button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal()">Schließen</button>`);}
@@ -592,7 +626,7 @@ function loginPlayer(){const id=document.getElementById('lpl').value,pin=documen
 function myDevicePlayer(){try{const id=localStorage.getItem('dc_myplayer');return S.users.some(u=>u.id===id)?id:'';}catch(e){return '';}}
 function rememberDevicePlayer(id){try{if(localStorage.getItem('dc_staffdevice'))return;localStorage.setItem('dc_myplayer',id);}catch(e){}} // Vereins-Tablets (Vereinszugang benutzt) merken sich nie einen Spieler
 function loginStaff(){const a=document.getElementById('lacc').value,p=document.getElementById('lpin').value;const u=S.users.find(x=>x.id===a);
- if(u&&u.pin===p){if(a==='club'){try{localStorage.setItem('dc_staffdevice','1');localStorage.removeItem('dc_myplayer');}catch(e){}}setMe(a);go(a==='club'?'boards':'tour');}else toast('Falsche PIN');}
+ if(u&&u.pin===p){if(a==='admin'&&SY.on){FB.items=null;fbLoad().then(()=>{const n=fbNew();if(n)toast(`💬 ${n} neue Rückmeldung${n>1?'en':''} – unter Einstellungen → Feedback`,5000);});}if(a==='club'){try{localStorage.setItem('dc_staffdevice','1');localStorage.removeItem('dc_myplayer');}catch(e){}}setMe(a);go(a==='club'?'boards':'tour');}else toast('Falsche PIN');}
 let newPhoto=null;
 function newProfile(loginAfter){newPhoto=null;
  modal(`<h3>Neues Spielerprofil</h3><label>Spitzname</label><input id="npn" maxlength="20" placeholder="z. B. Pfeilblitz">
@@ -677,7 +711,7 @@ function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  <div class="card" style="margin-top:12px"><div class="k muted small" style="margin-bottom:8px">AKTIVITÄT LETZTE 4 WOCHEN</div>${heatHTML(m.id)}</div>
  <div class="sec">Gruppen</div>${homeTeams()}
  <button class="ghost" style="width:100%" onclick="go('stats')">📈 Ganze Statistik ansehen</button>
- <div style="margin-top:10px">${helpBtn(true)}</div>`;}
+ <div style="margin-top:10px">${helpBtn(true)}</div>${SY.on?`<div style="margin-top:8px">${fbBtn(true)}</div>`:''}`;}
 
 /* ===================== Statistik-Ansicht ===================== */
 let statTab='over';
@@ -1732,7 +1766,8 @@ function vBoard(b){const x=boardMatch(b);
 let setTab='players',setQ='';
 function appName(){return(S.settings&&S.settings.name)||'';}
 function vAdmin(){const adm=me().role==='admin';
- const tabsL=[['players','👤 Spieler'],['groups','👥 Gruppen'],['club','🏟️ Verein'],['game','🎯 Spiel-Standards'],...(adm?[['access','🔐 Zugänge & Daten']]:[])];
+ if(adm&&SY.on&&FB.items===null&&!FB.busy)fbLoad();
+ const tabsL=[['players','👤 Spieler'],['groups','👥 Gruppen'],['club','🏟️ Verein'],['game','🎯 Spiel-Standards'],...(adm?[['access','🔐 Zugänge & Daten']]:[]),...(adm&&SY.on?[['feedback',`💬 Feedback${fbNew()?` (${fbNew()})`:''}`]]:[])];
  if(!tabsL.some(t=>t[0]===setTab))setTab='players';
  let body='';
  if(setTab==='players'){const q=setQ.toLowerCase();const ps=allPlayers().filter(p=>!q||p.nick.toLowerCase().includes(q));
@@ -1745,7 +1780,7 @@ function vAdmin(){const adm=me().role==='admin';
  if(setTab==='groups')body=`<div class="row" style="margin-bottom:12px"><span class="muted sp">${S.teams.length} Gruppen & Mannschaften</span><button class="pri" onclick="newTeam()">＋ Neue Gruppe</button></div>
   <div class="card">${S.teams.length?S.teams.map(t=>`<div class="setrow"><div style="flex:1;min-width:0"><b>${esc(t.name)}</b> <span class="badge ${t.type==='team'?'y':''}">${TTYPE[t.type]}</span><div class="muted small">${t.members.length} Spieler · Kapitän: ${t.captains.map(c=>esc(U(c).nick)).join(', ')||'–'} · Code <b style="color:var(--gold)">${t.code}</b></div></div>
   <div class="row acts"><button class="sm" onclick="go('team','${t.id}')">Öffnen</button><button class="sm" onclick="renameTeam('${t.id}')">Umbenennen</button>${adm?`<button class="sm" onclick="setTeamCap('${t.id}')">Kapitän</button>`:''}<button class="sm" onclick="t2=S.teams.find(x=>x.id==='${t.id}');t2.code=joinCode();save();render();toast('Neuer Beitrittscode: '+t2.code)">Neuer Code</button><button class="sm red" onclick="ask('Gruppe „${esc(t.name)}“ löschen? Die Statistiken der Spieler bleiben.','Löschen',()=>{S.teams=S.teams.filter(x=>x.id!=='${t.id}');save();render();},true)">Löschen</button></div></div>`).join(''):'<p class="muted">Noch keine Gruppen.</p>'}</div>`;
- if(setTab==='club')body=`${syInfoCard()}<div class="card"><h3>Name der App</h3><p class="muted small" style="margin-top:0">Erscheint neben dem Logo. Leer lassen für „DartClub“.</p>
+ if(setTab==='club')body=`${syInfoCard()}${SY.on&&me().role!=='admin'?`<div style="margin-bottom:12px">${fbBtn(true)}</div>`:''}<div class="card"><h3>Name der App</h3><p class="muted small" style="margin-top:0">Erscheint neben dem Logo. Leer lassen für „DartClub“.</p>
   <div class="row"><input id="appn" class="sp" maxlength="24" placeholder="DartClub" value="${esc(appName())}"><button class="pri" onclick="S.settings.name=document.getElementById('appn').value.trim();save();render();toast('Name gespeichert')">Speichern</button></div></div>
   <div class="card"><h3>Vereinslogo</h3><div class="row"><div style="width:72px;height:72px;display:flex;align-items:center;justify-content:center;background:#0d1110;border:1px solid var(--line);border-radius:14px">${logoSVG(60)}</div>
   <div class="sp muted small">Erscheint in der Navigation, oben in der Kopfzeile und groß auf der Login-Seite. Am besten PNG mit transparentem Hintergrund.</div></div>
@@ -1754,6 +1789,7 @@ function vAdmin(){const adm=me().role==='admin';
   <div class="card"><h3>Boards</h3><p class="muted small" style="margin-top:0">Wie viele Dartboards habt ihr im Vereinsheim?</p>${boardStepper()}</div>`;
  if(setTab==='game'){const d=S.settings.defaults;body=`<div class="card"><h3>Standard für neue Spiele & Turniere</h3><p class="muted small" style="margin-top:0">Diese Einstellungen sind vorausgewählt, wenn jemand ein Spiel startet oder ein Turnier anlegt – ändern kann man sie dort trotzdem.</p>
   ${optsHTML(d,'S.settings.defaults',true)}<button class="pri" style="width:100%;margin-top:16px" onclick="save();applyDefaults();toast('Standards gespeichert ✓')">Speichern</button></div>`;}
+ if(setTab==='feedback')body=fbBody();
  if(setTab==='access')body=`<div class="card"><h3>Zugänge</h3>${S.users.filter(u=>u.role!=='player').map(u=>`<div class="setrow"><div class="row" style="flex:1">${AV(u,36)}<div><b>${esc(u.nick)}</b><div class="muted small">${u.role==='admin'?'Admin – darf alles':'Verein – Turniere, Boards, Spieler, Einstellungen'}</div></div></div><div class="acts"><button class="sm" onclick="chPin('${u.id}')">PIN ändern</button></div></div>`).join('')}</div>
   <div class="card"><h3>Daten</h3><p class="muted small" style="margin-top:0">${SY.on?'Ein Backup ist eine Kopie aller Vereinsdaten als Text – zum Aufheben oder Wiederherstellen.':'Testversion: Alle Daten liegen nur auf diesem Gerät.'}</p>
   <div class="row">${SY.on?'':'<button onclick="demo()">🎲 Demo-Daten erzeugen</button>'}<button onclick="backup()">📋 Backup kopieren</button>${!SY.on||me().role==='admin'?'<button onclick="restore()">Backup einspielen</button>':''}${SY.on?'':`<button class="red" onclick="ask('Wirklich ALLE Daten löschen?','Alles löschen',()=>{S=fresh();save();setMe(null);go('login');},true)">Alles zurücksetzen</button>`}</div></div>`;
@@ -1904,7 +1940,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
   case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
   case'live':h=S.live.kind==='mg'?vMG():S.live.kind==='ex'?vEx():S.live.kind==='x01'?vX01():S.live.kind==='atc'?vATC():S.live.kind==='bob'?vBob():vScore();break;}
- app.innerHTML=h+(view!=='live'&&!SY.on?`<div class="proto">Testversion · Daten werden nur auf diesem Gerät gespeichert</div>`:'');syBadge();}
+ app.innerHTML=h+(view!=='live'&&!SY.on?`<div class="proto">Testversion · Daten werden nur auf diesem Gerät gespeichert</div>`:'');syBadge();try{document.querySelectorAll('#app .seg').forEach(g=>{const b=g.querySelector('button.on');if(b&&g.scrollWidth>g.clientWidth)g.scrollLeft=b.offsetLeft-g.clientWidth/2+b.offsetWidth/2;});}catch(e){}}
 document.addEventListener('keydown',e=>{if(view!=='live'||!S.live||document.getElementById('modal').classList.contains('show'))return;
  if(!('input' in S.live))return;if(/^\d$/.test(e.key))key(e.key);else if(e.key==='Enter')key('ok');else if(e.key==='Backspace')key('del');});
 // Vereinsversion: keinen Demo-Modus – falls ein Gerät noch in der Demo hängt, echten Stand zurückholen

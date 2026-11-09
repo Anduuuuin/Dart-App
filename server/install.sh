@@ -6,16 +6,12 @@ D=/opt/pb/verein
 R=https://raw.githubusercontent.com/Anduuuuin/Dart-App/main
 mkdir -p "$D/pb_public" "$D/pb_hooks" "$D/pb_migrations" "$D/pb_data"
 echo "Lade App-Dateien ..."
-for f in index.html sw.js manifest.webmanifest icon-192.png icon-512.png; do
-  curl -fsSL "$R/$f" -o "$D/pb_public/$f"
+curl -fsSL "$R/server/files.txt" | while read -r src dst kind; do
+  case "$src" in ''|'#'*) continue;; esac
+  case "$dst" in *..*|/*) continue;; esac
+  mkdir -p "$(dirname "$D/$dst")"
+  curl -fsSL "$R/$src" -o "$D/$dst"
 done
-mkdir -p "$D/pb_public/videos"
-for v in 1-profil-anlegen 2-app-installieren 3-statistik 4-spiele-und-training; do
-  curl -fsSL "$R/videos/$v.mp4" -o "$D/pb_public/videos/$v.mp4"
-  curl -fsSL "$R/videos/$v.jpg" -o "$D/pb_public/videos/$v.jpg"
-done
-curl -fsSL "$R/server/pb_hooks/dartclub.pb.js" -o "$D/pb_hooks/dartclub.pb.js"
-curl -fsSL "$R/server/pb_migrations/1762500000_dartclub.js" -o "$D/pb_migrations/1762500000_dartclub.js"
 touch "$D/env"
 grep -q '^PORT=' "$D/env" || echo "PORT=8092" >> "$D/env"
 if ! grep -q '^CLUB_KEY=' "$D/env"; then

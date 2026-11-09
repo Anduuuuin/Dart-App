@@ -1,0 +1,17 @@
+# Quelle-im-Repo  Ziel-unter-/opt/pb/verein  Art(app|srv)
+index.html pb_public/index.html app
+sw.js pb_public/sw.js app
+manifest.webmanifest pb_public/manifest.webmanifest app
+icon-192.png pb_public/icon-192.png app
+icon-512.png pb_public/icon-512.png app
+videos/1-profil-anlegen.mp4 pb_public/videos/1-profil-anlegen.mp4 app
+videos/1-profil-anlegen.jpg pb_public/videos/1-profil-anlegen.jpg app
+videos/2-app-installieren.mp4 pb_public/videos/2-app-installieren.mp4 app
+videos/2-app-installieren.jpg pb_public/videos/2-app-installieren.jpg app
+videos/3-statistik.mp4 pb_public/videos/3-statistik.mp4 app
+videos/3-statistik.jpg pb_public/videos/3-statistik.jpg app
+videos/4-spiele-und-training.mp4 pb_public/videos/4-spiele-und-training.mp4 app
+videos/4-spiele-und-training.jpg pb_public/videos/4-spiele-und-training.jpg app
+server/pb_hooks/dartclub.pb.js pb_hooks/dartclub.pb.js srv
+server/pb_migrations/1762500000_dartclub.js pb_migrations/1762500000_dartclub.js srv
+server/pb_migrations/1762700000_feedback.js pb_migrations/1762700000_feedback.js srv
