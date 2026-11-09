@@ -678,7 +678,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=26;
+const APPV=27;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -951,6 +951,13 @@ function mgBotTick(){if(WATCH||view!=='live'||!mgBotCur())return;const st=S.live
 function mgBotHTML(){const n=mgSlots.length;return `<label>🤖 Dartbot dazunehmen</label><div class="chips">${BOT_LV.map(([v,l])=>`<button onclick="mgBotAdd(${v})">＋ Ø ${v}<small style="display:block;font-size:11px;opacity:.75">${l}</small></button>`).join('')}</div>
  <p class="muted small" style="margin:6px 0 0">Jeder Bot spielt wie ein eigener Mitspieler. Wieder entfernen: beim Bot auf ✕ tippen.</p>`;}
 function mgBotAdd(v){if(mgSlots.length>=8)return toast('Maximal 8 Spieler');const e=mgSlots.findIndex((sl,j)=>j>0&&!sl.id);let k=1;while(mgSlots.some(x=>x.id&&isBot(x.id)&&x.id.split(':')[2]==String(k)))k++;const sl={id:'bot:'+v+':'+k,label:'Bot'};if(e>=0)mgSlots[e]=sl;else mgSlots.push(sl);render();}
+
+/* ===================== Erklärvideos zu den Minispielen ===================== */
+const MGV=new Set(['baseball', 'bermuda', 'bigsmall', 'by5', 'chasedragon', 'countup', 'cricket', 'elimination', 'followleader', 'football', 'golf', 'gotcha', 'grandnational', 'halveit', 'harehounds', 'highlow', 'killer', 'knockout', 'mickey', 'ninelives', 'scam', 'shanghai', 'snooker', 'suddendeath', 'tictactoe']);
+function mgVidBtn(id,full){const vid=MGV.has(id)?id:(id==='blindkiller'?'killer':null);if(!vid)return '';return `<button class="${full?'pri':'ghost'}" style="${full?'width:100%;margin-bottom:12px;padding:14px':''}" onclick="mgVideo('${vid}','${id}')">▶ Erklärvideo ansehen</button>`;}
+function mgVideo(vid,id){const g=MG[id]||MG[vid];modal(`<div class="row" style="margin-bottom:10px;flex-wrap:nowrap"><b class="sp">▶ ${esc(g.name)}</b></div>
+ <video src="videos/mg-${vid}.mp4" poster="videos/mg-${vid}.jpg" controls autoplay muted playsinline preload="metadata" style="width:100%;max-height:70vh;border-radius:14px;background:#000;display:block"></video>
+ <button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal()">Schließen</button>`);}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -1962,7 +1969,7 @@ function vMGDetail(id){const g=MG[id];if(!g){view='train';return vTrain();}const
  return `<button class="sm ghost" onclick="go('train')" style="margin-bottom:12px">← Minispiele</button>
  <span class="badge">${g.cat}</span><h1 style="font-size:32px;margin:8px 0">${g.name}</h1><p class="muted" style="font-size:17px;margin-top:0">${g.desc}</p>
  <div class="stats" style="margin:16px 0"><div class="stat"><div class="k">👥 Spieler</div><div class="v">${g.min===g.max?g.min:g.min+'–'+g.max}</div></div><div class="stat"><div class="k">⏱ Dauer</div><div class="v">~${g.dur} Min.</div></div><div class="stat"><div class="k">Gespielt</div><div class="v">${new Set(runs.map(r=>r.gid)).size}×</div></div></div>
- <div class="card"><h3>Regeln</h3>${mgRulesOf(id).map((s,i)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start;margin:10px 0"><span style="flex:none;width:30px;height:30px;border-radius:50%;border:2px solid #2fbf7188;background:#2fbf7118;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">${i+1}</span><span style="padding-top:4px">${s}</span></div>`).join('')}</div>
+ ${mgVidBtn(id,true)}<div class="card"><h3>Regeln</h3>${mgRulesOf(id).map((s,i)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start;margin:10px 0"><span style="flex:none;width:30px;height:30px;border-radius:50%;border:2px solid #2fbf7188;background:#2fbf7118;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">${i+1}</span><span style="padding-top:4px">${s}</span></div>`).join('')}</div>
  <div class="card"><label style="margin-top:0">Wer spielt?</label>${slotsHTML('mgSlots',mgSlots,{max:g.max,allowGuest:true,fixedFirst:me().role==='player'})}${mgBotHTML()}${mgCfgHTML(id)}${starterHTML()}</div>
  ${ok?'':`<p style="color:#ff6b72">Für ${g.name} braucht ihr ${g.min===g.max?'genau '+g.min:g.min+' bis '+g.max} Spieler.</p>`}
  <button class="pri" style="width:100%;padding:18px;font-size:19px" ${ok?'':'disabled'} onclick="startMG('${id}')">▶ Spiel starten</button>`;}
@@ -1971,7 +1978,7 @@ function newMG(id,ps,sets,lv){const g=MG[id];const st={kind:'mg',id,gid:uid(),in
 function startMG(id){const g=MG[id];const ps=slotIds(mgSlots);if(ps.length<g.min||ps.length>g.max)return toast('Falsche Spielerzahl');const c=mgCfg(id);
  whoStarts(ps,first=>{const ord=[...ps.slice(first),...ps.slice(0,first)];S.live=newMG(id,ord,{n:c.sets,no:1,wins:{},need:Math.floor(c.sets/2)+1},c.lives);save();go('live');});}
 function mgActive(st,i){const g=MG[st.id];return g.active?g.active(st,i):true;}
-function mgRules(){const g=MG[S.live.id];modal(`<h3>${g.name}</h3>${mgRulesOf(S.live.id,S.live.lv).map(r=>`<p>• ${r}</p>`).join('')}<button class="pri" style="width:100%" onclick="closeModal()">OK</button>`);}
+function mgRules(){const g=MG[S.live.id];modal(`<h3>${g.name}</h3>${mgRulesOf(S.live.id,S.live.lv).map(r=>`<p>• ${r}</p>`).join('')}${mgVidBtn(S.live.id,true)}<button class="pri" style="width:100%" onclick="closeModal()">OK</button>`);}
 function mgMult(m){S.live.mult=S.live.mult===m?1:m;render();}
 function mgThrow(n){const st=S.live,g=MG[st.id];if(!onlOk())return;if(mgBotCur()&&!BOT.acting){toast('🤖 Der Dartbot ist dran');return;}let m=n===0?0:st.mult;if(n===25&&m===3)m=2;
  const d={n,m,v:n===0?0:n===25?(m===2?50:25):n*m};
