@@ -429,6 +429,32 @@ body.livetab #app:has(.mgpl) .inbox{font-size:min(7vh,4vw)}
 .mgps.n5 .mgp.cur,.mgps.n6 .mgp.cur,.mgps.n7 .mgp.cur,.mgps.n8 .mgp.cur{gap:.3vh;padding:.6vh 2vw;flex:4.6 1 0}
 .mgps.n5 .mgp:not(.cur),.mgps.n6 .mgp:not(.cur),.mgps.n7 .mgp:not(.cur),.mgps.n8 .mgp:not(.cur){flex:1 1 0}
 @media (orientation:portrait){.mggrid2:has(.mgps.n5),.mggrid2:has(.mgps.n6),.mggrid2:has(.mgps.n7),.mggrid2:has(.mgps.n8){grid-template-rows:minmax(0,1.2fr) minmax(0,1fr)}}
+/* ===== Zuschauer-Anzeige ===== */
+body.watching #nav{display:none!important}
+body.watching.hasnav{padding-left:0!important;padding-bottom:0!important}
+body.watching.livebig header,body.watching.livetab header{display:none}
+body.watching .wrap{max-width:none}
+.watchx{position:fixed;top:10px;right:12px;z-index:40;width:44px;height:44px;border-radius:50%;padding:0;font-size:20px;opacity:.55}
+.watchx:hover{opacity:1}
+.watchmode{display:flex;flex-direction:column;flex:1 1 0;min-height:0}
+body.livetab #app>.watchmode{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+.watchlive{flex:0 0 auto;align-self:flex-start;margin:0 0 1vh;font-weight:900;letter-spacing:1px;color:#ff5a5a;font-size:min(2.2vh,1.6vw);animation:turnpulse 1.6s ease-in-out infinite}
+.watchmode .xr,.watchmode .mgr,.watchmode .pad,.watchmode .inbox,.watchmode .xtop button,.watchmode .mgtop button,.watchmode button{display:none!important}
+.watchmode .x01.big{height:calc(100dvh - 20px - 4vh)}
+.watchmode .xgrid,.watchmode .mggrid2{grid-template-columns:1fr!important;grid-template-rows:minmax(0,1fr)!important}
+.watchmode .x01.big .sc-p.cur .rem{font-size:min(30vh,20vw)}
+.watchmode .x01.big .sc-p .rem{font-size:min(15vh,11vw)}
+.watchmode .x01.big .sc-p.cur .nm{font-size:min(7vh,4.4vw)}
+.watchmode .x01.big .sc-p .nm{font-size:min(5vh,3.4vw)}
+.watchmode .x01.big .sc-p.cur .co{font-size:min(7vh,4.4vw)}
+.watchmode .mgp .nm,.watchmode .mgp .stv{font-size:min(5vh,3.4vw)}
+.watchmode .mgp.cur .nm{font-size:min(7vh,4.6vw)}
+.watchmode .mgp.cur .stv{font-size:min(10vh,6vw)}
+.watchmode .mgp.cur .hint{font-size:min(5.5vh,3.6vw)}
+.watchmode .mgp.cur .turn{font-size:min(3.6vh,2.4vw)}
+.watchmode .mgp.cur .dts span{font-size:min(4vh,2.6vw);min-width:min(18vh,12vw)}
+.watchwait{min-height:80vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.watchwait .big{font-size:90px}
 </style>
 </head>
 <body>
@@ -452,12 +478,16 @@ S.settings=S.settings||{boards:4};S.teams=S.teams||[];
 /* PIN-Felder bewusst KEINE Passwortfelder: sonst bietet der Browser an, die PIN zu speichern (und Google synchronisiert sie auf alle Geräte bzw. der Nächste am Vereins-Tablet bekommt sie angeboten). Punkte statt Ziffern per CSS. */
 const PINT=(window.CSS&&CSS.supports&&CSS.supports('-webkit-text-security','disc'))?'text':'password';
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
-function save(){saveLocal();if(typeof sySchedule==='function')sySchedule();}
+function save(){try{scrUpdate();}catch(e){}saveLocal();if(typeof sySchedule==='function')sySchedule();}
+/* Zuschauer-Anzeige: Läuft auf diesem Gerät ein Spiel, wird der Stand als „Bildschirm“ an den Server geschickt */
+function DEV(){let d=null;try{d=localStorage.getItem('dc_dev');if(!d){d=uid();localStorage.setItem('dc_dev',d);}}catch(e){d=d||'x';}return d;}
+function scrUpdate(){if(typeof SY==='undefined'||!SY.on||!SY.key||S.demo)return;S.screens=S.screens||{};const d=DEV();
+ if(S.live){const m=me();S.screens[d]={by:m?m.nick:'?',live:JSON.parse(JSON.stringify(S.live)),at:Date.now()};}else if(S.screens[d])delete S.screens[d];}
 /* ===================== Server-Abgleich (eigener Vereinsserver) ===================== */
 // Läuft die App unter *.anduuuuin.de, werden alle Vereinsdaten mit dem Server abgeglichen.
 // Auf GitHub Pages oder als Datei bleibt alles wie bisher nur auf diesem Gerät (Testversion).
 const SY={on:/(^|\.)anduuuuin\.de$/i.test(location.hostname)||!!window.DC_API,api:(window.DC_API||'')+'/api/dc/',key:'',rev:0,base:{},busy:false,again:false,t:null,ok:null,err:'',pend:false,force:false,last:0,ready:false};
-const SY_ARR=['users','tournaments','games','trainings','teams'],SY_MAP=['myPlans','planCfg'];
+const SY_ARR=['users','tournaments','games','trainings','teams'],SY_MAP=['myPlans','planCfg','screens'];
 try{const h=location.hash.match(/[#&]k=([A-Za-z0-9_-]+)/);if(h){localStorage.setItem('dc_clubkey',h[1]);history.replaceState(null,'',location.pathname+location.search);}}catch(e){}
 try{SY.key=localStorage.getItem('dc_clubkey')||'';const b=JSON.parse(localStorage.getItem(KEY+'_sync')||'null');if(b&&b.key===SY.key){SY.rev=b.rev||0;SY.base=b.base||{};SY.ready=!!b.ready;}}catch(e){}
 // Inhalt als Text mit sortierten Schlüsseln (damit gleiche Daten immer gleich aussehen)
@@ -596,6 +626,24 @@ let toastT;function toast(m,ms=2200){const t=document.getElementById('toast');t.
 function modal(html){document.getElementById('mbox').innerHTML=html;document.getElementById('modal').classList.add('show');}
 function closeModal(){document.querySelectorAll('#mbox video').forEach(v=>{try{v.pause();}catch(e){}});document.getElementById('modal').classList.remove('show');}
 
+
+/* ===================== Zuschauer-Anzeige (z. B. PC neben dem Board, Caller tippt am Tablet) ===================== */
+let WATCH=false;
+function liveScreens(){const now=Date.now();return Object.entries(S.screens||{}).filter(([d,x])=>d!==DEV()&&x&&x.live&&now-(x.at||0)<30*60000).sort((a,b)=>b[1].at-a[1].at);}
+function scrTitle(x){const L=x.live||{};const g=L.kind==='mg'?(MG[L.id]?.name||'Minispiel'):L.kind==='x01'?L.start+' · '+outLabel(L):L.kind==='ex'?(EX[L.ex]?.name||'Übung'):({atc:'Around the Clock',bob:"Bob's 27",score:'Scoring-Training'})[L.kind]||'Spiel';
+ const ps=(L.players||L.ps||(L.uid?[L.uid]:[])).map(id=>U(id).nick);return{g,ps};}
+function vWatch(id){
+ if(!id){const list=liveScreens();return `<div class="ph"><div class="row"><h1 class="sp">📺 Zuschauer-Anzeige</h1><button class="ghost" onclick="go(isStaff()?'boards':'home')">← Zurück</button></div><p>Zeigt live und groß, was gerade auf einem anderen Gerät gespielt wird – z. B. hier am PC, während der Caller am Tablet eintippt.</p></div>
+  ${list.length?list.map(([d,x])=>{const t=scrTitle(x);return `<button class="card" style="width:100%;text-align:left;display:block" onclick="go('watch','${d}')"><div class="row"><b class="sp" style="font-size:18px">${esc(t.g)}</b><span class="badge g">● live</span></div><div class="muted" style="margin-top:6px">${t.ps.map(esc).join(' · ')}</div><div class="muted small" style="margin-top:4px">eingetippt von ${esc(x.by||'?')}</div></button>`;}).join('')
+  :'<div class="card"><p class="muted" style="margin:0">Gerade läuft auf keinem anderen Gerät ein Spiel. Sobald jemand am Tablet ein Spiel startet, erscheint es hier von selbst.</p></div>'}`;}
+ const x=(S.screens||{})[id];
+ const exit=`<button class="watchx" onclick="go('watch',null)" title="Anzeige beenden">✕</button>`;
+ if(!x||!x.live)return `${exit}<div class="watchwait"><div class="big">🎯</div><h1>Warte auf das nächste Spiel …</h1><p class="muted">Sobald am Tablet ein neues Spiel startet, erscheint es hier automatisch.</p></div>`;
+ const keep=S.live;let h='';WATCH=true;S.live=x.live;
+ try{const k=x.live.kind;h=k==='mg'?vMG():k==='ex'?vEx():k==='x01'?vX01():k==='atc'?vATC():k==='bob'?vBob():vScore();}catch(e){console.error(e);h='<p class="muted">Diese Anzeige ist gerade nicht möglich.</p>';}
+ finally{S.live=keep;WATCH=false;}
+ return `${exit}<div class="watchmode"><div class="watchlive">● LIVE · ${esc(scrTitle(x).g)}</div>${h}</div>`;}
+setInterval(()=>{if(view==='watch'&&!document.hidden&&SY.on&&SY.key)syRun();},1000);
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -940,7 +988,7 @@ function vX01(){const L=S.live;const f=L.fmt;
  <button onclick="undo()" class="undo" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div></div></div></div>`;}
 /* Großanzeige fürs Tablet: automatisch ab Tablet-Größe, per Knopf umschaltbar (wird pro Gerät gemerkt) */
 const BIGQ='(min-width:700px) and (min-height:560px)';
-function bigOn(){let m=null;try{m=localStorage.getItem('dc_big');}catch(e){}return m==='on'||(m!=='off'&&matchMedia(BIGQ).matches);}
+function bigOn(){if(WATCH)return true;let m=null;try{m=localStorage.getItem('dc_big');}catch(e){}return m==='on'||(m!=='off'&&matchMedia(BIGQ).matches);}
 function togBig(){const n=bigOn()?'off':'on';try{localStorage.setItem('dc_big',n);}catch(e){}render();}
 try{matchMedia(BIGQ).addEventListener('change',()=>{if(view==='live')render();});}catch(e){}
 function key(k){const L=S.live;if(!L)return;
@@ -1854,7 +1902,7 @@ function delTour(id){ask('Turnier wirklich löschen?','Löschen',()=>{S.tourname
 /* --- Boards-Ansicht --- */
 function boardMatch(b){for(const t of activeTours()){const m=t.matches.find(m=>m.board===b&&playable(m));if(m)return{t,m};}return null;}
 function vBoards(){const n=boardsN();const waiting=activeTours().flatMap(t=>t.matches.filter(m=>playable(m)&&!m.board).map(m=>({t,m})));
- return `<div class="ph"><div class="row"><h1 class="sp">Boards</h1>${boardStepper()}</div><p>Spiele werden automatisch auf freie Boards verteilt</p></div>
+ return `<div class="ph"><div class="row"><h1 class="sp">Boards</h1><button class="ghost" onclick="go('watch')">📺 Zuschauer-Anzeige${liveScreens().length?` <span class="badge g">${liveScreens().length} live</span>`:''}</button>${boardStepper()}</div><p>Spiele werden automatisch auf freie Boards verteilt</p></div>
  <div class="grid2">${rng(n).map(i=>i+1).map(b=>{const x=boardMatch(b);return `<div class="card" style="margin:0"><div class="row"><h3 class="sp" style="margin:0">🎯 Board ${b}</h3><span class="badge ${x?'y':'g'}">${x?'belegt':'frei'}</span></div>
   ${x?`<div class="muted small" style="margin-top:8px">${esc(x.t.name)} · ${fmtShort(fmtOf(x.t,x.m))}</div><div style="font-size:18px;font-weight:700;margin:6px 0 10px">${AV(U(x.m.a))} ${esc(U(x.m.a).nick)} <span class="muted">vs</span> ${AV(U(x.m.b))} ${esc(U(x.m.b).nick)}</div>
   <div class="row"><button class="pri sp" onclick="playMatch('${x.t.id}','${x.m.id}',${b})">▶ Starten</button><button class="sm" onclick="manualRes('${x.t.id}','${x.m.id}')">✎</button></div>`:`<p class="muted small">Kein Spiel zugeteilt.</p>`}
@@ -2040,17 +2088,19 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&!S.live&&view==='live')view=m.role==='player'?'home':'tour';
  if(m&&view==='home'&&m.role!=='player')view='tour';
  if(m&&view==='admin'&&!isStaff())view='home';
- renderHeader();renderNav();document.body.classList.toggle('livebig',view==='live'&&S.live&&S.live.kind==='x01'&&bigOn());document.body.classList.toggle('livetab',view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn());const app=document.getElementById('app');let h='';
+ if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null;
+ renderHeader();renderNav();document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
-  case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
+  case'watch':h=isStaff()||m.role==='player'?vWatch(param):'';break;case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
   case'live':h=S.live.kind==='mg'?vMG():S.live.kind==='ex'?vEx():S.live.kind==='x01'?vX01():S.live.kind==='atc'?vATC():S.live.kind==='bob'?vBob():vScore();break;}
  app.innerHTML=h+(view!=='live'&&!SY.on?`<div class="proto">Testversion · Daten werden nur auf diesem Gerät gespeichert</div>`:'');syBadge();try{document.querySelectorAll('#app .seg').forEach(g=>{const b=g.querySelector('button.on');if(b&&g.scrollWidth>g.clientWidth)g.scrollLeft=b.offsetLeft-g.clientWidth/2+b.offsetWidth/2;});}catch(e){}}
 document.addEventListener('keydown',e=>{if(view!=='live'||!S.live||document.getElementById('modal').classList.contains('show'))return;
  if(!('input' in S.live))return;if(/^\d$/.test(e.key))key(e.key);else if(e.key==='Enter')key('ok');else if(e.key==='Backspace')key('del');});
 // Vereinsversion: keinen Demo-Modus – falls ein Gerät noch in der Demo hängt, echten Stand zurückholen
 if(SY.on&&S.demo){S=SY.ready?syRebuild():fresh();saveLocal();setMe(null);view='login';}
+if(SY.on&&S.screens&&S.screens[DEV()]&&!S.live){delete S.screens[DEV()];saveLocal();}
 render();
 sySchedule(100);
 </script>
