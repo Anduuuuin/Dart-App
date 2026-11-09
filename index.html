@@ -617,7 +617,7 @@ let ACT_T=0;function touchLogin(){if(!meId)return;const n=Date.now();if(n-ACT_T<
 function idleCheck(){if(!meId)return;try{const o=JSON.parse(localStorage.getItem(KEY+'_login')||'null');if(!o||Date.now()-(o.at||0)>=IDLE_MAX){if(S.live&&!S.live.online)return;setMe(null);closeModal();go('login');toast('Nach einer Stunde ohne Benutzung abgemeldet');}}catch(e){}}
 ['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,touchLogin,{passive:true}));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)touchLogin();else idleCheck();});setInterval(idleCheck,60000);
-const U=id=>{if(typeof id==='string'&&id.startsWith('g:'))return{id,nick:id.slice(2),guest:true};if(typeof id==='string'&&id.startsWith('bot:'))return{id,nick:'Dartbot Ø '+(parseInt(id.slice(4),10)||60),guest:true,bot:true,avatar:'🤖'};return S.users.find(u=>u.id===id)||{nick:'Gelöscht',gone:true};};
+const U=id=>{if(typeof id==='string'&&id.startsWith('g:'))return{id,nick:id.slice(2),guest:true};if(typeof id==='string'&&id.startsWith('bot:'))return{id,nick:'Dartbot Ø '+(parseInt(id.slice(4),10)||60)+(+id.split(':')[2]>1?' ('+id.split(':')[2]+')':''),guest:true,bot:true,avatar:'🤖'};return S.users.find(u=>u.id===id)||{nick:'Gelöscht',gone:true};};
 const isGuest=id=>typeof id==='string'&&(id.startsWith('g:')||id.startsWith('bot:'));
 function AV(u,sz){u=u||{};const z=sz?`width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.4)}px;`:'';
  if(u.photo)return `<img class="avi" style="${z}" src="${u.photo}" alt="">`;
@@ -678,7 +678,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=25;
+const APPV=26;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -909,6 +909,48 @@ function botPick(v){const i=setup.slots.findIndex(sl=>isBot(sl.id));if(!v){if(i>
 /* Zoomen per Zwei-Finger-Geste und Doppeltippen unterbinden (auch auf iPhones, die das Meta-Tag ignorieren) */
 ['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
 document.addEventListener('touchmove',e=>{if(e.touches&&e.touches.length>1)e.preventDefault();},{passive:false});
+
+/* ===================== Dartbot bei Minispielen ===================== */
+const T20='T20';
+const openOf=(st,p,nums)=>nums.filter(n=>st.p[p].mk[n]<3);
+const MG_BOT={
+ football:(st,p)=>st.ball===p?'D20':'Bull',
+ baseball:st=>'T'+st.round, golf:st=>'T'+st.round, shanghai:st=>['T','D',''][st.dart]+st.round,
+ snooker:st=>st.need==='red'?'11':st.need==='color'?'20':[16,17,18,19,20,'Bull'][st.fin]+'',
+ grandnational:(st,p)=>{const x=st.p[p].pos;return x>=20?'Bull':(x%5===4?'D':'')+ORD[x];},
+ killer:(st,p)=>{const me=st.p[p];if(!me.k)return 'D'+me.num;const o=st.p.map((x,i)=>({x,i})).filter(o=>o.i!==p&&o.x.lives>0&&(o.x.rev||!st.id.startsWith('blind')));if(!o.length){const n=[...Array(20).keys()].map(i=>i+1).filter(n=>n!==me.num);return 'D'+n[Math.floor(Math.random()*n.length)];}o.sort((a,b)=>a.x.lives-b.x.lives);return 'D'+o[0].x.num;},
+ ninelives:(st,p)=>String(Math.min(st.p[p].t,20)),
+ followleader:st=>st.target?(st.target.n===25?'Bull':(st.target.m===3?'T':st.target.m===2?'D':'')+st.target.n):T20,
+ bigsmall:st=>st.round%2===1?T20:'1',
+ chasedragon:(st,p)=>{const i=st.p[p].i;return i<11?'T'+(10+i):'Bull';},
+ harehounds:(st,p)=>String(ORD[st.p[p].pos%20]),
+ scam:(st,p)=>{const stop=st.phase===0?0:1;const open=[...Array(20).keys()].map(i=>i+1).filter(n=>!st.closed[n]);if(p===stop)return String(open[0]||20);return open.includes(20)?T20:open.length?'T'+Math.max(...open):'Bull';},
+ tictactoe:st=>{const L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];const me=st.cur,free=i=>st.own[i]===null;
+  const pick=who=>{for(const l of L){const a=l.filter(k=>st.own[k]===who),f=l.filter(free);if(a.length===2&&f.length===1)return f[0];}return -1;};
+  let i=pick(me);if(i<0)i=pick(1-me);if(i<0)i=[4,0,2,6,8,1,3,5,7].find(free);const n=st.grid[i];return n===25?'Bull':String(n);},
+};
+function mgBotAim(st,p){const g=MG[st.id];if(MG_BOT[st.id])return MG_BOT[st.id](st,p);
+ if(g.nums){const open=openOf(st,p,g.nums);const tgt=open.length?open[0]:g.nums.find(n=>st.p.some((o,i)=>i!==p&&o.mk[n]<3))||g.nums[0];return tgt===25?'Bull':'T'+tgt;}
+ return T20;}
+/* Aufnahme-Spiele: 3 Pfeile werfen, Summe eintippen */
+function mgBotVisit(st,p,sig){const g=MG[st.id];const ds=[];
+ if(g.tgs){const t=g.tgs[st.round-1];const aim=t==='D'?'D20':t==='T'?T20:t==='B'||t==='DB'?'Bull':'T'+t;let v=0;for(let k=0;k<3;k++){const d=botThrow(aim,sig);ds.push(d);if(g.tgHit(t,d))v+=d.v;}return{ds,v};}
+ if(st.id==='gotcha'||st.id==='elimination'){const rest=301-st.p[p].s;let r=rest,v=0;for(let k=3;k>=1;k--){const d=botThrow(botTarget(r,k,'single',true),sig);ds.push(d);v+=d.v;r-=d.v;if(r<=0)break;}return{ds,v};}
+ if(st.id==='by5'){const need=(51-st.p[p].s)*5;const aim=need<60?'5':'20';let v=0;for(let k=0;k<3;k++){const d=botThrow(aim,sig);ds.push(d);v+=d.v;}if(ds.some(d=>d.v===0))v=0;return{ds,v};}
+ if(st.id==='highlow'){const exp=botAvgOf(st.ps[p]);const aim=exp>st.hi+8?T20:st.lo>12?'1':T20;let v=0;for(let k=0;k<3;k++){const d=botThrow(aim,sig);ds.push(d);v+=d.v;}return{ds,v};}
+ let v=0;for(let k=0;k<3;k++){const d=botThrow(T20,sig);ds.push(d);v+=d.v;}return{ds,v};}
+const botAvgOf=id=>botLv(id);
+function mgBotCur(){const st=S.live;return !!(st&&st.kind==='mg'&&!st.online&&st.winner===null&&!st.done&&isBot(st.ps[st.cur]));}
+function mgBotTick(){if(WATCH||view!=='live'||!mgBotCur())return;const st=S.live,g=MG[st.id];
+ const key='mg|'+st.gid+'|'+st.hist.length+'|'+st.cur+'|'+st.dart+'|'+(st.sets?st.sets.no:0);if(BOT.key===key)return;botStop();BOT.key=key;
+ const id=st.ps[st.cur],sig=botSigma(botLv(id));const live=st;
+ BOT.t=setTimeout(()=>{if(S.live!==live||BOT.key!==key)return;if(document.getElementById('modal').classList.contains('show')){BOT.key=null;BOT.t=setTimeout(mgBotTick,600);return;}BOT.acting=true;
+  try{if(g.visitInput){const r=mgBotVisit(st,st.cur,sig);toast(`🤖 ${r.ds.map(botName).join(' · ')} = ${r.v}`);mgVisit(Math.min(180,r.v));}
+   else{const d=botThrow(mgBotAim(st,st.cur),sig);st.mult=d.m>=2?d.m:1;mgThrow(d.v===0?0:d.n);}}
+  finally{BOT.acting=false;BOT.key=null;}if(S.live)setTimeout(mgBotTick,50);},g.visitInput?1300:750);}
+function mgBotHTML(){const n=mgSlots.length;return `<label>🤖 Dartbot dazunehmen</label><div class="chips">${BOT_LV.map(([v,l])=>`<button onclick="mgBotAdd(${v})">＋ Ø ${v}<small style="display:block;font-size:11px;opacity:.75">${l}</small></button>`).join('')}</div>
+ <p class="muted small" style="margin:6px 0 0">Jeder Bot spielt wie ein eigener Mitspieler. Wieder entfernen: beim Bot auf ✕ tippen.</p>`;}
+function mgBotAdd(v){if(mgSlots.length>=8)return toast('Maximal 8 Spieler');const e=mgSlots.findIndex((sl,j)=>j>0&&!sl.id);let k=1;while(mgSlots.some(x=>x.id&&isBot(x.id)&&x.id.split(':')[2]==String(k)))k++;const sl={id:'bot:'+v+':'+k,label:'Bot'};if(e>=0)mgSlots[e]=sl;else mgSlots.push(sl);render();}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -1272,7 +1314,7 @@ const BIGQ='(min-width:700px) and (min-height:560px)';
 function bigOn(){if(WATCH)return true;let m=null;try{m=localStorage.getItem('dc_big');}catch(e){}return m==='on'||(m!=='off'&&matchMedia(BIGQ).matches);}
 function togBig(){const n=bigOn()?'off':'on';try{localStorage.setItem('dc_big',n);}catch(e){}render();}
 try{matchMedia(BIGQ).addEventListener('change',()=>{if(view==='live')render();});}catch(e){}
-function key(k){const L=S.live;if(!L)return;if(!onlOk())return;if(botCur()&&!BOT.acting&&k!=='del'){toast('🤖 Der Dartbot ist dran');return;}
+function key(k){const L=S.live;if(!L)return;if(!onlOk())return;if((botCur()||mgBotCur())&&!BOT.acting&&k!=='del'){toast('🤖 Der Dartbot ist dran');return;}
  if(k==='ok'){const v=L.input===''?0:parseInt(L.input,10);L.input='';if(L.kind==='score')scoreVisit(v);else if(L.kind==='mg')mgVisit(v);else if(L.kind==='ex')exNum(v);else visit(v);return;}
  if(k==='del'){L.input=L.input.slice(0,-1);render();return;}
  if(L.input.length>=3)return;L.input=(L.input+k).replace(/^0+(?=\d)/,'');render();}
@@ -1749,14 +1791,14 @@ const hearts=n=>n>0?'❤️'.repeat(n):'💀 raus';
 function shuffleNums(k,excl=[]){const a=[...Array(20).keys()].map(i=>i+1).filter(n=>!excl.includes(n));shuffle(a);return a.slice(0,k);}
 function targetsGame(name,cat,desc,targets,start,rulesExtra){const lab=t=>t==='D'?'irgendein Doppel':t==='T'?'irgendein Triple':t==='B'?'Bull (25/50)':t==='DB'?'Bullseye (50)':String(t);
  const hit=(t,d)=>t==='D'?d.m===2&&d.n!==25:t==='T'?d.m===3:t==='B'?d.n===25:t==='DB'?d.n===25&&d.m===2:d.n===t;
- return{name,cat,min:1,max:8,dur:targets.length,desc,rounds:targets.length,visitInput:true,visit(st,p,v){if(v>0){st.p[p].s+=v;st.p[p].hit=true;}},
+ return{name,cat,min:1,max:8,dur:targets.length,desc,rounds:targets.length,visitInput:true,tgs:targets,tgHit:hit,visit(st,p,v){if(v>0){st.p[p].s+=v;st.p[p].hit=true;}},
   rules:[`Ziele der Reihe nach: ${targets.map(lab).join(' → ')}.`,'Pro Runde 3 Darts aufs aktuelle Ziel – tippe nur die Punkte ein, die im Ziel gelandet sind (0 = kein Treffer).','Triffst du in einer Runde gar nicht, wird dein Punktestand halbiert!',...(rulesExtra||[]),'Wer am Ende die meisten Punkte hat, gewinnt.'],
   init(st){st.p.forEach(x=>x.s=start);},start(st,p){st.p[p].hit=false;},
   dart(st,p,d){const t=targets[st.round-1];if(hit(t,d)){st.p[p].s+=d.v;st.p[p].hit=true;}},
   endTurn(st,p){if(!st.p[p].hit){st.p[p].s=Math.floor(st.p[p].s/2);toast(`✂️ Halbiert: ${esc(U(st.ps[p]).nick)}`);}},
   status:(st,i)=>`${st.p[i].s} Punkte`,hint:(st)=>`Ziel: ${lab(targets[st.round-1])}`,result:st=>byDesc(st,x=>x.s)};}
 function cricketGame(name,desc,nums){const sym=m=>['·','/','X','Ⓧ'][m];
- return{name,cat:'❌ Taktik',min:1,max:4,dur:20,desc,
+ return{name,cat:'❌ Taktik',min:1,max:4,dur:20,desc,nums,
   rules:[`Spielzahlen: ${nums.map(n=>n===25?'Bull':n).join(', ')}.`,'Jede Zahl muss 3× getroffen werden, um sie zu schließen (Doppel = 2, Triple = 3 Treffer, Bullseye = 2).','Ist eine Zahl bei dir zu, bei einem Gegner aber noch offen, bekommst du für weitere Treffer Punkte.','Gewonnen hat, wer alle Zahlen geschlossen hat und mindestens so viele Punkte hat wie jeder andere.'],
   init(st){st.p.forEach(x=>{x.s=0;x.mk={};nums.forEach(n=>x.mk[n]=0);});},
   dart(st,p,d){if(!nums.includes(d.n))return;const me=st.p[p];const before=me.mk[d.n];const tot=before+d.m;me.mk[d.n]=Math.min(3,tot);
@@ -1921,7 +1963,7 @@ function vMGDetail(id){const g=MG[id];if(!g){view='train';return vTrain();}const
  <span class="badge">${g.cat}</span><h1 style="font-size:32px;margin:8px 0">${g.name}</h1><p class="muted" style="font-size:17px;margin-top:0">${g.desc}</p>
  <div class="stats" style="margin:16px 0"><div class="stat"><div class="k">👥 Spieler</div><div class="v">${g.min===g.max?g.min:g.min+'–'+g.max}</div></div><div class="stat"><div class="k">⏱ Dauer</div><div class="v">~${g.dur} Min.</div></div><div class="stat"><div class="k">Gespielt</div><div class="v">${new Set(runs.map(r=>r.gid)).size}×</div></div></div>
  <div class="card"><h3>Regeln</h3>${mgRulesOf(id).map((s,i)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start;margin:10px 0"><span style="flex:none;width:30px;height:30px;border-radius:50%;border:2px solid #2fbf7188;background:#2fbf7118;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">${i+1}</span><span style="padding-top:4px">${s}</span></div>`).join('')}</div>
- <div class="card"><label style="margin-top:0">Wer spielt?</label>${slotsHTML('mgSlots',mgSlots,{max:g.max,allowGuest:true,fixedFirst:me().role==='player'})}${mgCfgHTML(id)}${starterHTML()}</div>
+ <div class="card"><label style="margin-top:0">Wer spielt?</label>${slotsHTML('mgSlots',mgSlots,{max:g.max,allowGuest:true,fixedFirst:me().role==='player'})}${mgBotHTML()}${mgCfgHTML(id)}${starterHTML()}</div>
  ${ok?'':`<p style="color:#ff6b72">Für ${g.name} braucht ihr ${g.min===g.max?'genau '+g.min:g.min+' bis '+g.max} Spieler.</p>`}
  <button class="pri" style="width:100%;padding:18px;font-size:19px" ${ok?'':'disabled'} onclick="startMG('${id}')">▶ Spiel starten</button>`;}
 function newMG(id,ps,sets,lv){const g=MG[id];const st={kind:'mg',id,gid:uid(),input:'',ps,p:ps.map(()=>({})),cur:0,dart:0,round:1,darts:[],mult:1,hist:[],winner:null,done:false,endTurn:false,sets,lv};
@@ -1931,7 +1973,7 @@ function startMG(id){const g=MG[id];const ps=slotIds(mgSlots);if(ps.length<g.min
 function mgActive(st,i){const g=MG[st.id];return g.active?g.active(st,i):true;}
 function mgRules(){const g=MG[S.live.id];modal(`<h3>${g.name}</h3>${mgRulesOf(S.live.id,S.live.lv).map(r=>`<p>• ${r}</p>`).join('')}<button class="pri" style="width:100%" onclick="closeModal()">OK</button>`);}
 function mgMult(m){S.live.mult=S.live.mult===m?1:m;render();}
-function mgThrow(n){const st=S.live,g=MG[st.id];if(!onlOk())return;let m=n===0?0:st.mult;if(n===25&&m===3)m=2;
+function mgThrow(n){const st=S.live,g=MG[st.id];if(!onlOk())return;if(mgBotCur()&&!BOT.acting){toast('🤖 Der Dartbot ist dran');return;}let m=n===0?0:st.mult;if(n===25&&m===3)m=2;
  const d={n,m,v:n===0?0:n===25?(m===2?50:25):n*m};
  st.hist.push(JSON.stringify({...st,hist:undefined}));if(st.hist.length>60)st.hist.shift();
  st.darts.push(d);st.mult=1;g.dart(st,st.cur,d);st.dart++;
@@ -1946,10 +1988,11 @@ function mgNext(){const st=S.live,g=MG[st.id];g.endTurn?.(st,st.cur);if(st.winne
  const alive=st.ps.map((x,j)=>j).filter(j=>mgActive(st,j));if(!alive.length){st.done=true;return;}if(n>1&&alive.length<=1){st.winner=alive[0];st.done=true;return;}
  if(!mgActive(st,i)){i=alive[0];}
  st.cur=i;st.dart=0;st.darts=[];st.endTurn=false;g.start?.(st,i);}
-function mgVisit(v){const st=S.live,g=MG[st.id];if(!onlOk())return;if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
+function mgVisit(v){const st=S.live,g=MG[st.id];if(!onlOk())return;if(mgBotCur()&&!BOT.acting){toast('🤖 Der Dartbot ist dran');return;}if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
  st.hist.push(JSON.stringify({...st,hist:undefined}));if(st.hist.length>60)st.hist.shift();
  g.visit(st,st.cur,v);if(st.winner!==null||st.done)return mgEnd();st.endTurn=true;mgNext();if(st.winner!==null||st.done)return mgEnd();save();render();}
-function mgUndo(){const st=S.live;if(!onlOk(true))return;const h=st.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen');const o=JSON.parse(h);o.hist=st.hist;S.live=o;save();render();}
+function mgUndo(){const st=S.live;if(!onlOk(true))return;botStop();let h=st.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen');let o=JSON.parse(h);
+ while(isBot(o.ps[o.cur])&&st.hist.length&&!o.ps.every(isBot)){h=st.hist.pop();o=JSON.parse(h);}o.hist=st.hist;S.live=o;save();render();}
 function mgEnd(){const st=S.live,g=MG[st.id];let rank=g.result(st);if(st.winner!==null){rank=[st.winner,...rank.filter(i=>i!==st.winner)];}
  let draw=st.draw;mgFxShow(st);
  const ss=st.sets;if(ss&&ss.n>1){const w=draw?null:st.ps[rank[0]];if(w)ss.wins[w]=(ss.wins[w]||0)+1;
@@ -2385,7 +2428,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&view==='home'&&m.role!=='player')view='tour';
  if(m&&view==='admin'&&!isStaff())view='home';
  if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null;
- renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
+ renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
