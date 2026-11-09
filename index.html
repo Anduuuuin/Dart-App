@@ -455,6 +455,16 @@ body.livetab #app>.watchmode{flex:1 1 0;min-height:0;display:flex;flex-direction
 .watchmode .mgp.cur .dts span{font-size:min(4vh,2.6vw);min-width:min(18vh,12vw)}
 .watchwait{min-height:80vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
 .watchwait .big{font-size:90px}
+/* ===== Schreck-Effekt ===== */
+#fx{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#4a0b0bcc,#000000e6);opacity:0;pointer-events:none;transition:opacity .25s}
+#fx.on{opacity:1}
+#fx .e{font-size:min(55vh,60vw);line-height:1;filter:drop-shadow(0 0 40px #ff3b3b88)}
+#fx.on .e{animation:fxpop .55s cubic-bezier(.2,1.6,.4,1),fxshake .5s .55s ease-in-out 2}
+#fx .t{font-family:Outfit,Inter,sans-serif;font-weight:900;font-size:min(7vh,8vw);color:#fff;text-align:center;margin-top:2vh;padding:0 4vw;text-shadow:0 4px 20px #000}
+@keyframes fxpop{0%{transform:scale(.2) rotate(-15deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes fxshake{25%{transform:translateX(-3vw) rotate(-6deg)}75%{transform:translateX(3vw) rotate(6deg)}}
+.tro{font-size:.8em}
+body.livetab .bobq{font-size:min(3.4vh,4.6vw)!important;font-weight:700;color:var(--text)!important}
 </style>
 </head>
 <body>
@@ -652,7 +662,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=16;
+const APPV=17;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -660,6 +670,50 @@ async function checkUpdate(){if(location.protocol==='file:')return;try{const t=a
  if(!window.__updToast){window.__updToast=1;toast('🔄 Neue App-Version da – sie wird nach dem Spiel automatisch geladen');}}catch(e){}}
 setInterval(checkUpdate,60000);setTimeout(checkUpdate,4000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate();});
+
+/* ===================== Wer fängt an? (Ausbullen / Zufall / Reihenfolge) ===================== */
+function starterMode(){let m=null;try{m=localStorage.getItem('dc_starter');}catch(e){}return m||'bull';}
+function setStarter(m){try{localStorage.setItem('dc_starter',m);}catch(e){}render();}
+function starterHTML(){const m=starterMode();return `<label>Wer fängt an?</label><div class="chips">${[['bull','🎯 Ausbullen'],['random','🎲 Zufall'],['order','Wie eingetragen']].map(([k,l])=>`<button class="${m===k?'on':''}" onclick="setStarter('${k}')">${l}</button>`).join('')}</div>`;}
+let WS_CB=null;
+function whoStarts(ps,cb){const m=starterMode();if(ps.length<2||m==='order')return cb(0);
+ if(m==='random'){const i=Math.floor(Math.random()*ps.length);cb(i);toast(`🎲 ${U(ps[i]).nick} fängt an`);return;}
+ WS_CB=i=>{closeModal();const f=WS_CB;WS_CB=null;cb(i);};window.__wsPs=ps;
+ modal(`<h2 style="margin-bottom:4px">🎯 Ausbullen</h2><p class="muted" style="margin-top:0">Jeder wirft einen Dart aufs Bull. Wer am nächsten dran ist, fängt an – tippe ihn an:</p>
+ <div style="display:grid;gap:8px">${ps.map((id,i)=>`<button class="ghost" style="padding:14px;font-size:18px;text-align:left" onclick="WS_CB&&WS_CB(${i})">${AV(U(id),30)} <b>${esc(U(id).nick)}</b></button>`).join('')}</div>
+ <div class="row" style="margin-top:10px"><button class="ghost sp" onclick="WS_CB&&WS_CB(Math.floor(Math.random()*__wsPs.length))">🎲 Zufall</button><button class="ghost sp" onclick="closeModal();WS_CB=null">Abbrechen</button></div>`);}
+
+/* ===================== Minispiele: Länge (Durchgänge, Leben) ===================== */
+const MG_LIVES=['killer','blindkiller','knockout','ninelives','followleader','highlow'];
+function mgCfg(id){let all={};try{all=JSON.parse(localStorage.getItem('dc_mgcfg')||'{}');}catch(e){}const c=all[id]||{};
+ return {sets:c.sets||3,lives:MG_LIVES.includes(id)?(c.lives||(id.includes('killer')?5:3)):3};}
+function mgCfgSet(id,k,v){let all={};try{all=JSON.parse(localStorage.getItem('dc_mgcfg')||'{}');}catch(e){}all[id]={...(all[id]||{}),[k]:v};try{localStorage.setItem('dc_mgcfg',JSON.stringify(all));}catch(e){}render();}
+function mgCfgHTML(id){const c=mgCfg(id);return `<label>Durchgänge</label><div class="chips">${[[1,'1 Spiel'],[3,'Best of 3'],[5,'Best of 5'],[7,'Best of 7']].map(([v,l])=>`<button class="${c.sets===v?'on':''}" onclick="mgCfgSet('${id}','sets',${v})">${l}</button>`).join('')}</div>
+ ${c.sets>1?`<p class="muted small" style="margin:6px 0 0">Wer zuerst ${Math.floor(c.sets/2)+1} Durchgänge gewinnt, holt das Spiel. Jeder Durchgang fängt ein anderer an.</p>`:''}
+ ${MG_LIVES.includes(id)?`<label>Leben pro Spieler</label><div class="chips">${[3,5,7,10].map(v=>`<button class="${c.lives===v?'on':''}" onclick="mgCfgSet('${id}','lives',${v})">${v} ❤️</button>`).join('')}</div>`:''}`;}
+function mgRulesOf(id,lv){const g=MG[id];lv=lv||mgCfg(id).lives;return g.rules.map(r=>r.replace(/\b3 Leben\b/g,lv+' Leben'));}
+function mgTro(st,id){const w=st.sets&&st.sets.wins&&st.sets.wins[id];return w?` <span class="tro">${'🏆'.repeat(w)}</span>`:'';}
+
+/* ===================== Großer Effekt bei Lebensverlust (z. B. Killer) – auch auf der Zuschauer-Anzeige ===================== */
+const FX_SEEN=new Set();
+function mgFx(st,e,t){st.fx={k:uid(),e,t,at:Date.now()};}
+function mgFxShow(L){if(!L||!L.fx||FX_SEEN.has(L.fx.k))return;FX_SEEN.add(L.fx.k);if(Math.abs(Date.now()-(L.fx.at||0))>15000)return;
+ let el=document.getElementById('fx');if(!el){el=document.createElement('div');el.id='fx';document.body.appendChild(el);}
+ el.innerHTML=`<div class="e">${L.fx.e}</div><div class="t">${esc(L.fx.t)}</div>`;el.classList.remove('on');void el.offsetWidth;el.classList.add('on');
+ try{navigator.vibrate&&navigator.vibrate([60,40,120]);}catch(e){}
+ clearTimeout(el.__t);el.__t=setTimeout(()=>el.classList.remove('on'),2300);}
+
+/* ===================== Schnellwahl-Tasten (pro Spieler festlegbar) ===================== */
+const QUICK_DEF=[26,41,45,60,81,85,100,121,140,180];
+function getQuick(){const m=me();const q=m&&Array.isArray(m.quick)&&m.quick.length?m.quick:QUICK_DEF;return q;}
+function quickEdit(){const q=getQuick();modal(`<h2>⚡ Schnellwahl-Tasten</h2><p class="muted small" style="margin-top:0">Lege deine 10 Lieblings-Punktzahlen fest (0–180). Sie gelten für dich bei X01 und bei Minispielen mit Aufnahme-Eingabe.</p>
+ <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">${q.concat(Array(10).fill('')).slice(0,10).map((v,i)=>`<input class="qk" inputmode="numeric" maxlength="3" value="${v}" style="text-align:center;font-size:18px;padding:10px 0">`).join('')}</div>
+ <div class="row" style="margin-top:12px"><button class="ghost sp" onclick="quickSave(true)">Standard</button><button class="pri sp" onclick="quickSave()">Speichern</button></div>`);}
+function quickSave(reset){const m=me();if(!m)return closeModal();
+ if(reset){delete m.quick;}else{const vals=[...document.querySelectorAll('.qk')].map(e=>e.value.trim()).filter(v=>v!=='').map(v=>parseInt(v,10));
+  const bad=vals.find(v=>isNaN(v)||v<0||v>180||IMPOSSIBLE.includes(v));if(bad!==undefined)return toast(`${isNaN(bad)?'Ungültige Zahl':bad+' ist nicht möglich'}`);
+  if(!vals.length)return toast('Mindestens eine Zahl eintragen');m.quick=vals.slice(0,10);}
+ save();closeModal();render();toast('⚡ Schnellwahl gespeichert');}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -716,8 +770,10 @@ const MCO={};(function(){const fin=[],any=[];for(let n=20;n>=1;n--)fin.push(['T'
  const one=v=>{if(v<2)return null;if(CO[v]&&CO[v].length===1)return CO[v];const t=fin.find(x=>x[1]===v);return t?[t[0]]:null;};
  const two=v=>{const o=one(v);if(o)return o;if(CO[v]&&CO[v].length===2)return CO[v];for(const a of any){const r=one(v-a[1]);if(r)return[a[0],...r];}return null;};
  for(let v=2;v<=180;v++){let p=two(v);if(!p){if(CO[v])p=CO[v];else for(const a of any){const r=two(v-a[1]);if(r){p=[a[0],...r];break;}}}if(p)MCO[v]=p;}})();
-function outOf(L){return L.out||(L.dOut?'double':'single');}
-function coTable(L){const o=outOf(L);return o==='double'?CO:o==='master'?MCO:null;}
+function outOf(L,i){const h=i!=null&&L.hc&&L.hc[i];return (h&&h.out)||L.out||(L.dOut?'double':'single');}
+function startOf(L,i){const h=L.hc&&L.hc[i];return (h&&h.start)||L.start;}
+function hcLabel(L,i){const h=L.hc&&L.hc[i];if(!h)return '';const a=[];if(h.start&&h.start!==L.start)a.push(h.start);if(h.out&&h.out!==(L.out||(L.dOut?'double':'single')))a.push({double:'Double Out',single:'Single Out',master:'Master Out'}[h.out]);return a.join(' · ');}
+function coTable(L,i){const o=outOf(L,i===undefined?L.cur:i);return o==='double'?CO:o==='master'?MCO:null;}
 function outLabel(L){return {double:'Double Out',single:'Single Out',master:'Master Out'}[outOf(L)]+(L.din?' · Double In':'');}
 const IMPOSSIBLE=[163,166,169,172,173,175,176,178,179];
 
@@ -951,6 +1007,8 @@ function vPlay(){const self=me().role==='player';
  return `<div class="card"><label style="margin-top:0">Spieler</label>${slotsHTML('setup.slots',setup.slots,{allowGuest:true,fixedFirst:self,addLabel:self?'Gast dazunehmen':'Spieler hinzufügen'})}
  <p class="muted small" style="margin:8px 0 0">${self?'Allein spielen oder einen Gast dazunehmen – deine Werte landen in deiner Statistik.':'Standard ist Heim gegen Gast. Wer seine Statistik will, tippt auf den Platz und wählt sein Profil.'}</p>
  ${optsHTML(setup,'setup',true)}
+ ${hcHTML()}
+ ${starterHTML()}
  <button class="pri" style="width:100%;margin-top:18px;padding:16px" onclick="startFree()" ${setup.slots.length?'':'disabled'}>▶ Spiel starten</button></div>`;}
 
 /* --- Spielmodus-Menü (Legs/Sets, Best of 1–11) --- */
@@ -982,11 +1040,20 @@ function optsHTML(o,name,allowEven=true,koNote=''){if(!o.fmt)o.fmt={sets:false,b
  ${o.din||o.out==='master'?`<p class="muted small" style="margin:8px 0 0">${o.din?'<b>Double In:</b> Die Punkte zählen erst ab dem ersten getroffenen Doppel – also nur die Punkte ab dem Doppel eintippen. ':''}${o.out==='master'?'<b>Master Out:</b> Beenden mit einem Doppel <b>oder</b> Triple.':''}</p>`:''}`
  :`<label>Check-out</label><div class="chips"><button class="${o.dOut?'on':''}" onclick="${name}.dOut=true;render()">Double Out</button><button class="${!o.dOut?'on':''}" onclick="${name}.dOut=false;render()">Single Out (Kids)</button></div>`}`;}
 function togSetup(id){const i=setup.players.indexOf(id);if(i>=0)setup.players.splice(i,1);else if(setup.players.length<4)setup.players.push(id);else toast('Maximal 4 Spieler');render();}
-function startFree(){const out=setup.out||(setup.dOut?'double':'single');startX01(slotIds(setup.slots),setup.start,{...setup.fmt},out==='double',null,{out,din:!!setup.din});}
+function startFree(){const out=setup.out||(setup.dOut?'double':'single');const ps=slotIds(setup.slots);
+ let hc=null;if(setup.hcOn&&ps.length>1){hc=setup.slots.map((sl,i)=>{const h=(setup.hc||{})[i]||{};const st=h.m&&setup.start-h.m>=50?setup.start-h.m:null;return st||h.out?{start:st,out:h.out||null}:null;});if(!hc.some(x=>x))hc=null;}
+ whoStarts(ps,first=>startX01(ps,setup.start,{...setup.fmt},out==='double',null,{out,din:!!setup.din,hc,first}));}
+function hcSet(i,k,v){setup.hc=setup.hc||{};setup.hc[i]=setup.hc[i]||{};setup.hc[i][k]=v;render();}
+function hcHTML(){if(setup.slots.length<2)return '';const on=!!setup.hcOn;const ms=[0,50,100,150,200].filter(m=>setup.start-m>=50);
+ return `<label>⚖️ Handicap</label><div class="chips"><button class="${on?'':'on'}" onclick="setup.hcOn=false;render()">Aus</button><button class="${on?'on':''}" onclick="setup.hcOn=true;render()">An</button></div>
+ ${on?`<p class="muted small" style="margin:8px 0 0">Für schwächere Spieler: weniger Punkte zum Start und/oder ein leichterer Check-out.</p>${setup.slots.map((sl,i)=>{const h=(setup.hc||{})[i]||{};const nm=sl.id?U(sl.id).nick:sl.label;
+  return `<div class="card" style="padding:10px 12px;margin:8px 0 0"><b>${esc(nm)}</b> <span class="muted small">startet mit ${setup.start-(ms.includes(h.m)?h.m||0:0)}</span>
+  <div class="chips" style="margin-top:6px">${ms.map(m=>`<button class="${(h.m||0)===m?'on':''}" onclick="hcSet(${i},'m',${m})">${m?'−'+m:'Normal'}</button>`).join('')}</div>
+  <div class="chips" style="margin-top:6px">${[['','Check-out wie alle'],['single','Single Out'],['master','Master Out'],['double','Double Out']].map(([k,l])=>`<button class="${(h.out||'')===k?'on':''}" onclick="hcSet(${i},'out','${k}')">${l}</button>`).join('')}</div></div>`;}).join('')}`:''}`;}
 
 /* ===================== X01-Scorer ===================== */
 function startX01(ps,start,fmt,dOut,tref,mode){if(typeof fmt==='number')fmt={sets:false,bo:fmt,setLegs:3};const out=(mode&&mode.out)||(dOut?'double':'single'),din=!!(mode&&mode.din);
- S.live={kind:'x01',players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),scores:ps.map(()=>start),cur:0,legStarter:0,hist:[],input:'',
+ S.live={kind:'x01',players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
   st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,ch:0,co:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};save();go('live');}
 function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=notIn?'Double In: erst ein Doppel treffen':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
@@ -994,11 +1061,11 @@ function vX01(){const L=S.live;const f=L.fmt;
  const big=bigOn();
  return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
  <div class="xgrid"><div class="xl"><div class="sc-players n${L.players.length}">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${i===L.cur&&L.players.length>1?'<div class="turn">🎯 AM WURF</div>':''}${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
-  <div class="nm">${AV(U(id))} ${esc(U(id).nick)}${L.din&&L.inn&&!L.inn[i]?' <span class="badge" title="Noch kein Doppel getroffen">🔒 D-In</span>':''}</div><div class="rem">${L.scores[i]}</div>
+  <div class="nm">${AV(U(id))} ${esc(U(id).nick)}${hcLabel(L,i)?` <span class="badge y" title="Handicap">⚖️ ${hcLabel(L,i)}</span>`:''}${L.din&&L.inn&&!L.inn[i]?' <span class="badge" title="Noch kein Doppel getroffen">🔒 D-In</span>':''}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
   ${i===L.cur?`<div class="co">${co}</div>`:''}${i===L.cur&&AD.on&&AD.ok?`<div class="adw">${adDarts()}</div>`:''}</div>`;}).join('')}</div></div>
  <div class="xr"><div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
- <div class="quick">${[26,41,45,60,81,85,100,121,140,180,0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="restIn()" title="Eingetippte Zahl ist dein Rest">Rest</button></div>
+ <div class="quick" style="grid-template-columns:repeat(7,1fr)">${[...getQuick(),0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="restIn()" title="Eingetippte Zahl ist dein Rest">Rest</button><button onclick="quickEdit()" title="Schnellwahl-Tasten festlegen">⚙️</button></div>
  ${[1,2,3].some(d=>canCheck(cur,d))?`<p class="muted small" style="text-align:center;margin:2px 0 8px">🟢 Gecheckt? Grüne <b>1</b>, <b>2</b> oder <b>3</b> lange drücken = mit so vielen Darts</p>`:''}
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>n<=3&&canCheck(cur,n)?`<button class="cok" onpointerdown="lpStart(${n})" onpointerup="lpEnd()" onpointerleave="lpEnd()" oncontextmenu="return false" onclick="if(lpFired){lpFired=false;return;}key('${n}')">${n}</button>`:`<button onclick="key('${n}')">${n}</button>`).join('')}
  <button onclick="undo()" class="undo" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div></div></div></div>`;}
@@ -1030,10 +1097,11 @@ try{const c=JSON.parse(localStorage.getItem('dc_autodarts')||'{}');if(c.url)AD.u
 function adSave(){try{localStorage.setItem('dc_autodarts',JSON.stringify({on:AD.on,url:AD.url}));}catch(e){}}
 function adParse(t){const g=t&&t.segment?t.segment:(t||{});const num=+(g.number??g.segmentNumber??0)||0;const mul=+(g.multiplier??0)||0;const v=num&&mul?num*mul:0;
  const name=v?(num===25?(mul===2?'Bull':'25'):(mul===3?'T':mul===2?'D':'')+num):'Miss';return{v,dbl:mul===2&&v>0,tpl:mul===3&&v>0,name};}
-function adChip(){const st=!AD.on?['aus','']:AD.ok===true?['verbunden','g']:AD.ok===false?['keine Verbindung','r']:['verbinde …','y'];
+function adChip(){return `<button class="sm ghost" style="padding:4px 10px" onclick="adMenu()">🎯 Autodarts <span class="badge">bald</span></button>`;const st=!AD.on?['aus','']:AD.ok===true?['verbunden','g']:AD.ok===false?['keine Verbindung','r']:['verbinde …','y'];
  return `<button class="sm ${AD.on&&AD.ok?'':'ghost'}" style="padding:4px 10px" onclick="adMenu()">🎯 Autodarts: <span class="badge ${st[1]}">${st[0]}</span></button>`;}
 function adDarts(){const d=AD.last;return `<div class="row" style="gap:4px;margin-top:6px;flex-wrap:nowrap">${[0,1,2].map(k=>`<span class="badge ${d[k]?(d[k].v?'g':'r'):''}" style="min-width:38px;padding:3px 6px;justify-content:center;font-size:13px">${d[k]?d[k].name:'·'}</span>`).join('')}<span class="muted small">= ${d.reduce((a,x)=>a+x.v,0)}</span></div>`;}
-function adMenu(){modal(`<h2>🎯 Autodarts verbinden</h2><p class="muted small">Die Würfe kommen direkt aus deinem Autodarts am PC in den Scorer. Die App muss dafür <b>auf demselben PC</b> geöffnet sein, auf dem Autodarts läuft (oder du trägst die IP-Adresse des Autodarts-PCs ein).</p>
+function adMenu(){modal(`<h2>🎯 Autodarts</h2><div style="font-size:64px;text-align:center;margin:10px 0">🚧</div><h3 style="text-align:center;margin:0">Coming soon</h3><p class="muted" style="text-align:center">Die Verbindung mit Autodarts ist in Arbeit und kommt mit einem der nächsten Updates.</p><button class="pri" style="width:100%" onclick="closeModal()">OK</button>`);}
+function adMenuAlt(){modal(`<h2>🎯 Autodarts verbinden</h2><p class="muted small">Die Würfe kommen direkt aus deinem Autodarts am PC in den Scorer. Die App muss dafür <b>auf demselben PC</b> geöffnet sein, auf dem Autodarts läuft (oder du trägst die IP-Adresse des Autodarts-PCs ein).</p>
  <label>Adresse vom Autodarts-PC</label><input id="adurl" value="${esc(AD.url)}" placeholder="http://127.0.0.1:3180">
  <p class="small" style="margin-top:10px">Status: ${AD.on?(AD.ok===true?'<b style="color:var(--accent)">✓ verbunden – Würfe werden übernommen</b>':AD.ok===false?'<b style="color:#ff6b72">✗ keine Verbindung</b>':'verbinde …'):'aus'}</p>
  ${AD.on&&AD.ok===false?`<div class="card" style="padding:10px 12px;margin-top:8px"><b>Wenn es nicht klappt:</b><ul class="small" style="margin:6px 0 0 18px;padding:0"><li>Autodarts am PC starten und die Erkennung einschalten.</li><li>Fragt der Browser nach Zugriff auf „Geräte im lokalen Netzwerk“: <b>Zulassen</b>.</li><li>Im Browser <b>http://127.0.0.1:3180/api/state</b> öffnen – kommt dort Text, läuft Autodarts.</li><li>Klappt es trotzdem nicht, blockiert der Browser die Verbindung – dann hilft das Zusatz-Skript (siehe unten).</li></ul></div>`:''}
@@ -1055,14 +1123,14 @@ function adState(st){const L=S.live;if(!L||L.kind!=='x01')return;const th=(Array
  const sig=th.map(x=>x.name).join(',');
  if(th.length<AD.cnt){if(!AD.sent&&AD.cnt>0)adSubmit(AD.last);AD.sent=false;}
  AD.cnt=th.length;AD.last=th;
- if(!AD.sent&&th.length){const o=outOf(L);let tx=th;if(L.din&&L.inn&&!L.inn[L.cur]){const k=th.findIndex(x=>x.dbl);tx=k<0?[]:th.slice(k);}
+ if(!AD.sent&&th.length){const o=outOf(L,L.cur);let tx=th;if(L.din&&L.inn&&!L.inn[L.cur]){const k=th.findIndex(x=>x.dbl);tx=k<0?[]:th.slice(k);}
   const sum=tx.reduce((a,x)=>a+x.v,0),rem=L.scores[L.cur],ld=th[th.length-1],finOk=tx.length&&(o==='single'||ld.dbl||(o==='master'&&ld.tpl));
   if(sum===rem&&finOk){AD.sent=true;L.input='';if(L.inn)L.inn[L.cur]=true;toast(`🎯 ${rem} gecheckt!`);finishLeg(rem,th.length);return;}
   if(sum>rem||(o!=='single'&&(rem-sum===1||sum===rem))){AD.sent=true;visit(sum,true);return;}
   if(th.length>=3){AD.sent=true;visit(sum);return;}}
  if(sig!==AD.sig){AD.sig=sig;render();}}
 function adSubmit(th){const L=S.live;if(!L||L.kind!=='x01'||!th.length)return;const sum=th.reduce((a,x)=>a+x.v,0);visit(sum);}
-if(AD.on)adStart();
+AD.on=false;/* Autodarts kommt später („Coming soon“) */
 /* Rest eintippen statt geworfener Punkte */
 function restIn(){const L=S.live;if(!L||L.input===''){toast('Erst deinen Rest eintippen, dann „Rest“ drücken');return;}
  const r=parseInt(L.input,10),prev=L.scores[L.cur],v=prev-r;L.input='';if(v<0){toast(`Rest ${r} ist mehr als dein Stand ${prev}`);render();return;}visit(v);}
@@ -1086,10 +1154,10 @@ function finishLeg(v,d){const L=S.live;const i=L.cur,s=L.st[i];const f=L.fmt;if(
    const r=decide(L.sets,f.bo);if(r.done)return endX01(r.w);}}
  else{const r=decide(L.legs,f.bo);if(r.done)return endX01(r.w);}
  toast(msg);
- L.st.forEach(x=>{x.ld=0;x.lp=0;});L.scores=L.players.map(()=>L.start);if(L.din)L.inn=L.players.map(()=>false);L.legStarter=(L.legStarter+1)%L.players.length;L.cur=L.legStarter;L.hist=[];save();render();}
+ L.st.forEach(x=>{x.ld=0;x.lp=0;});L.scores=L.players.map((_,j)=>startOf(L,j));if(L.din)L.inn=L.players.map(()=>false);L.legStarter=(L.legStarter+1)%L.players.length;L.cur=L.legStarter;L.hist=[];save();render();}
 function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const before={};L.players.forEach(id=>before[id]=calc(id).best);
  const sc=f.sets?L.sets:L.legsTotal;
- const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,draw,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
+ const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
   players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?i===wi:true),...(({last,ld,lp,...r})=>r)(L.st[i])}))};
  S.games.push(g);
  if(L.tref)applyResult(L.tref.tid,L.tref.mid,draw?'DRAW':L.players[wi],sc[0],sc[1]);
@@ -1149,8 +1217,9 @@ function atc(hit){const L=S.live;const id=curP(),s=L.st[id];snap();s.darts++;L.d
  if(L.dv>=3)return afterTurn();save();render();}
 function vBob(){const L=S.live;const id=curP(),s=L.st[id];const lab=s.r>20?'Bull':'D'+s.r;
  return `${trHead()}<div class="card" style="text-align:center"><div class="muted">${AV(U(id))} <b style="color:var(--text)">${esc(U(id).nick)}</b> · Bob's 27</div>
- <div class="row" style="justify-content:center;gap:30px;margin-top:14px"><div><div class="muted">Ziel</div><div class="big-target">${lab}</div></div><div><div class="muted">Punkte</div><div class="big-target" style="color:${s.score<15?'var(--accent2)':'var(--accent)'}">${s.score}</div></div></div>
- <p class="muted">3 Darts auf ${lab}. Wie viele Treffer?</p>
+ <div style="margin-top:12px"><div class="muted">Punkte</div><div class="big-target" style="color:${s.score<15?'var(--accent2)':'var(--accent)'}">${s.score}</div></div>
+ <p class="muted bobq" style="font-size:18px;margin:14px 0 4px">3 Darts auf ${lab}. Wie viele Treffer?</p>
+ <div style="margin-bottom:14px"><div class="muted small">Ziel</div><div class="big-target">${lab}</div></div>
  <div class="row">${[0,1,2,3].map(h=>`<button class="${h?'pri':'red'} sp" style="padding:24px 0;font-size:26px" onclick="bob(${h})">${h}</button>`).join('')}</div>
  <button class="ghost sm" style="margin-top:12px" onclick="trUndo()">↶ Rückgängig</button></div>`;}
 function bob(h){const L=S.live;const id=curP(),s=L.st[id];snap();const val=s.r>20?50:s.r*2;s.score+=h?h*val:-val;s.r++;
@@ -1499,11 +1568,11 @@ function cricketGame(name,desc,nums){const sym=m=>['·','/','X','Ⓧ'][m];
 function killerGame(blind){return{name:blind?'Blind Killer':'Killer',cat:'💀 Gruppe',min:2,max:8,dur:15,
  desc:blind?'Wie Killer – aber die Zahlen der anderen sind geheim.':'Werde zum Killer und schalte die anderen über ihre Doppel aus.',
  rules:['Jeder bekommt eine eigene Zahl (1–20) und 3 Leben.','Triffst du das Doppel deiner Zahl, wirst du zum Killer 🔪.','Als Killer ziehst du mit dem Doppel einer fremden Zahl dem Besitzer ein Leben ab.','Triffst du als Killer dein eigenes Doppel, verlierst du selbst ein Leben.',...(blind?['Die Zahlen der anderen sind verdeckt – sie werden erst sichtbar, wenn jemand ein Leben verliert.']:[]),'Wer als Letzter übrig ist, gewinnt.'],
- init(st){const ns=shuffleNums(st.p.length);st.p.forEach((x,i)=>{x.num=ns[i];x.lives=3;x.k=false;x.rev=!blind;});},
+ init(st){const ns=shuffleNums(st.p.length);st.p.forEach((x,i)=>{x.num=ns[i];x.lives=st.lv||3;x.k=false;x.rev=!blind;});},
  active:(st,i)=>st.p[i].lives>0,
  dart(st,p,d){if(d.m!==2||d.n===25)return;const me=st.p[p];const o=st.p.findIndex(x=>x.num===d.n&&x.lives>0);if(o<0)return;
-  if(o===p){if(!me.k){me.k=true;toast('🔪 Du bist Killer!');}else{me.lives--;me.rev=true;toast('😬 Eigenes Doppel – Leben weg!');if(me.lives<=0)st.endTurn=true;}}
-  else if(me.k){st.p[o].lives--;st.p[o].rev=true;toast(`🎯 ${esc(U(st.ps[o]).nick)} verliert ein Leben`);}},
+  if(o===p){if(!me.k){me.k=true;toast('🔪 Du bist Killer!');}else{me.lives--;me.rev=true;mgFx(st,me.lives>0?'🤦':'💀',me.lives>0?`${U(st.ps[p]).nick} trifft sich selbst!`:`${U(st.ps[p]).nick} ist raus!`);if(me.lives<=0)st.endTurn=true;}}
+  else if(me.k){st.p[o].lives--;st.p[o].rev=true;mgFx(st,st.p[o].lives>0?'😱':'💀',st.p[o].lives>0?`${U(st.ps[o]).nick} verliert ein Leben!`:`${U(st.ps[o]).nick} ist raus!`);}},
  status:(st,i)=>`${st.p[i].rev?'Zahl '+st.p[i].num:'Zahl ?'} · ${hearts(st.p[i].lives)}${st.p[i].k?' 🔪':''}`,
  hint:(st,p)=>st.p[p].k?'Triff die Doppel der anderen!':`Werde Killer: Doppel ${st.p[p].num}`,result:st=>byDesc(st,x=>x.lives*10+(x.k?1:0))};}
 
@@ -1539,7 +1608,7 @@ const MG={
   dart(st,p,d){const me=st.p[p];if(me.pos<20){const fence=me.pos%5===4;if(d.n===ORD[me.pos]&&(!fence||d.m===2))me.pos++;}else if(d.n===25)st.winner=p;},
   status:(st,i)=>`🐎 ${Math.min(st.p[i].pos,20)}/20${st.p[i].pos>=20?' · Zielgerade':''}`,
   hint:(st,p)=>{const x=st.p[p].pos;return x>=20?'Ziel: Bull!':`Nächstes Feld: ${x%5===4?'🚧 Doppel ':''}${ORD[x]}`;},result:st=>byDesc(st,x=>x.pos)},
- killer:killerGame(false),blindkiller:killerGame(true),
+ killer:killerGame(false),blindkiller:{...killerGame(true),hidden:true},
  gotcha:{name:'Gotcha',cat:'💀 Gruppe',min:2,max:8,dur:12,visitInput:true,desc:'Wer genau auf 301 kommt, gewinnt – aber pass auf, dass dich keiner einholt.',
   rules:['Alle zählen von 0 hoch, Ziel ist genau 301.','Wirfst du über 301, zählt die ganze Aufnahme nicht.','Hast du nach deiner Aufnahme genau den gleichen Stand wie ein anderer, fällt dieser auf 0 zurück! 😈','Wer zuerst genau 301 hat, gewinnt.'],
   init(st){st.p.forEach(x=>x.s=0);},start(st,p){st.p[p].ts=st.p[p].s;},
@@ -1549,18 +1618,18 @@ const MG={
   status:(st,i)=>`<b>${st.p[i].s}</b> / 301`,hint:(st,p)=>`Noch ${301-st.p[p].s} bis 301`,result:st=>byDesc(st,x=>x.s)},
  knockout:{name:'Knockout',cat:'💀 Gruppe',min:2,max:8,dur:10,visitInput:true,visit(st,p,v){st.p[p].t=v;},desc:'Überbiete die Aufnahme deines Vorgängers – sonst kostet es ein Leben.',
   rules:['Jeder hat 3 Leben.','Deine Aufnahme muss mindestens so hoch sein wie die deines Vorgängers.','Schaffst du das nicht, verlierst du ein Leben.','Wer als Letzter übrig ist, gewinnt.'],
-  init(st){st.p.forEach(x=>x.lives=3);st.last=null;},active:(st,i)=>st.p[i].lives>0,start(st,p){st.p[p].t=0;},
+  init(st){st.p.forEach(x=>x.lives=st.lv||3);st.last=null;},active:(st,i)=>st.p[i].lives>0,start(st,p){st.p[p].t=0;},
   dart(st,p,d){st.p[p].t+=d.v;},endTurn(st,p){const me=st.p[p];if(st.last!==null&&me.t<st.last){me.lives--;toast(`💥 ${me.t} < ${st.last} – Leben weg!`);}st.last=me.t;},
   status:(st,i)=>hearts(st.p[i].lives),hint:st=>st.last===null?'Leg vor – wirf so hoch du kannst':`Mindestens ${st.last} Punkte!`,result:st=>byDesc(st,x=>x.lives)},
  ninelives:{name:'Nine Lives',cat:'💀 Gruppe',min:1,max:8,dur:12,desc:'Rund um die Uhr – aber jede leere Aufnahme kostet ein Leben.',
   rules:['Ziel: 1 bis 20 der Reihe nach treffen.','Jeder hat 3 Leben.','Triffst du in einer Aufnahme deine aktuelle Zahl gar nicht, verlierst du ein Leben.','Wer zuerst die 20 trifft – oder als Letzter übrig ist – gewinnt.'],
-  init(st){st.p.forEach(x=>{x.t=1;x.lives=3;});},active:(st,i)=>st.p[i].lives>0,start(st,p){st.p[p].hit=false;},
+  init(st){st.p.forEach(x=>{x.t=1;x.lives=st.lv||3;});},active:(st,i)=>st.p[i].lives>0,start(st,p){st.p[p].hit=false;},
   dart(st,p,d){const me=st.p[p];if(d.n===me.t){me.t++;me.hit=true;if(me.t>20)st.winner=p;}},
   endTurn(st,p){if(!st.p[p].hit){st.p[p].lives--;toast('💔 Leben weg');}},
   status:(st,i)=>`Ziel ${Math.min(st.p[i].t,20)} · ${hearts(st.p[i].lives)}`,hint:(st,p)=>`Ziel: ${st.p[p].t}`,result:st=>byDesc(st,x=>x.t*10+x.lives)},
  followleader:{name:'Follow the Leader',cat:'💀 Gruppe',min:2,max:8,dur:10,desc:'Triff, was dein Vorgänger vorgibt – und gib selbst etwas vor.',
   rules:['Jeder hat 3 Leben.','Der Erste gibt mit seinem Dart ein Ziel vor (z. B. Doppel 16).','Der Nächste muss genau dieses Feld in seiner Aufnahme treffen – sonst Leben weg.','Wer trifft, gibt mit seinem letzten Treffer das neue Ziel vor.','Wer als Letzter übrig ist, gewinnt.'],
-  init(st){st.p.forEach(x=>x.lives=3);st.target=null;},active:(st,i)=>st.p[i].lives>0,start(st){st.got=false;st.lastHit=null;},
+  init(st){st.p.forEach(x=>x.lives=st.lv||3);st.target=null;},active:(st,i)=>st.p[i].lives>0,start(st){st.got=false;st.lastHit=null;},
   dart(st,p,d){if(d.n===0)return;st.lastHit=d;if(!st.target){st.target=d;st.got=true;}else if(d.n===st.target.n&&d.m===st.target.m)st.got=true;},
   endTurn(st,p){if(!st.got){st.p[p].lives--;toast('💔 Ziel verfehlt – Leben weg');}else if(st.lastHit)st.target=st.lastHit;},
   status:(st,i)=>hearts(st.p[i].lives),hint:st=>st.target?`Triff: ${dName(st.target)}`:'Gib ein Ziel vor – wirf auf ein Feld deiner Wahl',result:st=>byDesc(st,x=>x.lives)},
@@ -1578,7 +1647,7 @@ const MG={
   status:(st,i)=>st.p[i].out?'☠️ raus':`Letzte: ${st.p[i].t}`,hint:()=>'So viele Punkte wie möglich!',result:st=>byDesc(st,x=>x.out?(x.outR||0):999)},
  highlow:{name:'Higher 45 · Lower 26',cat:'💀 Gruppe',min:2,max:8,dur:10,visitInput:true,desc:'Wirf über das Higher oder unter das Lower – sonst kostet es ein Leben.',
   rules:['Am Anfang gilt: Higher = 45, Lower = 26.','Wer dran ist, wirft eine Aufnahme und tippt die Punktzahl ein.','Liegt sie ÜBER dem Higher, wird sie das neue Higher.','Liegt sie UNTER dem Lower, wird sie das neue Lower.','Liegt sie dazwischen (oder genau auf einer der Zahlen), verlierst du ein Leben – und es geht wieder bei Higher 45 / Lower 26 los.','Jeder hat 3 Leben – wer als Letzter übrig ist, gewinnt.'],
-  init(st){st.hi=45;st.lo=26;st.last=null;st.p.forEach(x=>x.lives=3);},active:(st,i)=>st.p[i].lives>0,
+  init(st){st.hi=45;st.lo=26;st.last=null;st.p.forEach(x=>x.lives=st.lv||3);},active:(st,i)=>st.p[i].lives>0,
   visit(st,p,v){const me=st.p[p];if(v>st.hi){st.hi=v;st.last=`⬆️ ${v} – neues Higher!`;toast(`⬆️ Neues Higher: ${v}`);}else if(v<st.lo){st.lo=v;st.last=`⬇️ ${v} – neues Lower!`;toast(`⬇️ Neues Lower: ${v}`);}else{me.lives--;st.hi=45;st.lo=26;st.last=`💔 ${v} liegt dazwischen – zurück auf 45 / 26`;toast(`💔 ${v} – Leben weg! Zurück auf 45 / 26`);}
    if(st.hi>=180&&st.lo<=0){st.hi=45;st.lo=26;toast('🔄 Unmöglich geworden – zurück auf 45 / 26');}},
   status:(st,i)=>hearts(st.p[i].lives),hint:st=>`Über ${st.hi} oder unter ${st.lo}`,
@@ -1642,24 +1711,25 @@ const MG={
 /* --- Minispiel-Engine --- */
 let mgSlots=[{id:null,label:'Heim'},{id:null,label:'Gast'}];
 function vMGList(){const self=me().role==='player';if(self&&(!mgSlots[0]||mgSlots[0].id!==meId))mgSlots=[{id:meId,label:'Du'},{id:null,label:'Gast'}];
- const cats=[...new Set(Object.values(MG).map(g=>g.cat))];const n=mgSlots.length;
+ const cats=[...new Set(Object.values(MG).filter(g=>!g.hidden).map(g=>g.cat))];const n=mgSlots.length;
  return `<div class="card"><label style="margin-top:0">Wer spielt?</label>${slotsHTML('mgSlots',mgSlots,{max:8,allowGuest:true,fixedFirst:self,addLabel:'Spieler hinzufügen'})}</div>
- ${cats.map(c=>`<div class="sec">${c}</div><div class="grid2">${Object.entries(MG).filter(([k,g])=>g.cat===c).map(([k,g])=>{const ok=n>=g.min&&n<=g.max;
+ ${cats.map(c=>`<div class="sec">${c}</div><div class="grid2">${Object.entries(MG).filter(([k,g])=>g.cat===c&&!g.hidden).map(([k,g])=>{const ok=n>=g.min&&n<=g.max;
   return `<button class="tile" onclick="go('mg','${k}')" style="${ok?'':'opacity:.55'}"><div class="row" style="width:100%"><b class="sp">${g.name}</b><span class="badge">${g.min===g.max?g.min:g.min+'–'+g.max} Sp.</span></div><small>${g.desc}</small></button>`;}).join('')}</div>`).join('')}`;}
 function vMGDetail(id){const g=MG[id];if(!g){view='train';return vTrain();}const n=mgSlots.length;const ok=n>=g.min&&n<=g.max;
  const runs=S.trainings.filter(t=>t.mode==='mg'&&t.mg===id);
  return `<button class="sm ghost" onclick="go('train')" style="margin-bottom:12px">← Minispiele</button>
  <span class="badge">${g.cat}</span><h1 style="font-size:32px;margin:8px 0">${g.name}</h1><p class="muted" style="font-size:17px;margin-top:0">${g.desc}</p>
  <div class="stats" style="margin:16px 0"><div class="stat"><div class="k">👥 Spieler</div><div class="v">${g.min===g.max?g.min:g.min+'–'+g.max}</div></div><div class="stat"><div class="k">⏱ Dauer</div><div class="v">~${g.dur} Min.</div></div><div class="stat"><div class="k">Gespielt</div><div class="v">${new Set(runs.map(r=>r.gid)).size}×</div></div></div>
- <div class="card"><h3>Regeln</h3>${g.rules.map((s,i)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start;margin:10px 0"><span style="flex:none;width:30px;height:30px;border-radius:50%;border:2px solid #2fbf7188;background:#2fbf7118;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">${i+1}</span><span style="padding-top:4px">${s}</span></div>`).join('')}</div>
- <div class="card"><label style="margin-top:0">Wer spielt?</label>${slotsHTML('mgSlots',mgSlots,{max:g.max,allowGuest:true,fixedFirst:me().role==='player'})}</div>
+ <div class="card"><h3>Regeln</h3>${mgRulesOf(id).map((s,i)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start;margin:10px 0"><span style="flex:none;width:30px;height:30px;border-radius:50%;border:2px solid #2fbf7188;background:#2fbf7118;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">${i+1}</span><span style="padding-top:4px">${s}</span></div>`).join('')}</div>
+ <div class="card"><label style="margin-top:0">Wer spielt?</label>${slotsHTML('mgSlots',mgSlots,{max:g.max,allowGuest:true,fixedFirst:me().role==='player'})}${mgCfgHTML(id)}${starterHTML()}</div>
  ${ok?'':`<p style="color:#ff6b72">Für ${g.name} braucht ihr ${g.min===g.max?'genau '+g.min:g.min+' bis '+g.max} Spieler.</p>`}
  <button class="pri" style="width:100%;padding:18px;font-size:19px" ${ok?'':'disabled'} onclick="startMG('${id}')">▶ Spiel starten</button>`;}
-function startMG(id){const g=MG[id];const ps=slotIds(mgSlots);if(ps.length<g.min||ps.length>g.max)return toast('Falsche Spielerzahl');
- const st={kind:'mg',id,gid:uid(),input:'',ps,p:ps.map(()=>({})),cur:0,dart:0,round:1,darts:[],mult:1,hist:[],winner:null,done:false,endTurn:false};
- g.init(st);g.start?.(st,0);S.live=st;save();go('live');}
+function newMG(id,ps,sets,lv){const g=MG[id];const st={kind:'mg',id,gid:uid(),input:'',ps,p:ps.map(()=>({})),cur:0,dart:0,round:1,darts:[],mult:1,hist:[],winner:null,done:false,endTurn:false,sets,lv};
+ g.init(st);g.start?.(st,0);return st;}
+function startMG(id){const g=MG[id];const ps=slotIds(mgSlots);if(ps.length<g.min||ps.length>g.max)return toast('Falsche Spielerzahl');const c=mgCfg(id);
+ whoStarts(ps,first=>{const ord=[...ps.slice(first),...ps.slice(0,first)];S.live=newMG(id,ord,{n:c.sets,no:1,wins:{},need:Math.floor(c.sets/2)+1},c.lives);save();go('live');});}
 function mgActive(st,i){const g=MG[st.id];return g.active?g.active(st,i):true;}
-function mgRules(){const g=MG[S.live.id];modal(`<h3>${g.name}</h3>${g.rules.map(r=>`<p>• ${r}</p>`).join('')}<button class="pri" style="width:100%" onclick="closeModal()">OK</button>`);}
+function mgRules(){const g=MG[S.live.id];modal(`<h3>${g.name}</h3>${mgRulesOf(S.live.id,S.live.lv).map(r=>`<p>• ${r}</p>`).join('')}<button class="pri" style="width:100%" onclick="closeModal()">OK</button>`);}
 function mgMult(m){S.live.mult=S.live.mult===m?1:m;render();}
 function mgThrow(n){const st=S.live,g=MG[st.id];let m=n===0?0:st.mult;if(n===25&&m===3)m=2;
  const d={n,m,v:n===0?0:n===25?(m===2?50:25):n*m};
@@ -1681,21 +1751,31 @@ function mgVisit(v){const st=S.live,g=MG[st.id];if(v>180||IMPOSSIBLE.includes(v)
  g.visit(st,st.cur,v);if(st.winner!==null||st.done)return mgEnd();st.endTurn=true;mgNext();if(st.winner!==null||st.done)return mgEnd();save();render();}
 function mgUndo(){const st=S.live;const h=st.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen');const o=JSON.parse(h);o.hist=st.hist;S.live=o;save();render();}
 function mgEnd(){const st=S.live,g=MG[st.id];let rank=g.result(st);if(st.winner!==null){rank=[st.winner,...rank.filter(i=>i!==st.winner)];}
- const draw=st.draw;st.ps.forEach((id,i)=>{if(!isGuest(id))S.trainings.push({id:uid(),uid:id,date:Date.now(),mode:'mg',mg:st.id,gid:st.gid,rank:draw?1:rank.indexOf(i)+1,n:st.ps.length});});
+ let draw=st.draw;mgFxShow(st);
+ const ss=st.sets;if(ss&&ss.n>1){const w=draw?null:st.ps[rank[0]];if(w)ss.wins[w]=(ss.wins[w]||0)+1;
+  const champ=w&&ss.wins[w]>=ss.need;
+  if(!champ&&ss.no<ss.n){const ps2=[...st.ps.slice(1),st.ps[0]];const order=[...st.ps].sort((a,b)=>(ss.wins[b]||0)-(ss.wins[a]||0));
+   S.live=newMG(st.id,ps2,{...ss,no:ss.no+1},st.lv);save();render();
+   modal(`<h2>${w?`🏆 Durchgang ${ss.no} an ${esc(U(w).nick)}!`:`🤝 Durchgang ${ss.no} unentschieden`}</h2><p class="muted">${g.name} · Best of ${ss.n} – wer zuerst ${ss.need} Durchgänge gewinnt, holt das Spiel.</p>
+    <table>${order.map(id=>`<tr><td>${AV(U(id),26)} ${esc(U(id).nick)}</td><td style="text-align:right"><b>${ss.wins[id]||0}</b> ${'🏆'.repeat(ss.wins[id]||0)}</td></tr>`).join('')}</table>
+    <p class="muted small" style="margin:12px 0 0">Im nächsten Durchgang fängt ${esc(U(ps2[0]).nick)} an.</p>
+    <button class="pri" style="width:100%;margin-top:12px;padding:14px" onclick="closeModal()">▶ Durchgang ${ss.no+1} starten</button>`);return;}
+  const pos=i=>rank.indexOf(i);const idx=st.ps.map((x,i)=>i).sort((a,b)=>(ss.wins[st.ps[b]]||0)-(ss.wins[st.ps[a]]||0)||pos(a)-pos(b));
+  rank=idx;const top=ss.wins[st.ps[idx[0]]]||0;draw=idx.length>1&&(ss.wins[st.ps[idx[1]]]||0)===top;st.draw=draw;}st.ps.forEach((id,i)=>{if(!isGuest(id))S.trainings.push({id:uid(),uid:id,date:Date.now(),mode:'mg',mg:st.id,gid:st.gid,rank:draw?1:rank.indexOf(i)+1,n:st.ps.length});});
  S.live=null;save();view='mg';param=st.id;render();
  modal(`<h2>${draw?'🤝 Unentschieden!':`🏆 ${esc(U(st.ps[rank[0]]).nick)} gewinnt!`}</h2><p class="muted">${g.name}</p>
- <table>${rank.map((i,k)=>`<tr><td>${draw?'–':k+1+'.'}</td><td>${AV(U(st.ps[i]),26)} ${esc(U(st.ps[i]).nick)}</td><td style="text-align:right">${g.status(st,i)}</td></tr>`).join('')}</table>
+ <table>${rank.map((i,k)=>`<tr><td>${draw?'–':k+1+'.'}</td><td>${AV(U(st.ps[i]),26)} ${esc(U(st.ps[i]).nick)}</td><td style="text-align:right">${ss&&ss.n>1?`<b>${ss.wins[st.ps[i]]||0}</b> ${'🏆'.repeat(ss.wins[st.ps[i]]||0)}`:g.status(st,i)}</td></tr>`).join('')}</table>
  <div class="row" style="margin-top:14px"><button class="ghost sp" onclick="closeModal()">Schließen</button><button class="pri sp" onclick="closeModal();startMG('${st.id}')">Revanche</button></div>`);}
 function vMG(){const st=S.live,g=MG[st.id];const p=st.cur;
  const nums=[...Array(20).keys()].map(i=>i+1);
- const padHTML=`${g.visitInput?`<div class="card mgvis" style="padding:12px"><div class="inbox">${st.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
+ const padHTML=`${g.visitInput?`<div class="card mgvis" style="padding:12px"><div class="inbox">${st.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div><div class="quick" style="margin-bottom:8px">${[...getQuick(),0].map(v=>`<button onclick="mgVisit(${v})">${v}</button>`).join('')}<button onclick="quickEdit()" title="Schnellwahl-Tasten festlegen">⚙️</button></div>
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}<button onclick="if(S.live.input){S.live.input='';render();}else mgUndo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div>`
  :`<div class="card mgpad" style="padding:12px">
  <div class="row" style="gap:6px;margin-bottom:8px">${[[1,'Single'],[2,'Double'],[3,'Triple']].map(([m,l])=>`<button class="sp ${st.mult===m?'on':''}" style="padding:12px 0" onclick="mgMult(${m})">${l}</button>`).join('')}</div>
  <div class="mggrid">${nums.map(n=>`<button onclick="mgThrow(${n})">${st.mult===3?'T':st.mult===2?'D':''}${n}</button>`).join('')}</div>
  <div class="row" style="gap:6px;margin-top:6px"><button class="sp" style="padding:14px 0;font-weight:800" onclick="mgThrow(25)">${st.mult>=2?'Bullseye 50':'Bull 25'}</button><button class="sp red" style="padding:14px 0" onclick="mgThrow(0)">Daneben</button><button style="padding:14px 18px" onclick="mgUndo()">↶</button></div></div>`}`;
  if(bigOn())return vMGbig(st,g,p,padHTML);
- return `<div class="row muted small" style="margin-bottom:8px"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="row muted small" style="margin-bottom:8px"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="card mgpl" style="padding:10px 12px">${st.ps.map((id,i)=>`<div class="row ${i===p?'mgcur':''}" style="flex-wrap:nowrap;padding:8px;border-radius:12px;${i===p?'background:linear-gradient(90deg,#1fb35a26,transparent);box-shadow:inset 3px 0 0 var(--accent)':''};${mgActive(st,i)?'':'opacity:.45'}">${AV(U(id),36)}<div class="sp" style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(U(id).nick)}</b><div class="muted small" style="margin-top:2px">${g.status(st,i)}</div></div>${i===p?'<span class="badge g">am Zug</span>':''}</div>`).join('')}</div>
  ${g.extra?g.extra(st):''}
  <div class="card mgtask" style="text-align:center;padding:14px"><div class="muted small">${esc(U(st.ps[p]).nick)} ist dran${g.visitInput?' · Aufnahme eintippen':` · Dart ${st.dart+1} von 3`}</div>
@@ -1706,10 +1786,10 @@ function vMG(){const st=S.live,g=MG[st.id];const p=st.cur;
 function vMGbig(st,g,p,padHTML){const n=st.ps.length;
  const cards=st.ps.map((id,i)=>{const cur=i===p,act=mgActive(st,i);return `<div class="mgp ${cur?'cur':''} ${act?'':'out'}">
   ${cur?`<div class="turn">🎯 AM ZUG${g.visitInput?' · Aufnahme eintippen':` · Dart ${st.dart+1} von 3`}</div>`:''}
-  <div class="nm">${AV(U(id))}<span>${esc(U(id).nick)}</span></div>
+  <div class="nm">${AV(U(id))}<span>${esc(U(id).nick)}${mgTro(st,id)}</span></div>
   <div class="stv">${g.status(st,i)}</div>
   ${cur?`<div class="hint">${g.hint(st,p)}</div>${g.visitInput?'':`<div class="dts">${[0,1,2].map(k=>`<span class="${k===st.dart?'on':''}">${st.darts[k]?dName(st.darts[k]):'·'}</span>`).join('')}</div>`}`:''}</div>`;}).join('');
- return `<div class="mgb"><div class="row muted small mgtop"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="mgb"><div class="row muted small mgtop"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="mggrid2"><div class="mgl"><div class="mgps n${Math.min(n,8)}">${cards}</div>${g.extra?`<div class="mgx">${g.extra(st)}</div>`:''}</div><div class="mgr">${padHTML}</div></div></div>`;}
 
 /* ===================== Turniere ===================== */
@@ -1722,7 +1802,7 @@ function vTour(){const list=[...S.tournaments].sort((a,b)=>b.created-a.created);
  const card=t=>{const open=t.matches.filter(playable).length;const done=t.status==='done';const mine=t.matches.filter(m=>m.winner&&!m.bye).length,all=t.matches.filter(m=>real(m.a)&&real(m.b)).length;
   return `<div class="card tcard ${done?'done':'live'}" style="cursor:pointer" onclick="go('tourview','${t.id}')"><div class="row"><b class="sp" style="font-size:17px">${esc(t.name)}</b>
   ${done?`<span class="badge g">🏆 ${esc(U(t.winner).nick)}</span>`:`<span class="badge y">${open} offen</span>`}</div>
-  <div class="row small muted" style="margin-top:8px;gap:8px"><span class="badge">${t.kind==='training'?'Training':'Turnier'}</span><span class="badge">${MODES[t.mode]}</span><span>${t.players.length} Spieler · ${t.start} · Boards ${t.boards.join(', ')}</span><span class="sp"></span><span>${dstr(t.created)}</span></div>
+  <div class="row small muted" style="margin-top:8px;gap:8px"><span class="badge">${t.kind==='training'?'Training':'Turnier'}</span><span class="badge">${MODES[t.mode]}</span><span>${t.players.length} Spieler · ${t.start} · Boards ${(t.boards||[]).join(', ')}</span><span class="sp"></span><span>${dstr(t.created)}</span></div>
   ${!done&&all?`<div style="height:6px;background:var(--panel2);border-radius:99px;margin-top:10px;overflow:hidden"><div style="height:100%;width:${mine/all*100}%;background:var(--accent)"></div></div>`:''}</div>`;};
  const live=list.filter(t=>t.status!=='done'),done=list.filter(t=>t.status==='done');
  return `<div class="ph"><div class="row"><h1 class="sp">Turniere</h1>${staff?`<button class="pri" onclick="go('tournew')">＋ Neues Turnier</button>`:''}</div><p>Training, Turniere und Ligen des Vereins</p></div>
@@ -1899,10 +1979,10 @@ function vTourView(id){const t=S.tournaments.find(x=>x.id===id);if(!t){view='tou
  const ba=Object.entries(best).sort((a,b)=>b[1]-a[1])[0];
  return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('tour')">← Zurück</button><h2 class="sp" style="margin:0">${esc(t.name)}</h2>
  ${me().role==='admin'?`<button class="sm red" onclick="delTour('${t.id}')">Löschen</button>`:''}</div>
- <div class="muted small" style="margin-bottom:12px">${t.kind==='training'?'Training':'Turnier'} · ${MODES[t.mode]} · ${t.start} · ${fmtStr(tFmt(t))}${t.bestOfFinal&&['ko','dko','groups'].includes(t.mode)?` (Finale Best of ${t.bestOfFinal})`:''} · ${t.dOut?'Double Out':'Single Out'} · Boards ${t.boards.join(', ')}</div>
+ <div class="muted small" style="margin-bottom:12px">${t.kind==='training'?'Training':'Turnier'} · ${MODES[t.mode]} · ${t.start} · ${fmtStr(tFmt(t))}${t.bestOfFinal&&['ko','dko','groups'].includes(t.mode)?` (Finale Best of ${t.bestOfFinal})`:''} · ${t.dOut?'Double Out':'Single Out'} · Boards ${(t.boards||[]).join(', ')}</div>
  ${t.status==='done'?`<div class="banner"><h3 style="margin:0">🏆 Sieger: ${AV(U(t.winner))} ${esc(U(t.winner).nick)}</h3></div>`:''}
  ${ba?`<div class="muted small" style="margin-bottom:12px">Bester Match-Average: <b style="color:var(--text)">${esc(U(ba[0]).nick)} – ${f1(ba[1])}</b></div>`:''}${body}`;}
-function playMatch(tid,mid,fromBoard){const t=S.tournaments.find(x=>x.id===tid),m=t.matches.find(x=>x.id===mid);startX01([m.a,m.b],t.start,fmtOf(t,m),t.dOut,{tid,mid,board:fromBoard||null});}
+function playMatch(tid,mid,fromBoard){const t=S.tournaments.find(x=>x.id===tid),m=t.matches.find(x=>x.id===mid);whoStarts([m.a,m.b],first=>startX01([m.a,m.b],t.start,fmtOf(t,m),t.dOut,{tid,mid,board:fromBoard||null},{first}));}
 function manualRes(tid,mid){const t=S.tournaments.find(x=>x.id===tid),m=t.matches.find(x=>x.id===mid);const f=fmtOf(t,m);const need=fmtNeed(f.bo);const unit=f.sets?'Sets':'Legs';
  modal(`<h3>Ergebnis eintragen</h3><p class="muted small">${fmtStr(f)} – Sieger braucht ${need} ${unit}${f.bo%2===0&&!isKO(m)?`, bei ${f.bo/2}:${f.bo/2} unentschieden`:''}.</p>
  <div class="row"><span class="sp">${AV(U(m.a))} ${esc(U(m.a).nick)}</span><input id="ra" type="number" min="0" max="${need}" style="max-width:80px" placeholder="${unit}"></div>
@@ -2105,7 +2185,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&view==='home'&&m.role!=='player')view='tour';
  if(m&&view==='admin'&&!isStaff())view='home';
  if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null;
- renderHeader();renderNav();document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
+ renderHeader();renderNav();setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
