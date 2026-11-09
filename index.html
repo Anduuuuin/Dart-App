@@ -662,7 +662,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=17;
+const APPV=18;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -696,7 +696,7 @@ function mgTro(st,id){const w=st.sets&&st.sets.wins&&st.sets.wins[id];return w?`
 
 /* ===================== Großer Effekt bei Lebensverlust (z. B. Killer) – auch auf der Zuschauer-Anzeige ===================== */
 const FX_SEEN=new Set();
-function mgFx(st,e,t){st.fx={k:uid(),e,t,at:Date.now()};}
+function mgFx(st,e,t){toast(esc(t));}/* große Vollbild-Effekte bewusst weggelassen – schlichte Meldung */
 function mgFxShow(L){if(!L||!L.fx||FX_SEEN.has(L.fx.k))return;FX_SEEN.add(L.fx.k);if(Math.abs(Date.now()-(L.fx.at||0))>15000)return;
  let el=document.getElementById('fx');if(!el){el=document.createElement('div');el.id='fx';document.body.appendChild(el);}
  el.innerHTML=`<div class="e">${L.fx.e}</div><div class="t">${esc(L.fx.t)}</div>`;el.classList.remove('on');void el.offsetWidth;el.classList.add('on');
