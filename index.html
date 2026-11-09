@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#070908">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -470,6 +470,10 @@ body.livetab .bobq{font-size:min(3.4vh,4.6vw)!important;font-weight:700;color:va
 .onlblock>*:not(.onlwait){opacity:.18;pointer-events:none;filter:grayscale(1)}
 .onlwait{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;text-align:center;font-size:min(3.4vh,22px);padding:16px}
 .onlwait b{color:var(--accent)}
+/* Kein Zoomen – soll sich wie eine echte App anfühlen */
+html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,a,input,select,textarea,.slot,.tile,.qbtn,.card{touch-action:manipulation}
+input,select,textarea{font-size:max(16px,1em)}
 </style>
 </head>
 <body>
@@ -673,7 +677,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=23;
+const APPV=24;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -900,6 +904,10 @@ function botLevelsHTML(){const cur=(setup.slots.find(sl=>isBot(sl.id))||{}).id;
  <p class="muted small" style="margin:6px 0 0">Der Bot wirft Pfeil für Pfeil auf ein echtes Board-Modell – mit Fehlwürfen, Busts und Checkouts passend zu seinem Average. Bot-Spiele zählen für dich in die Statistik.</p>`;}
 function botPick(v){const i=setup.slots.findIndex(sl=>isBot(sl.id));if(!v){if(i>=0)setup.slots.splice(i,1);render();return;}
  if(i>=0)setup.slots[i].id='bot:'+v;else{const g=setup.slots.findIndex((sl,j)=>j>0&&!sl.id);if(g>=0)setup.slots[g]={id:'bot:'+v,label:'Bot'};else if(setup.slots.length<4)setup.slots.push({id:'bot:'+v,label:'Bot'});else return toast('Maximal 4 Spieler');}render();}
+
+/* Zoomen per Zwei-Finger-Geste und Doppeltippen unterbinden (auch auf iPhones, die das Meta-Tag ignorieren) */
+['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
+document.addEventListener('touchmove',e=>{if(e.touches&&e.touches.length>1)e.preventDefault();},{passive:false});
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
