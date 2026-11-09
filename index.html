@@ -391,6 +391,44 @@ body.livetab #app:has(.mgpl) .mgpad>.row button{font-size:min(3.6vh,2vw)!importa
 body.livetab #app:has(.mgpl) .pad button{font-size:min(5.5vh,3vw)}
 body.livetab #app:has(.mgpl) .inbox{font-size:min(7vh,4vw)}
 }
+/* ===== Minispiele Großanzeige (Tablet) ===== */
+.mgb,body.livetab #app>.mgb{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:1.2vh}
+.mgb .mgtop{flex:0 0 auto;margin:0!important;font-size:min(2.2vh,2.6vw)}
+.mgb .mgtop b{font-size:min(2.8vh,3.2vw)}
+.mggrid2{flex:1 1 0;min-height:0;display:grid;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1.05fr);gap:1.2vh}
+@media (orientation:landscape){.mggrid2{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr)}}
+.mgl{min-height:0;display:flex;flex-direction:column;gap:1vh}
+.mgx{flex:0 0 auto}
+.mgps{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:1vh}
+.mgp{flex:1 1 0;min-height:0;border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:.8vh 2vw;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:2vw;opacity:.55;overflow:hidden}
+.mgp.out{opacity:.28}
+.mgp .nm{display:flex;align-items:center;gap:.6em;font-weight:800;font-size:min(3.4vh,4vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mgp .nm .avi,.mgp .nm img{flex:0 0 auto;width:min(4.6vh,5.4vw)!important;height:min(4.6vh,5.4vw)!important;font-size:min(2vh,2.4vw)!important;border-radius:50%}
+.mgp .stv{font-size:min(3.6vh,4.2vw);font-weight:900;color:var(--text);text-align:right;white-space:nowrap}
+.mgp .stv .muted,.mgp .stv small{font-size:.7em}
+.mgp.cur{flex:2.8 1 0;opacity:1;border:4px solid var(--accent);background:linear-gradient(180deg,#1fb35a3a,#0e2418);flex-direction:column;align-items:stretch;justify-content:center;gap:.6vh;padding:1vh 2.4vw}
+.mgp.cur .turn{color:var(--accent);font-weight:900;font-size:min(2.6vh,3vw);letter-spacing:1px;animation:turnpulse 1.6s ease-in-out infinite}
+.mgp.cur .nm{font-size:min(4.6vh,5.4vw)}
+.mgp.cur .nm .avi,.mgp.cur .nm img{width:min(6vh,7vw)!important;height:min(6vh,7vw)!important;font-size:min(2.6vh,3vw)!important}
+.mgp.cur .stv{text-align:left;font-size:min(6vh,7vw);line-height:1.1;white-space:normal}
+.mgp.cur .hint{font-size:min(3.6vh,4.2vw);font-weight:800;color:var(--gold);line-height:1.2}
+.mgp.cur .dts{display:flex;gap:1.2vw}
+.mgp.cur .dts span{min-width:min(13vh,15vw);text-align:center;padding:.5vh 0;border:1px solid var(--line);border-radius:10px;font-size:min(2.6vh,3vw);font-weight:800;background:#0006}
+.mgp.cur .dts span.on{border-color:var(--accent);box-shadow:0 0 0 2px #1fb35a55}
+.mgps.n5 .mgp:not(.cur),.mgps.n6 .mgp:not(.cur),.mgps.n7 .mgp:not(.cur),.mgps.n8 .mgp:not(.cur){padding:.3vh 2vw;border-radius:12px}
+.mgps.n5 .mgp:not(.cur) .nm,.mgps.n6 .mgp:not(.cur) .nm,.mgps.n7 .mgp:not(.cur) .nm,.mgps.n8 .mgp:not(.cur) .nm,.mgps.n5 .mgp:not(.cur) .stv,.mgps.n6 .mgp:not(.cur) .stv,.mgps.n7 .mgp:not(.cur) .stv,.mgps.n8 .mgp:not(.cur) .stv{font-size:min(2.4vh,2.8vw)}
+.mgps.n5 .mgp.cur,.mgps.n6 .mgp.cur,.mgps.n7 .mgp.cur,.mgps.n8 .mgp.cur{flex:3.2 1 0}
+.mgr{min-height:0;display:flex}
+.mgr>.card{flex:1 1 0;min-height:0;margin:0!important;display:flex;flex-direction:column;box-sizing:border-box}
+@media (orientation:landscape){.mgp .nm,.mgp .stv{font-size:min(3.8vh,2.2vw)}.mgp.cur .nm{font-size:min(5vh,2.8vw)}.mgp.cur .stv{font-size:min(7vh,3.8vw)}.mgp.cur .hint{font-size:min(4vh,2.3vw)}.mgp.cur .turn{font-size:min(3vh,1.7vw)}.mgr .mggrid button{font-size:min(5vh,2.6vw)}.mgr .mgpad>.row button{font-size:min(3.6vh,2vw)!important}.mgr .pad button{font-size:min(5.5vh,3vw)}}
+.mgp.cur{justify-content:safe center}
+.mgps.n5 .mgp.cur .nm,.mgps.n6 .mgp.cur .nm,.mgps.n7 .mgp.cur .nm,.mgps.n8 .mgp.cur .nm{font-size:min(3.4vh,4vw)}
+.mgps.n5 .mgp.cur .stv,.mgps.n6 .mgp.cur .stv,.mgps.n7 .mgp.cur .stv,.mgps.n8 .mgp.cur .stv{font-size:min(4.4vh,5.2vw)}
+.mgps.n5 .mgp.cur .hint,.mgps.n6 .mgp.cur .hint,.mgps.n7 .mgp.cur .hint,.mgps.n8 .mgp.cur .hint{font-size:min(2.8vh,3.3vw)}
+.mgps.n5 .mgp.cur .turn,.mgps.n6 .mgp.cur .turn,.mgps.n7 .mgp.cur .turn,.mgps.n8 .mgp.cur .turn{font-size:min(2.2vh,2.6vw)}
+.mgps.n5 .mgp.cur,.mgps.n6 .mgp.cur,.mgps.n7 .mgp.cur,.mgps.n8 .mgp.cur{gap:.3vh;padding:.6vh 2vw;flex:4.6 1 0}
+.mgps.n5 .mgp:not(.cur),.mgps.n6 .mgp:not(.cur),.mgps.n7 .mgp:not(.cur),.mgps.n8 .mgp:not(.cur){flex:1 1 0}
+@media (orientation:portrait){.mggrid2:has(.mgps.n5),.mggrid2:has(.mgps.n6),.mggrid2:has(.mgps.n7),.mggrid2:has(.mgps.n8){grid-template-rows:minmax(0,1.2fr) minmax(0,1fr)}}
 </style>
 </head>
 <body>
@@ -1586,18 +1624,29 @@ function mgEnd(){const st=S.live,g=MG[st.id];let rank=g.result(st);if(st.winner!
  <div class="row" style="margin-top:14px"><button class="ghost sp" onclick="closeModal()">Schließen</button><button class="pri sp" onclick="closeModal();startMG('${st.id}')">Revanche</button></div>`);}
 function vMG(){const st=S.live,g=MG[st.id];const p=st.cur;
  const nums=[...Array(20).keys()].map(i=>i+1);
+ const padHTML=`${g.visitInput?`<div class="card mgvis" style="padding:12px"><div class="inbox">${st.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
+ <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}<button onclick="if(S.live.input){S.live.input='';render();}else mgUndo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div>`
+ :`<div class="card mgpad" style="padding:12px">
+ <div class="row" style="gap:6px;margin-bottom:8px">${[[1,'Single'],[2,'Double'],[3,'Triple']].map(([m,l])=>`<button class="sp ${st.mult===m?'on':''}" style="padding:12px 0" onclick="mgMult(${m})">${l}</button>`).join('')}</div>
+ <div class="mggrid">${nums.map(n=>`<button onclick="mgThrow(${n})">${st.mult===3?'T':st.mult===2?'D':''}${n}</button>`).join('')}</div>
+ <div class="row" style="gap:6px;margin-top:6px"><button class="sp" style="padding:14px 0;font-weight:800" onclick="mgThrow(25)">${st.mult>=2?'Bullseye 50':'Bull 25'}</button><button class="sp red" style="padding:14px 0" onclick="mgThrow(0)">Daneben</button><button style="padding:14px 18px" onclick="mgUndo()">↶</button></div></div>`}`;
+ if(bigOn())return vMGbig(st,g,p,padHTML);
  return `<div class="row muted small" style="margin-bottom:8px"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span><button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="card mgpl" style="padding:10px 12px">${st.ps.map((id,i)=>`<div class="row ${i===p?'mgcur':''}" style="flex-wrap:nowrap;padding:8px;border-radius:12px;${i===p?'background:linear-gradient(90deg,#1fb35a26,transparent);box-shadow:inset 3px 0 0 var(--accent)':''};${mgActive(st,i)?'':'opacity:.45'}">${AV(U(id),36)}<div class="sp" style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(U(id).nick)}</b><div class="muted small" style="margin-top:2px">${g.status(st,i)}</div></div>${i===p?'<span class="badge g">am Zug</span>':''}</div>`).join('')}</div>
  ${g.extra?g.extra(st):''}
  <div class="card mgtask" style="text-align:center;padding:14px"><div class="muted small">${esc(U(st.ps[p]).nick)} ist dran${g.visitInput?' · Aufnahme eintippen':` · Dart ${st.dart+1} von 3`}</div>
  <div class="mghint" style="font-family:Outfit,Inter,sans-serif;font-size:22px;font-weight:800;margin:6px 0">${g.hint(st,p)}</div>
  ${g.visitInput?'':`<div class="row" style="justify-content:center;gap:6px">${[0,1,2].map(k=>`<span class="badge" style="min-width:64px;font-size:14px;${k===st.dart?'border-color:var(--accent);color:var(--text)':''}">${st.darts[k]?dName(st.darts[k]):'·'}</span>`).join('')}</div>`}</div>
- ${g.visitInput?`<div class="card mgvis" style="padding:12px"><div class="inbox">${st.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
- <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button onclick="key('${n}')">${n}</button>`).join('')}<button onclick="if(S.live.input){S.live.input='';render();}else mgUndo()" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div>`
- :`<div class="card mgpad" style="padding:12px">
- <div class="row" style="gap:6px;margin-bottom:8px">${[[1,'Single'],[2,'Double'],[3,'Triple']].map(([m,l])=>`<button class="sp ${st.mult===m?'on':''}" style="padding:12px 0" onclick="mgMult(${m})">${l}</button>`).join('')}</div>
- <div class="mggrid">${nums.map(n=>`<button onclick="mgThrow(${n})">${st.mult===3?'T':st.mult===2?'D':''}${n}</button>`).join('')}</div>
- <div class="row" style="gap:6px;margin-top:6px"><button class="sp" style="padding:14px 0;font-weight:800" onclick="mgThrow(25)">${st.mult>=2?'Bullseye 50':'Bull 25'}</button><button class="sp red" style="padding:14px 0" onclick="mgThrow(0)">Daneben</button><button style="padding:14px 18px" onclick="mgUndo()">↶</button></div></div>`}`;}
+ ${padHTML}`;}
+/* Minispiele auf dem Tablet: Spieler groß oben (wie bei X01), der Spieler am Zug mit Aufgabe, darunter großes Tastenfeld */
+function vMGbig(st,g,p,padHTML){const n=st.ps.length;
+ const cards=st.ps.map((id,i)=>{const cur=i===p,act=mgActive(st,i);return `<div class="mgp ${cur?'cur':''} ${act?'':'out'}">
+  ${cur?`<div class="turn">🎯 AM ZUG${g.visitInput?' · Aufnahme eintippen':` · Dart ${st.dart+1} von 3`}</div>`:''}
+  <div class="nm">${AV(U(id))}<span>${esc(U(id).nick)}</span></div>
+  <div class="stv">${g.status(st,i)}</div>
+  ${cur?`<div class="hint">${g.hint(st,p)}</div>${g.visitInput?'':`<div class="dts">${[0,1,2].map(k=>`<span class="${k===st.dart?'on':''}">${st.darts[k]?dName(st.darts[k]):'·'}</span>`).join('')}</div>`}`:''}</div>`;}).join('');
+ return `<div class="mgb"><div class="row muted small mgtop"><b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}<span class="sp"></span><button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ <div class="mggrid2"><div class="mgl"><div class="mgps n${Math.min(n,8)}">${cards}</div>${g.extra?`<div class="mgx">${g.extra(st)}</div>`:''}</div><div class="mgr">${padHTML}</div></div></div>`;}
 
 /* ===================== Turniere ===================== */
 const MODES={league:'Liga',ko:'K.-o.-System',dko:'Doppel-K.-o.',groups:'Gruppen + K.-o.',swiss:'Schweizer System',rr:'Jeder gegen jeden'};
