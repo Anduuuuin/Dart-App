@@ -474,6 +474,15 @@ body.livetab .bobq{font-size:min(3.4vh,4.6vw)!important;font-weight:700;color:va
 html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 button,a,input,select,textarea,.slot,.tile,.qbtn,.card{touch-action:manipulation}
 input,select,textarea{font-size:max(16px,1em)}
+/* ===== Verein, Erfolge ===== */
+.rkrow{padding:9px 4px;border-top:1px solid var(--line);gap:10px}.rkrow:first-child{border-top:0}.rkrow.me{background:#2fbf7112;border-radius:10px}
+.rk{width:34px;text-align:center;font-size:17px}
+.badgegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.bdg{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 10px;text-align:center;opacity:.55;filter:grayscale(.8)}
+.bdg.ok{opacity:1;filter:none;border-color:#f2c14e66;background:linear-gradient(160deg,#f2c14e1c,var(--panel))}
+.bdg .bi{font-size:34px}.bdg .bn{font-weight:800;font-size:14px;margin-top:4px}.bdg .bv{font-size:12px;color:var(--muted);margin-top:4px}
+.bdg .bp{height:6px;background:var(--panel2);border-radius:99px;margin-top:8px;overflow:hidden}.bdg .bp i{display:block;height:100%;background:var(--accent)}
+.honor{display:grid;gap:10px}.hon{display:flex;align-items:center;gap:14px;margin:0}.hon .hi{font-size:32px;width:44px;text-align:center}.hon .hv{font-size:24px;font-weight:900;color:var(--gold)}
 </style>
 </head>
 <body>
@@ -497,7 +506,7 @@ S.settings=S.settings||{boards:4};S.teams=S.teams||[];
 /* PIN-Felder bewusst KEINE Passwortfelder: sonst bietet der Browser an, die PIN zu speichern (und Google synchronisiert sie auf alle Geräte bzw. der Nächste am Vereins-Tablet bekommt sie angeboten). Punkte statt Ziffern per CSS. */
 const PINT=(window.CSS&&CSS.supports&&CSS.supports('-webkit-text-security','disc'))?'text':'password';
 function saveLocal(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
-function save(){try{scrUpdate();}catch(e){}try{onlPush();}catch(e){}saveLocal();if(typeof sySchedule==='function')sySchedule();}
+function save(){CALC_V++;try{scrUpdate();}catch(e){}try{onlPush();}catch(e){}saveLocal();if(typeof sySchedule==='function')sySchedule();}
 /* Zuschauer-Anzeige: Läuft auf diesem Gerät ein Spiel, wird der Stand als „Bildschirm“ an den Server geschickt */
 function DEV(){let d=null;try{d=localStorage.getItem('dc_dev');if(!d){d=uid();localStorage.setItem('dc_dev',d);}}catch(e){d=d||'x';}return d;}
 function scrUpdate(){if(typeof SY==='undefined'||!SY.on||!SY.key||S.demo)return;S.screens=S.screens||{};const d=DEV();
@@ -506,7 +515,7 @@ function scrUpdate(){if(typeof SY==='undefined'||!SY.on||!SY.key||S.demo)return;
 // Läuft die App unter *.anduuuuin.de, werden alle Vereinsdaten mit dem Server abgeglichen.
 // Auf GitHub Pages oder als Datei bleibt alles wie bisher nur auf diesem Gerät (Testversion).
 const SY={on:/(^|\.)anduuuuin\.de$/i.test(location.hostname)||!!window.DC_API,api:(window.DC_API||'')+'/api/dc/',key:'',rev:0,base:{},busy:false,again:false,t:null,ok:null,err:'',pend:false,force:false,last:0,ready:false};
-const SY_ARR=['users','tournaments','games','trainings','teams'],SY_MAP=['myPlans','planCfg','screens','online'];
+const SY_ARR=['users','tournaments','games','trainings','teams'],SY_MAP=['myPlans','planCfg','screens','online','chal','club'];
 try{const h=location.hash.match(/[#&]k=([A-Za-z0-9_-]+)/);if(h){localStorage.setItem('dc_clubkey',h[1]);history.replaceState(null,'',location.pathname+location.search);}}catch(e){}
 try{SY.key=localStorage.getItem('dc_clubkey')||'';const b=JSON.parse(localStorage.getItem(KEY+'_sync')||'null');if(b&&b.key===SY.key){SY.rev=b.rev||0;SY.base=b.base||{};SY.ready=!!b.ready;}}catch(e){}
 // Inhalt als Text mit sortierten Schlüsseln (damit gleiche Daten immer gleich aussehen)
@@ -555,7 +564,7 @@ async function syPull(){const res=await syApi('since?rev='+SY.rev);let ch=false;
    if(ls===bs){if(ls!==rs){syApply(it.key,it.deleted?null:it.data);ch=true;}}
    else if(ls!==rs){const m=jmerge(bs==null?undefined:JSON.parse(bs),loc[it.key],it.deleted?undefined:it.data);syApply(it.key,m===undefined?null:m);ch=true;}
    SY.base[it.key]={r:it.rev,s:rs};}}
- SY.rev=Math.max(SY.rev,res.rev||0);syStore();if(ch){try{onlHook();}catch(e){console.error(e);}saveLocal();syRender();}}
+ SY.rev=Math.max(SY.rev,res.rev||0);syStore();if(ch){CALC_V++;try{onlHook();}catch(e){console.error(e);}saveLocal();syRender();}}
 async function syPush(){for(let round=0;round<6;round++){
  const loc=syItems(S),ch=[];
  new Set([...Object.keys(loc),...Object.keys(SY.base)]).forEach(k=>{const ls=cs(loc[k]),b=SY.base[k];if((b?b.s:null)!==ls)ch.push({key:k,base:b?b.r:0,data:loc[k]===undefined?null:loc[k],s:ls});});
@@ -678,7 +687,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=27;
+const APPV=28;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -958,6 +967,181 @@ function mgVidBtn(id,full){const vid=MGV.has(id)?id:(id==='blindkiller'?'killer'
 function mgVideo(vid,id){const g=MG[id]||MG[vid];modal(`<div class="row" style="margin-bottom:10px;flex-wrap:nowrap"><b class="sp">▶ ${esc(g.name)}</b></div>
  <video src="videos/mg-${vid}.mp4" poster="videos/mg-${vid}.jpg" controls autoplay muted playsinline preload="metadata" style="width:100%;max-height:70vh;border-radius:14px;background:#000;display:block"></video>
  <button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal()">Schließen</button>`);}
+/* ===================== Verein: Rangliste (Elo), Herausforderungen, Wochen-Challenge, Erfolge, Ehrentafel, Trainer, Spielerkarte ===================== */
+const isReal=id=>typeof id==='string'&&!isGuest(id)&&!!S.users.find(u=>u.id===id&&u.role==='player');
+/* ---- Elo aus allen X01-Spielen (jeder gegen jeden), Start 1000 ---- */
+let ELO_C={k:null,v:null};
+function eloAll(){const k=S.games.length+'|'+(S.games.length?Math.max(...S.games.map(g=>g.date)):0);if(ELO_C.k===k)return ELO_C.v;
+ const r={},n={},hist={};const gs=S.games.slice().sort((a,b)=>a.date-b.date);
+ for(const g of gs){const ps=g.players.filter(p=>isReal(p.id));if(ps.length<2)continue;const d={};
+  for(let i=0;i<ps.length;i++)for(let j=i+1;j<ps.length;j++){const a=ps[i],b=ps[j];const ra=r[a.id]??1000,rb=r[b.id]??1000;
+   const sa=a.won&&!b.won?1:b.won&&!a.won?0:(a.legs>b.legs?1:a.legs<b.legs?0:.5);
+   const ea=1/(1+Math.pow(10,(rb-ra)/400));const K=(x)=>(n[x]||0)<10?40:24;
+   d[a.id]=(d[a.id]||0)+K(a.id)*(sa-ea)/(ps.length-1);d[b.id]=(d[b.id]||0)+K(b.id)*((1-sa)-(1-ea))/(ps.length-1);}
+  for(const id in d){r[id]=(r[id]??1000)+d[id];n[id]=(n[id]||0)+1;(hist[id]=hist[id]||[]).push({d:g.date,v:r[id]});}}
+ return ELO_C={k,v:{r,n,hist}},ELO_C.v;}
+function eloOf(id){const e=eloAll();return Math.round(e.r[id]??1000);}
+function eloAgo(id,days){const h=eloAll().hist[id]||[];const t=Date.now()-days*DAY;let v=1000;for(const x of h){if(x.d>t)break;v=x.v;}return Math.round(v);}
+function ranking(){const e=eloAll();return players().filter(u=>(e.n[u.id]||0)>0).map(u=>({u,elo:Math.round(e.r[u.id]),n:e.n[u.id],d30:Math.round(e.r[u.id])-eloAgo(u.id,30)})).sort((a,b)=>b.elo-a.elo);}
+/* ---- Herausforderungen ---- */
+function chals(){return Object.values(S.chal||{}).filter(c=>c&&c.from);}
+function chalOpenFor(id){return chals().filter(c=>c.to===id&&c.status==='open'&&Date.now()-c.created<7*DAY);}
+function chalCreate(to){const m=me();if(!m||m.role!=='player')return;if(chals().some(c=>c.status!=='done'&&c.status!=='declined'&&((c.from===m.id&&c.to===to)||(c.from===to&&c.to===m.id))&&Date.now()-c.created<7*DAY))return toast('Ihr habt schon eine offene Herausforderung');
+ S.chal=S.chal||{};const id=uid();S.chal[id]={id,from:m.id,to,status:'open',created:Date.now(),eloFrom:eloOf(m.id),eloTo:eloOf(to)};save();toast(`⚔️ Herausforderung an ${esc(U(to).nick)} geschickt`);render();}
+function chalAnswer(id,yes){const c=(S.chal||{})[id];if(!c)return;c.status=yes?'accepted':'declined';c.at=Date.now();save();render();if(yes)toast('⚔️ Angenommen! Spielt 501 · Best of 3 – am Board oder online.');}
+function chalPlay(id,online){const c=S.chal[id];if(!c)return;const opp=c.from===meId?c.to:c.from;
+ if(online){onlNew={kind:'x01',opp:[opp],start:501,bo:3,out:'double',mg:'killer',sets:3};onlInvite();return;}
+ whoStarts([c.from,c.to],first=>startX01([c.from,c.to],501,{sets:false,bo:3,setLegs:3},true,null,{out:'double',first}));}
+function chalOnGame(g){const ids=g.players.map(p=>p.id);Object.values(S.chal||{}).forEach(c=>{if(c.status!=='accepted'||!ids.includes(c.from)||!ids.includes(c.to)||ids.length!==2)return;
+ const w=g.players.find(p=>p.won);c.status='done';c.game=g.id;c.winner=w?w.id:null;c.at=Date.now();
+ if(w)setTimeout(()=>toast(`⚔️ Herausforderung entschieden: ${esc(U(w.id).nick)} gewinnt!`,4000),600);});}
+/* ---- Wochen-Challenge ---- */
+const WCH_POOL=['t20c','bullc','catch40','c121','dblouts','priestley','atcd','paw','score501','t19c','daw1','sprint501','fin4160','bull500','dbldown','n99t20'];
+function weekStart(t){const d=new Date(t||Date.now());d.setHours(0,0,0,0);const wd=(d.getDay()+6)%7;d.setDate(d.getDate()-wd);return d.getTime();}
+function weekNo(t){return Math.floor((weekStart(t)+3*DAY)/(7*DAY));}
+function wchOf(t){const pool=WCH_POOL.filter(e=>EX[e]&&EX[e].better);const o=(S.club||{}).wchSet||{};const wk=weekNo(t);return o[wk]&&EX[o[wk]]?o[wk]:pool[(wk*7+3)%pool.length];}
+function wchBoard(t){const ex=wchOf(t),a=weekStart(t),b=a+7*DAY,low=EX[ex].better==='low';const best={};
+ S.trainings.forEach(x=>{if(x.mode!=='ex'||x.ex!==ex||x.complete===false||x.date<a||x.date>=b||!isReal(x.uid))return;const u=S.users.find(u=>u.id===x.uid);if(!u||u.priv)return;
+  if(best[x.uid]==null||(low?x.val<best[x.uid].val:x.val>best[x.uid].val))best[x.uid]={val:x.val,date:x.date};});
+ return{ex,list:Object.entries(best).map(([id,v])=>({id,...v})).sort((x,y)=>low?x.val-y.val||x.date-y.date:y.val-x.val||x.date-y.date)};}
+function wchHome(){const w=wchBoard();const e=EX[w.ex];const i=w.list.findIndex(x=>x.id===meId);const last=wchBoard(Date.now()-7*DAY);const lw=last.list[0];
+ const left=Math.ceil((weekStart()+7*DAY-Date.now())/DAY);
+ return `<div class="card" style="border-color:#f2c14e55;background:linear-gradient(135deg,#f2c14e14,transparent)"><div class="row"><b class="sp" style="font-size:17px">🏅 Wochen-Challenge</b><span class="muted small">noch ${left} ${left===1?'Tag':'Tage'}</span></div>
+ <div style="font-size:20px;font-weight:800;margin:6px 0 2px">${esc(e.name)}</div><div class="muted small">${i>=0?`Du bist <b style="color:var(--gold)">Platz ${i+1}</b> von ${w.list.length} · dein Bestwert: ${w.list[i].val} ${esc(e.unit||'')}`:w.list.length?`${w.list.length} ${w.list.length===1?'Spieler hat':'Spieler haben'} schon mitgemacht – du noch nicht!`:'Noch hat keiner mitgemacht – hol dir Platz 1!'}</div>
+ ${lw?`<div class="muted small" style="margin-top:4px">🏆 Sieger letzte Woche: <b style="color:var(--text)">${esc(U(lw.id).nick)}</b> (${esc(EX[last.ex].name)})</div>`:''}
+ <div class="row" style="margin-top:10px"><button class="ghost sp" onclick="clubTab='week';go('club')">Bestenliste</button><button class="pri sp" onclick="go('ex','${w.ex}')">▶ Mitmachen</button></div></div>`;}
+/* ---- Erfolge / Abzeichen ---- */
+function weekStreak(id){const ws=new Set([...gamesOf(id).map(g=>weekNo(g.date)),...trainsOf(id).map(t=>weekNo(t.date))]);let cur=weekNo(),best=0,run=0,now=0;
+ const all=[...ws].sort((a,b)=>a-b);for(let i=0;i<all.length;i++){run=i&&all[i]===all[i-1]+1?run+1:1;best=Math.max(best,run);}
+ let w=ws.has(cur)?cur:cur-1;while(ws.has(w)){now++;w--;}return{best,now};}
+function wchWins(id){let n=0;const first=Math.min(...S.trainings.map(t=>t.date),Date.now());for(let t=weekStart(first);t<weekStart();t+=7*DAY){const b=wchBoard(t+DAY);if(b.list[0]&&b.list[0].id===id)n++;}return n;}
+function badgeData(id){const c=calc(id);const tr=trainsOf(id);const mgw=tr.filter(t=>t.mode==='mg'&&t.rank===1&&t.n>1).length;const st=weekStreak(id);
+ const chw=chals().filter(x=>x.status==='done'&&x.winner===id).length;
+ return{c,s180:c.s180,hf:c.hf.length?c.hf[0]:0,best:c.best,games:c.games,tr:tr.length,mgw,streak:st.best,coPct:c.dd>=20?c.coPct:0,chw,wch:wchWins(id),elo:eloOf(id)};}
+const BADGES=[
+ ['🎯','Erste 180',d=>d.s180,1],['🔥','10× 180',d=>d.s180,10],['💯','50× 180',d=>d.s180,50],
+ ['✅','High Finish 100+',d=>d.hf,100],['💎','Finish 150+',d=>d.hf,150],['👑','Big Fish 170',d=>d.hf,170],
+ ['📈','Spiel mit Ø 50',d=>d.best,50],['🚀','Spiel mit Ø 60',d=>d.best,60],['⭐','Spiel mit Ø 70',d=>d.best,70],['🌟','Spiel mit Ø 80',d=>d.best,80],
+ ['🎮','10 Spiele',d=>d.games,10],['🏟️','100 Spiele',d=>d.games,100],
+ ['💪','10 Trainings',d=>d.tr,10],['🏋️','50 Trainings',d=>d.tr,50],['🦾','250 Trainings',d=>d.tr,250],
+ ['📅','4 Wochen am Stück',d=>d.streak,4],['🗓️','12 Wochen am Stück',d=>d.streak,12],
+ ['🎲','10 Minispiel-Siege',d=>d.mgw,10],['🎯','Checkout-Quote 40 %',d=>d.coPct,40],
+ ['⚔️','Herausforderung gewonnen',d=>d.chw,1],['🛡️','5 Herausforderungen gewonnen',d=>d.chw,5],
+ ['🏅','Wochen-Challenge gewonnen',d=>d.wch,1],['🏆','Wertung 1200',d=>d.elo,1200]];
+function badgesOf(id){const d=badgeData(id);return BADGES.map(([i,n,f,goal])=>{const v=f(d)||0;return{i,n,goal,v,ok:v>=goal};});}
+function badgesHTML(id){const b=badgesOf(id);const ok=b.filter(x=>x.ok).length;
+ return `<div class="sec" style="margin-top:0">Erfolge · ${ok} von ${b.length}</div><div class="badgegrid">${b.map(x=>`<div class="bdg ${x.ok?'ok':''}"><div class="bi">${x.i}</div><div class="bn">${x.n}</div>${x.ok?'<div class="bv">✓ geschafft</div>':`<div class="bp"><i style="width:${Math.min(100,x.v/x.goal*100)}%"></i></div><div class="bv">${Math.round(x.v)} / ${x.goal}</div>`}</div>`).join('')}</div>
+ <button class="pri" style="width:100%;margin-top:14px;padding:14px" onclick="playerCard('${id}')">🪪 Spielerkarte erstellen & teilen</button>`;}
+/* ---- Ehrentafel ---- */
+function honors(){const ps=players();const best=(f,low)=>{let r=null;ps.forEach(u=>{const v=f(u);if(v==null||v===0||!isFinite(v))return;if(!r||(low?v<r.v:v>r.v))r={u,v};});return r;};
+ const cs={};ps.forEach(u=>cs[u.id]=calc(u.id));const mon=new Date();mon.setDate(1);mon.setHours(0,0,0,0);
+ return[['📈','Bester Spiel-Average',best(u=>cs[u.id].games?cs[u.id].best:null),v=>f1(v)],['🎯','Höchstes Finish',best(u=>cs[u.id].hiCo||null),v=>v],
+  ['🔥','Meiste 180er',best(u=>cs[u.id].s180||null),v=>v+'×'],['📊','Bester Gesamt-Average (ab 10 Spielen)',best(u=>cs[u.id].games>=10?cs[u.id].avg:null),v=>f1(v)],
+  ['🏆','Höchste Wertung',best(u=>(eloAll().n[u.id]||0)>=5?eloOf(u.id):null),v=>v],['🕐','Around the Clock (Darts)',best(u=>cs[u.id].atcBest,true),v=>v],
+  ["🎲","Bob's 27",best(u=>cs[u.id].bobBest),v=>v],['📅','Längste Trainingsserie (Wochen)',best(u=>weekStreak(u.id).best||null),v=>v],
+  ['💪',`Meiste Einheiten im ${mon.toLocaleDateString('de-DE',{month:'long'})}`,best(u=>trainsOf(u.id).filter(t=>t.date>=mon.getTime()).length+gamesOf(u.id).filter(g=>g.date>=mon.getTime()).length||null),v=>v]];}
+/* ---- Vereins-Seite ---- */
+let clubTab='rank';
+function vClub(){const m=me();const seg=`<div class="seg">${[['rank','🏆 Rangliste'],['week','🏅 Wochen-Challenge'],['honor','🎖️ Ehrentafel']].map(([k,l])=>`<button class="${clubTab===k?'on':''}" onclick="clubTab='${k}';render()">${l}</button>`).join('')}</div>`;
+ let b='';
+ if(clubTab==='rank'){const r=ranking();const myI=r.findIndex(x=>x.u.id===meId);const inc=m.role==='player'?chalOpenFor(meId):[];
+  const mine=chals().filter(c=>(c.from===meId||c.to===meId)&&c.status==='accepted');
+  b=`${inc.map(c=>`<div class="banner" style="margin-bottom:10px">⚔️ <b>${esc(U(c.from).nick)}</b> fordert dich heraus! <span class="muted small">(501 · Best of 3)</span><div class="row" style="margin-top:8px"><button class="ghost sp" onclick="chalAnswer('${c.id}',false)">Ablehnen</button><button class="pri sp" onclick="chalAnswer('${c.id}',true)">Annehmen</button></div></div>`).join('')}
+  ${mine.map(c=>{const o=c.from===meId?c.to:c.from;return `<div class="card" style="border-color:var(--accent)"><b>⚔️ Herausforderung gegen ${esc(U(o).nick)}</b><div class="muted small">501 · Best of 3 · Double Out – das nächste Spiel von euch beiden zählt.</div><div class="row" style="margin-top:8px"><button class="pri sp" onclick="chalPlay('${c.id}',false)">🎯 Jetzt hier spielen</button>${SY.on?`<button class="ghost sp" onclick="chalPlay('${c.id}',true)">🌐 Online</button>`:''}</div></div>`;}).join('')}
+  <p class="muted small" style="margin-top:0">Die Wertung startet bei 1000 und ändert sich mit jedem X01-Spiel gegen Vereinsmitglieder: Sieg gegen Stärkere bringt viel, Niederlage gegen Schwächere kostet viel.${m.role==='player'?' Fordere Spieler über dir heraus!':''}</p>
+  ${r.length?`<div class="card" style="padding:6px 10px">${r.map((x,i)=>{const pend=chals().some(c=>c.status!=='done'&&c.status!=='declined'&&Date.now()-c.created<7*DAY&&((c.from===meId&&c.to===x.u.id)||(c.to===meId&&c.from===x.u.id)));
+   const can=m.role==='player'&&myI>=0&&i<myI&&x.u.id!==meId;
+   return `<div class="row rkrow ${x.u.id===meId?'me':''}" style="flex-wrap:nowrap"><b class="rk">${i<3?['🥇','🥈','🥉'][i]:i+1+'.'}</b>${AV(x.u,28)}<div class="sp" style="min-width:0"><b style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block">${esc(x.u.nick)}</b><span class="muted small">${x.n} Spiele${x.n<5?' · vorläufig':''}</span></div>
+    <div style="text-align:right"><b style="font-size:19px">${x.elo}</b><div class="small" style="color:${x.d30>0?'var(--accent)':x.d30<0?'var(--accent2)':'var(--muted)'}">${x.d30>0?'▲ +'+x.d30:x.d30<0?'▼ '+x.d30:'±0'} <span class="muted">30 T.</span></div></div>
+    ${can?`<button class="sm ${pend?'ghost':''}" ${pend?'disabled':''} onclick="chalCreate('${x.u.id}')" title="Herausfordern">${pend?'⏳':'⚔️'}</button>`:''}</div>`;}).join('')}</div>`:'<div class="card muted">Noch keine X01-Spiele zwischen Vereinsmitgliedern – sobald gespielt wird, erscheint hier die Rangliste.</div>'}
+  ${m.role==='player'&&myI<0?'<p class="muted small">Du stehst noch nicht in der Rangliste – spiel ein X01-Spiel gegen ein Vereinsmitglied.</p>':''}`;}
+ if(clubTab==='week'){const w=wchBoard(),e=EX[w.ex];const last=wchBoard(Date.now()-7*DAY);
+  b=`<div class="card" style="border-color:#f2c14e55"><div class="muted small">Diese Woche (${new Date(weekStart()).toLocaleDateString('de-DE')} – ${new Date(weekStart()+6*DAY).toLocaleDateString('de-DE')})</div><h2 style="margin:4px 0">${esc(e.name)}</h2><p class="muted" style="margin:0 0 10px">${esc(e.desc)}</p>
+   <p class="muted small" style="margin:0 0 10px">Es zählt dein bester Durchgang der Woche · ${e.better==='low'?'weniger ist besser':'mehr ist besser'} (${esc(e.unit||'')}).</p>
+   ${m.role==='player'?`<button class="pri" style="width:100%;padding:14px" onclick="go('ex','${w.ex}')">▶ Jetzt mitmachen</button>`:''}
+   ${isStaff()?`<button class="ghost sm" style="margin-top:8px" onclick="wchPick()">Übung dieser Woche ändern</button>`:''}</div>
+   <div class="sec">Bestenliste</div>${w.list.length?`<div class="card" style="padding:6px 10px">${w.list.map((x,i)=>`<div class="row rkrow ${x.id===meId?'me':''}" style="flex-wrap:nowrap"><b class="rk">${i<3?['🥇','🥈','🥉'][i]:i+1+'.'}</b>${AV(U(x.id),28)}<b class="sp">${esc(U(x.id).nick)}</b><b style="font-size:19px">${x.val}</b><span class="muted small">${esc(e.unit||'')}</span></div>`).join('')}</div>`:'<div class="card muted">Noch keine Teilnehmer diese Woche.</div>'}
+   ${last.list.length?`<div class="sec">Letzte Woche: ${esc(EX[last.ex].name)}</div><div class="card" style="padding:6px 10px">${last.list.slice(0,3).map((x,i)=>`<div class="row rkrow" style="flex-wrap:nowrap"><b class="rk">${['🥇','🥈','🥉'][i]}</b>${AV(U(x.id),28)}<b class="sp">${esc(U(x.id).nick)}</b><b>${x.val}</b></div>`).join('')}</div>`:''}`;}
+ if(clubTab==='honor'){b=`<p class="muted small" style="margin-top:0">Die Rekorde des Vereins – wer schafft es auf die Tafel?</p><div class="honor">${honors().map(([i,t,r,fmt])=>`<div class="card hon"><div class="hi">${i}</div><div class="sp"><div class="muted small">${esc(t)}</div>${r?`<div class="row" style="gap:8px;margin-top:4px">${AV(r.u,26)}<b>${esc(r.u.nick)}</b></div>`:'<div class="muted">noch frei</div>'}</div>${r?`<div class="hv">${fmt(r.v)}</div>`:''}</div>`).join('')}</div>`;}
+ return `<div class="ph"><h1>🏆 Verein</h1><p>Rangliste, Wochen-Challenge und Rekorde</p></div>${seg}${b}`;}
+function wchPick(){const wk=weekNo();modal(`<h3>Übung dieser Woche</h3><div style="max-height:60vh;overflow:auto">${WCH_POOL.filter(e=>EX[e]).map(e=>`<button style="width:100%;text-align:left;margin-bottom:6px" onclick="S.club=S.club||{};S.club.wchSet=Object.assign({},S.club.wchSet,{${wk}:'${e}'});save();closeModal();render()">${esc(EX[e].name)}</button>`).join('')}</div><button class="ghost" style="width:100%" onclick="closeModal()">Abbrechen</button>`);}
+function chalHome(){const inc=chalOpenFor(meId);const acc=chals().filter(c=>(c.from===meId||c.to===meId)&&c.status==='accepted');if(!inc.length&&!acc.length)return '';
+ return `<div class="banner" style="margin-bottom:12px;cursor:pointer" onclick="clubTab='rank';go('club')">⚔️ ${inc.length?`<b>${esc(U(inc[0].from).nick)}</b> fordert dich heraus!`:`Offene Herausforderung gegen <b>${esc(U(acc[0].from===meId?acc[0].to:acc[0].from).nick)}</b>`} – antippen</div>`;}
+/* ---- Persönlicher Trainer ---- */
+function periodStats(id,from,to){let d=0,p=0,ch=0,co=0,s100=0,legs=0,n=0;gamesOf(id).forEach(g=>{if(g.date<from||g.date>=to)return;const x=g.players.find(q=>q.id===id);d+=x.darts;p+=x.pts;ch+=x.ch||0;co+=x.co||0;s100+=(x.s100||0)+(x.s140||0)+(x.s180||0);legs+=g.players.reduce((a,q)=>a+(q.legs||0),0);n++;});
+ return{n,avg:d?p/d*3:null,co:ch>=5?co/ch*100:null,ton:d?s100/(d/3)*100:null};}
+function clubMedian(f){const v=players().map(u=>f(calc(u.id))).filter(x=>x!=null&&isFinite(x)&&x>0).sort((a,b)=>a-b);return v.length?v[Math.floor(v.length/2)]:null;}
+function coach(id){const c=calc(id);const now=Date.now();const a=periodStats(id,now-30*DAY,now),b=periodStats(id,now-60*DAY,now-30*DAY);const out=[];
+ const exDone=(cat,days)=>trainsOf(id,'ex').some(t=>EX[t.ex]&&EX[t.ex].cat===cat&&t.date>now-days*DAY);
+ const medCo=clubMedian(x=>x.dd>=10?x.coPct:null),medAvg=clubMedian(x=>x.games?x.avg:null);
+ if(c.dd>=10&&(c.coPct<30||(medCo&&c.coPct<medCo-3)))out.push({k:'co',t:'Doppel & Checkout',w:3+(30-c.coPct)/10,why:`Deine Checkout-Quote liegt bei ${f1(c.coPct)} %${medCo?` (Verein: ${f1(medCo)} %)`:''}. Jedes verpasste Doppel kostet Legs.`,ex:['dblouts','daw1','catch40','fin4160'],m:'co'});
+ if(c.games>=3&&medAvg&&c.avg<medAvg-2)out.push({k:'sc',t:'Scoring',w:2+(medAvg-c.avg)/5,why:`Dein Average (${f1(c.avg)}) liegt unter dem Vereinsschnitt (${f1(medAvg)}). Mehr Punkte pro Aufnahme bringen dich schneller ins Finish.`,ex:['t20c','priestley','score501','n99t20'],m:'avg'});
+ const f9=c.fAvg(9);if(f9!=null&&c.games>=5&&f9<c.avg+4)out.push({k:'start',t:'Starke Starts',w:1.5,why:`Deine ersten 9 Darts (Ø ${f1(f9)}) sind kaum besser als dein Schnitt – Profis legen im Start am meisten vor.`,ex:['t20c','skill','sprint'],m:'avg'});
+ const l=c.avgs.slice(-10).map(x=>x.v);if(l.length>=6){const mu=l.reduce((s,x)=>s+x,0)/l.length;const sd=Math.sqrt(l.reduce((s,x)=>s+(x-mu)**2,0)/l.length);if(sd>8)out.push({k:'cons',t:'Konstanz',w:1.5+sd/10,why:`Deine Averages schwanken stark (±${f1(sd)}). Gleichmäßiger Wurf = gleichmäßige Ergebnisse.`,ex:['singles','skill','paw'],m:'avg'});}
+ if(!exDone('bull',45))out.push({k:'bull',t:'Bull',w:.8,why:'Du hast länger kein Bull trainiert – wichtig für Finishes wie 50, 100, 170 und für das Ausbullen.',ex:['bullc','bull500'],m:null});
+ if(c.days<6)out.push({k:'reg',t:'Regelmäßigkeit',w:2.2-(c.days/6),why:`In den letzten 30 Tagen hast du an ${c.days} ${c.days===1?'Tag':'Tagen'} trainiert. 3× pro Woche kurz bringt mehr als einmal lang.`,ex:['atcw','singles','catch20'],m:null});
+ if(!exDone('co',30)&&!out.some(x=>x.k==='co'))out.push({k:'co2',t:'Finishing wach halten',w:1,why:'Seit über einem Monat keine Checkout-Übung – damit das Finish nicht einrostet.',ex:['c121','catch40','p170'],m:'co'});
+ if(!out.length)out.push({k:'keep',t:'Weiter so!',w:0,why:'Keine deutliche Schwäche gefunden. Halte dein Level mit einer gemischten Einheit.',ex:['skill','catch40','bullc'],m:'avg'});
+ out.sort((x,y)=>y.w-x.w);out.forEach(x=>x.ex=x.ex.filter(e=>EX[e]).slice(0,3));return{list:out.slice(0,3),a,b,c};}
+function trendTxt(a,b,unit,dec=1){if(a==null||b==null)return '<span class="muted">–</span>';const d=a-b;const s=(Math.abs(d)<.05?'±0':(d>0?'+':'')+d.toFixed(dec))+unit;return `<b style="color:${d>0.05?'var(--accent)':d<-0.05?'var(--accent2)':'var(--muted)'}">${d>0.05?'▲':d<-0.05?'▼':''} ${s}</b>`;}
+function vCoach(){const id=meId;const r=coach(id);const {a,b,c}=r;
+ return `<div class="ph"><div class="row"><h1 class="sp">🧠 Dein Trainer</h1><button class="ghost" onclick="go('home')">← Start</button></div><p>Ausgewertet aus deinen Spielen und Übungen – mit passenden Übungen.</p></div>
+ <div class="sec" style="margin-top:0">Deine Entwicklung (letzte 30 Tage vs. davor)</div>
+ <div class="stats"><div class="stat"><div class="v">${a.avg!=null?f1(a.avg):'–'}</div><div class="k">Average</div><div class="small">${trendTxt(a.avg,b.avg,'')}</div></div>
+ <div class="stat"><div class="v">${a.co!=null?f1(a.co)+' %':'–'}</div><div class="k">Checkout-Quote</div><div class="small">${trendTxt(a.co,b.co,' %')}</div></div>
+ <div class="stat"><div class="v">${a.ton!=null?f1(a.ton)+' %':'–'}</div><div class="k">Aufnahmen 100+</div><div class="small">${trendTxt(a.ton,b.ton,' %')}</div></div>
+ <div class="stat"><div class="v">${c.days}</div><div class="k">Trainingstage 30 T.</div></div></div>
+ <div class="sec">Daran solltest du arbeiten</div>
+ ${r.list.map((x,i)=>`<div class="card"><div class="row"><span class="badge ${i===0?'y':''}">${i===0?'Wichtigstes Thema':'Thema '+(i+1)}</span></div><h3 style="margin:8px 0 4px">${esc(x.t)}</h3><p class="muted" style="margin:0 0 10px">${esc(x.why)}</p>
+  ${x.ex.map(e=>{const best=exBest(id,e);const runs=exRuns(id,e);return `<div class="row" style="padding:8px 0;border-top:1px solid var(--line);flex-wrap:nowrap"><div class="sp"><b>${esc(EX[e].name)}</b><div class="muted small">⏱ ~${EX[e].dur} Min.${runs.length?` · ${runs.length}× gemacht · Rekord ${best}`:' · noch nie gemacht'}</div></div><button class="sm pri" onclick="go('ex','${e}')">▶</button></div>`;}).join('')}</div>`).join('')}
+ <button class="pri" style="width:100%;padding:14px" onclick="coachPlan()">🗂️ Als „Mein Plan“ übernehmen</button>
+ <p class="muted small">Tipp: Die Auswertung wird mit jedem Spiel genauer. Für die Checkout-Quote zählen nur X01-Spiele.</p>`;}
+function coachPlan(){const r=coach(meId);const ex=[...new Set(r.list.flatMap(x=>x.ex.slice(0,2)))].slice(0,5);S.myPlans[meId]=ex.map(e=>[e,EX[e].sets||1]);save();trTab='plans';openPlan='mine';go('train');toast('🗂️ Trainer-Plan als „Mein Plan“ gespeichert');}
+function coachHome(){const r=coach(meId);const x=r.list[0];return `<div class="card" style="cursor:pointer" onclick="go('coach')"><div class="row"><b class="sp" style="font-size:17px">🧠 Dein Trainer</b><span class="muted small">antippen ›</span></div><div style="margin-top:6px"><b>${esc(x.t)}:</b> <span class="muted">${esc(x.why)}</span></div></div>`;}
+/* ---- Spielerkarte als Bild ---- */
+function playerCard(id){const u=U(id),c=calc(id),b=badgesOf(id).filter(x=>x.ok);const r=ranking();const ri=r.findIndex(x=>x.u.id===id);
+ const W=1080,H=1350,cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');
+ const g=x.createLinearGradient(0,0,W,H);g.addColorStop(0,'#0f3a24');g.addColorStop(.55,'#0b1512');g.addColorStop(1,'#050807');x.fillStyle=g;x.fillRect(0,0,W,H);
+ x.strokeStyle='#2fbf71';x.lineWidth=10;const rr=(X,Y,w,h,r)=>{x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+w,Y,X+w,Y+h,r);x.arcTo(X+w,Y+h,X,Y+h,r);x.arcTo(X,Y+h,X,Y,r);x.arcTo(X,Y,X+w,Y,r);x.closePath();};rr(30,30,W-60,H-60,48);x.stroke();
+ const F='Inter,Outfit,system-ui,sans-serif';x.textAlign='center';
+ const draw=img=>{
+  x.save();x.beginPath();x.arc(W/2,300,170,0,Math.PI*2);x.closePath();x.fillStyle='#173a2a';x.fill();x.clip();
+  if(img)x.drawImage(img,W/2-170,130,340,340);else{x.fillStyle='#e9f1ed';x.font=`900 150px ${F}`;x.textBaseline='middle';x.fillText((u.nick||'?').split(/[\s\-_.]+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('')||'?',W/2,305);x.textBaseline='alphabetic';}
+  x.restore();x.strokeStyle='#2fbf71';x.lineWidth=8;x.beginPath();x.arc(W/2,300,174,0,Math.PI*2);x.stroke();
+  x.fillStyle='#ffffff';x.font=`900 92px ${F}`;x.fillText(u.nick,W/2,575);
+  x.fillStyle='#f2c14e';x.font=`800 40px ${F}`;x.fillText(ri>=0?`Platz ${ri+1} der Rangliste · Wertung ${r[ri].elo}`:'DartClub-Spieler',W/2,640);
+  const st=[['3-Dart-Average',c.games?f1(c.avg):'–'],['Bester Average',c.games?f1(c.best):'–'],['Höchstes Finish',c.hiCo||'–'],['180er',c.s180],['Checkout-Quote',c.coPct!=null?f1(c.coPct)+'%':'–'],['Spiele',c.games]];
+  st.forEach(([k,v],i)=>{const cx=W/2+((i%3)-1)*320,cy=760+Math.floor(i/3)*190;x.fillStyle='#ffffff10';rr(cx-145,cy-70,290,160,26);x.fill();
+   x.fillStyle='#ffffff';x.font=`900 66px ${F}`;x.fillText(String(v),cx,cy+20);x.fillStyle='#9fb3aa';x.font=`600 28px ${F}`;x.fillText(k,cx,cy+66);});
+  x.font=`64px ${F}`;const bs=b.slice(-8);bs.forEach((y,i)=>x.fillText(y.i,W/2+(i-(bs.length-1)/2)*96,1150));
+  x.fillStyle='#9fb3aa';x.font=`600 30px ${F}`;x.fillText(b.length?`${b.length} Erfolge freigeschaltet`:'Noch keine Erfolge – das ändert sich bald!',W/2,1210);
+  x.fillStyle='#2fbf71';x.font=`900 36px ${F}`;x.fillText('🎯 DartClub',W/2,1275);
+  const url=cv.toDataURL('image/png');PCARD={url,cv,name:u.nick};
+  modal(`<h3>🪪 Spielerkarte</h3><img src="${url}" style="width:100%;border-radius:16px;display:block"><div class="row" style="margin-top:12px"><button class="ghost sp" onclick="pcardSave()">⬇️ Speichern</button>${navigator.share?'<button class="pri sp" onclick="pcardShare()">📤 Teilen</button>':''}</div><button class="ghost" style="width:100%;margin-top:8px" onclick="closeModal()">Schließen</button>`);};
+ if(u.photo){const im=new Image();im.onload=()=>draw(im);im.onerror=()=>draw(null);im.src=u.photo;}else draw(null);}
+let PCARD=null;
+function pcardSave(){if(!PCARD)return;const a=document.createElement('a');a.href=PCARD.url;a.download=`Spielerkarte-${PCARD.name}.png`;document.body.appendChild(a);a.click();a.remove();}
+function pcardShare(){if(!PCARD)return;PCARD.cv.toBlob(async bl=>{try{const f=new File([bl],`Spielerkarte-${PCARD.name}.png`,{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'Meine Spielerkarte'});else pcardSave();}catch(e){}},'image/png');}
+/* ---- Gruppen-Trainingsplan ---- */
+let GP_SEL={};
+function teamPlanEdit(tid){const t=S.teams.find(x=>x.id===tid);GP_SEL={};((t.plan&&t.plan.items)||[]).forEach(([e,s])=>GP_SEL[e]=s);
+ modal(`<h3>📋 Gruppenplan für ${esc(t.name)}</h3><p class="muted small" style="margin-top:0">Wähle Übungen und Sets. Alle Mitglieder sehen den Plan auf ihrer Startseite und können ihn mit einem Tipp starten – du siehst, wer ihn geschafft hat.</p>
+ <label>Hinweis an die Gruppe (optional)</label><input id="gpn" maxlength="80" value="${esc((t.plan&&t.plan.note)||'')}" placeholder="z. B. Bis Donnerstag vor dem Spieltag">
+ <div id="gpl" style="max-height:46vh;overflow:auto;margin-top:10px">${gpList()}</div>
+ <div class="row" style="margin-top:12px">${t.plan?`<button class="red sm" onclick="teamPlanDel('${tid}')">Plan löschen</button>`:''}<span class="sp"></span><button class="ghost" onclick="closeModal()">Abbrechen</button><button class="pri" onclick="teamPlanSave('${tid}')">Speichern</button></div>`);}
+function gpList(){return Object.entries(EX).map(([id,e])=>{const s=GP_SEL[id]||0;return `<div class="row" style="flex-wrap:nowrap;padding:6px 0;border-top:1px solid var(--line)"><span class="sp" style="${s?'font-weight:700':''}">${esc(e.name)} <span class="muted small">~${e.dur} Min.</span></span><button class="sm ghost" onclick="gpSet('${id}',-1)">−</button><b style="width:22px;text-align:center">${s}</b><button class="sm ghost" onclick="gpSet('${id}',1)">＋</button></div>`;}).join('');}
+function gpSet(id,d){GP_SEL[id]=Math.max(0,Math.min(9,(GP_SEL[id]||0)+d));if(!GP_SEL[id])delete GP_SEL[id];const el=document.getElementById('gpl');const sc=el.scrollTop;el.innerHTML=gpList();el.scrollTop=sc;}
+function teamPlanSave(tid){const t=S.teams.find(x=>x.id===tid);const items=Object.entries(GP_SEL).filter(([e,s])=>s>0);if(!items.length)return toast('Mindestens eine Übung wählen');
+ t.plan={id:uid(),items,note:document.getElementById('gpn').value.trim(),set:Date.now(),by:meId,done:{}};save();closeModal();render();toast('📋 Gruppenplan gespeichert');}
+function teamPlanDel(tid){const t=S.teams.find(x=>x.id===tid);delete t.plan;save();closeModal();render();}
+function teamPlanCard(t){if(!t.plan)return canManage(t)?`<div class="card"><div class="row"><b class="sp">📋 Gruppenplan</b><button class="sm pri" onclick="teamPlanEdit('${t.id}')">Plan festlegen</button></div><p class="muted small" style="margin:6px 0 0">Gib deiner Gruppe einen gemeinsamen Trainingsplan vor.</p></div>`:'';
+ const p=t.plan,done=p.done||{};const n=t.members.filter(id=>done[id]).length;
+ return `<div class="card" style="border-color:#2fbf7155"><div class="row"><b class="sp">📋 Gruppenplan · ${n}/${t.members.length} geschafft</b>${canManage(t)?`<button class="sm" onclick="teamPlanEdit('${t.id}')">Ändern</button>`:''}</div>
+ ${p.note?`<p style="margin:6px 0">${esc(p.note)}</p>`:''}<div class="muted small">${p.items.map(([e,s])=>esc(EX[e]?.name||e)+(s>1?` ×${s}`:'')).join(' · ')} · ~${planDur(p.items)} Min.</div>
+ ${canManage(t)?`<div class="chips" style="margin-top:10px">${t.members.map(id=>`<span class="badge ${done[id]?'g':''}" style="font-size:13px;padding:5px 10px">${done[id]?'✓':'○'} ${esc(U(id).nick)}</span>`).join('')}</div>`:''}
+ ${t.members.includes(meId)?`<button class="${done[meId]?'ghost':'pri'}" style="width:100%;margin-top:10px" onclick="startPlan('team:${t.id}')">${done[meId]?'✓ Geschafft – nochmal trainieren':'▶ Plan starten'}</button>`:''}</div>`;}
+function teamPlansHome(){const ts=S.teams.filter(t=>t.plan&&t.members.includes(meId));return ts.map(t=>{const d=(t.plan.done||{})[meId];return `<div class="card" style="border-color:#2fbf7155"><div class="row"><b class="sp">📋 Plan von „${esc(t.name)}“</b>${d?'<span class="badge g">✓ geschafft</span>':'<span class="badge y">offen</span>'}</div>${t.plan.note?`<div style="margin-top:4px">${esc(t.plan.note)}</div>`:''}<div class="muted small" style="margin-top:4px">${t.plan.items.length} Übungen · ~${planDur(t.plan.items)} Min.</div>${d?'':`<button class="pri" style="width:100%;margin-top:10px" onclick="startPlan('team:${t.id}')">▶ Plan starten</button>`}</div>`;}).join('');}
+function teamPlanMarkDone(){const P=S.planRun;if(!P||!String(P.pid).startsWith('team:')||!planDone())return;const t=S.teams.find(x=>x.id===P.pid.slice(5));if(!t||!t.plan)return;t.plan.done=t.plan.done||{};if(!t.plan.done[P.uid]){t.plan.done[P.uid]=Date.now();save();}}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -1036,8 +1220,8 @@ const LOGO=(sz)=>`<div class="logo">${logoSVG(sz)}<span>${appName()?esc(appName(
 
 /* ===================== Header & Navigation ===================== */
 function tabs(){const m=me(),r=m?.role;
-  if(r==='player')return[['home','🏠','Start'],['train','🎯','Training'],...(m.captain?[['teams','👥','Gruppen']]:[]),['stats','📈','Statistik']];
-  if(!r)return[];const t=[['tour','🏆','Turniere'],['boards','🎯','Boards'],['people','👥','Spieler'],['train','💪','Training']];t.push(['admin','⚙️','Einstellungen']);return t;}
+  if(r==='player')return[['home','🏠','Start'],['train','🎯','Training'],...(m.captain?[['teams','👥','Gruppen']]:[]),['club','🏆','Verein'],['stats','📈','Statistik']];
+  if(!r)return[];const t=[['tour','🏆','Turniere'],['boards','🎯','Boards'],['people','👥','Spieler'],['club','🏅','Verein'],['train','💪','Training']];t.push(['admin','⚙️','Einstellungen']);return t;}
 function navKey(){const st=isStaff();return({ex:'train',mg:'train',planrun:'train',play:'train',tournew:'tour',tourview:'tour',board:'boards',
   team:st?'people':'teams',teams:st?'people':'teams',player:st?'people':(backTo[0]==='team'?'teams':'people')}[view]||view);}
 function renderNav(){const m=me();const n=document.getElementById('nav');const on=m&&view!=='live';document.body.classList.toggle('hasnav',!!on);
@@ -1118,7 +1302,9 @@ function createProfile(loginAfter){const n=document.getElementById('npn').value.
 /* ===================== Statistik-Berechnung ===================== */
 function gamesOf(id){return S.games.filter(g=>g.players.some(p=>p.id===id)).sort((a,b)=>a.date-b.date);}
 function trainsOf(id,mode){return S.trainings.filter(t=>t.uid===id&&(!mode||t.mode===mode)).sort((a,b)=>a.date-b.date);}
-function calc(id){const gs=gamesOf(id);let darts=0,pts=0,s180=0,s140=0,s100=0,hiCo=0,wins=0;const avgs=[];
+let CALC_V=0,CALC_M={},CALC_K='';
+function calc(id){const k=CALC_V+'|'+S.games.length+'|'+S.trainings.length;if(k!==CALC_K){CALC_K=k;CALC_M={};}if(CALC_M[id])return CALC_M[id];return CALC_M[id]=calc0(id);}
+function calc0(id){const gs=gamesOf(id);let darts=0,pts=0,s180=0,s140=0,s100=0,hiCo=0,wins=0;const avgs=[];
  const fN={9:[0,0],12:[0,0],15:[0,0],18:[0,0]};let dd=0,cos=0;const hf=[];const m30=[0,0,0];
  gs.forEach(g=>{const p=g.players.find(x=>x.id===id);[9,12,15,18].forEach(N=>{fN[N][0]+=p['f'+N]||0;fN[N][1]+=p['f'+N+'n']||0;});(p.hf||[]).forEach(v=>hf.push(v));if(p.ch){dd+=p.ch;cos+=p.co||0;}if(g.date>Date.now()-30*DAY){m30[0]+=p.darts;m30[1]+=p.pts;m30[2]++;}darts+=p.darts;pts+=p.pts;s180+=p.s180;s140+=p.s140;s100+=p.s100;hiCo=Math.max(hiCo,p.hiCo||0);if(p.won)wins++;avgs.push({d:g.date,v:p.darts?p.pts/p.darts*3:0});});
  const tr=trainsOf(id);const acts=[...gs.map(g=>g.date),...tr.map(t=>t.date)];
@@ -1156,12 +1342,13 @@ function heatHTML(id,days=28){const acts=[...gamesOf(id).map(g=>g.date),...train
 function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  return `<div class="ph"><h1>${h<11?'Guten Morgen':h<18?'Hi':'Guten Abend'}, ${esc(m.nick)} ${AV(m)}</h1><p>${c.week?`Diese Woche schon ${c.week}× trainiert – stark!`:'Diese Woche noch nicht trainiert – Zeit für eine Runde!'}</p></div>
  ${isStandalone()?'':`<div class="banner"><b>📲 DartClub aufs Handy</b> <span class="muted small">– als App auf dem Startbildschirm, ohne Play Store, startet im Vollbild.</span><div style="margin-top:10px">${installBtn(true)}</div></div>`}
- ${onlHomeBanner()}
+ ${onlHomeBanner()}${chalHome()}
  <div class="quickrow">
   <button class="qbtn hero" onclick="trTab='ex';go('train')"><span class="i">📋</span><b>Übung starten</b><small>${Object.keys(EX).length} Übungen mit Anleitung</small></button>
   <button class="qbtn" onclick="trTab='plans';go('train')"><span class="i">🗂️</span><b>Trainingsplan</b><small>Mehrere Übungen am Stück</small></button>
   <button class="qbtn" onclick="trTab='play';go('train')"><span class="i">🎯</span><b>X01 spielen</b><small>170 bis 1001</small></button>
   <button class="qbtn" onclick="trTab='games';go('train')"><span class="i">🕐</span><b>Trainingsspiele</b><small>ATC, Bob's 27, Scoring</small></button>${SY.on?`<button class="qbtn" onclick="go('online')"><span class="i">🌐</span><b>Online spielen</b><small>Gegen Vereinsmitglieder von zu Hause</small></button><button class="qbtn" onclick="go('watch')"><span class="i">📺</span><b>Live zuschauen</b><small>${liveScreens().length?`<span class="badge g">● ${liveScreens().length} live</span>`:'Laufende Spiele groß ansehen'}</small></button>`:''}</div>
+ ${teamPlansHome()}${coachHome()}${wchHome()}
  <div class="sec">Deine Woche</div>
  <div class="stats">
   <div class="stat"><div class="v">${c.week}</div><div class="k">Einheiten 7 Tage</div></div>
@@ -1180,7 +1367,7 @@ function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
  const tl={atc:'Around the Clock',bob:"Bob's 27",score:'Scoring-Training'};
  const back=!own?`<button class="sm ghost" style="margin-bottom:10px" onclick="go(backTo[0],backTo[1])">← ${backTo[0]==='team'?esc(S.teams.find(t=>t.id===backTo[1])?.name||'Gruppe'):'Spieler'}</button>`:'';
  const groups=S.teams.filter(t=>t.members.includes(id)).map(t=>esc(t.name));
- const seg=`<div class="seg">${[['over','Übersicht'],['train','Training'],['games','Spiele'],['log','Verlauf']].map(([k,l])=>`<button class="${statTab===k?'on':''}" onclick="statTab='${k}';render()">${l}</button>`).join('')}</div>`;
+ const seg=`<div class="seg">${[['over','Übersicht'],['badges','Erfolge'],['train','Training'],['games','Spiele'],['log','Verlauf']].map(([k,l])=>`<button class="${statTab===k?'on':''}" onclick="statTab='${k}';render()">${l}</button>`).join('')}</div>`;
  let body='';
  if(statTab==='over'){const st=(v,k,sub)=>`<div class="stat"><div class="v">${v}</div><div class="k">${k}</div>${sub?`<div class="muted small" style="margin-top:2px">${sub}</div>`:''}</div>`;const fa=N=>c.fAvg(N)!=null?f1(c.fAvg(N)):'–';const lg=N=>c.fLegs(N)?`aus ${c.fLegs(N)} Legs`:'';
   body=`<div class="sec" style="margin-top:0">Average</div><div class="stats">
@@ -1193,6 +1380,7 @@ function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
   <div class="sec">Scores</div><div class="stats">${st(c.s100,'100+')}${st(c.s140,'140+')}${st(c.s180,'180er')}${st(c.hf.length,'High Finishes')}</div>
   <div class="card" style="margin-top:12px"><h3>High Finishes (100+)</h3>${c.hf.length?`<div class="chips">${c.hf.slice(0,30).map(v=>`<span class="badge y" style="font-size:16px;padding:6px 12px">${v}</span>`).join('')}</div><p class="muted small" style="margin-top:8px">${c.hf.length} High Finish${c.hf.length===1?'':'es'} insgesamt</p>`:'<p class="muted">Noch kein Finish über 100 – das kommt! 🎯</p>'}</div>
   <p class="muted small" style="margin-top:10px">Alle Werte aus X01-Spielen (Training, Liga und Turniere).</p>`;}
+ if(statTab==='badges')body=badgesHTML(id);
  if(statTab==='train')body=`<div class="sec" style="margin-top:0">Trainingsspiele</div><div class="stats">
   <div class="stat"><div class="v">${c.atcBest??'–'}</div><div class="k">Rekord ATC (Darts)</div></div>
   <div class="stat"><div class="v">${c.bobBest??'–'}</div><div class="k">Rekord Bob's 27</div></div>
@@ -1407,7 +1595,7 @@ function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const befo
  const sc=f.sets?L.sets:L.legsTotal;
  const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
   players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?i===wi:true),...(({last,ld,lp,...r})=>r)(L.st[i])}))};
- if(L.online)g.online=true;S.games.push(g);
+ if(L.online)g.online=true;S.games.push(g);try{chalOnGame(g);}catch(e){}
  if(L.online)onlDone(L,draw?'🤝 Unentschieden':`🏆 ${U(L.players[wi]).nick} gewinnt`);
  if(L.tref)applyResult(L.tref.tid,L.tref.mid,draw?'DRAW':L.players[wi],sc[0],sc[1]);
  S.live=null;save();
@@ -1752,7 +1940,7 @@ function doManualEx(id){const e=EX[id];const pu=trUid();let val,extra={};
  S.trainings.push({id:uid(),uid:pu,date:Date.now(),mode:'ex',ex:id,val,complete:true,manual:true,...extra});save();closeModal();toast(rec?'⭐ Neuer Rekord gespeichert!':'Ergebnis gespeichert');render();}
 
 /* --- Trainingspläne --- */
-function planItems(pid,uid){if(pid==='mine')return(S.myPlans[uid]||[]).map(x=>x.slice());const cfg=(S.planCfg[uid]||{})[pid]||{};return PLANS[pid].items.map(([e,s])=>[e,cfg[e]??s]);}
+function planItems(pid,uid){if(String(pid).startsWith('team:')){const t=S.teams.find(x=>x.id===pid.slice(5));return t&&t.plan?t.plan.items.map(x=>x.slice()):[];}if(pid==='mine')return(S.myPlans[uid]||[]).map(x=>x.slice());const cfg=(S.planCfg[uid]||{})[pid]||{};return PLANS[pid].items.map(([e,s])=>[e,cfg[e]??s]);}
 const planDur=items=>items.reduce((a,[e,s])=>a+EX[e].dur*s,0);
 function setSets(pid,ex,d,i){const uid=trUid();
  if(pid==='mine'){const it=S.myPlans[uid][i];it[1]=Math.max(1,Math.min(9,it[1]+d));}
@@ -1769,10 +1957,10 @@ function vPlans(){const uid=trUid();if(!uid)return `<div class="card muted">Wäh
  <button class="pri" ${items.some(x=>x[1]>0)?'':'disabled'} onclick="startPlan('${pid}')">▶ Training starten</button></div></div>`:''}</div>`;}).join('');}
 function addPlanEx(){modal(`<h3>Übung hinzufügen</h3>${Object.entries(EX).map(([id,e])=>`<button style="width:100%;text-align:left;margin-bottom:6px" onclick="const u=trUid();S.myPlans[u]=S.myPlans[u]||[];S.myPlans[u].push(['${id}',${e.sets}]);save();closeModal();render()"><b>${e.name}</b> <span class="muted small">· ${e.dur} Min.</span></button>`).join('')}<button class="ghost" style="width:100%;margin-top:6px" onclick="closeModal()">Abbrechen</button>`);}
 function startPlan(pid){const uid=trUid();const items=planItems(pid,uid).filter(x=>x[1]>0);if(!items.length)return;
- const go2=()=>{S.planRun={uid,pid,name:pid==='mine'?'Mein Plan':PLANS[pid].name,items:items.map(([ex,sets])=>({ex,sets,done:0})),start:Date.now()};save();go('planrun');};
+ const go2=()=>{S.planRun={uid,pid,name:pid==='mine'?'Mein Plan':String(pid).startsWith('team:')?'Gruppenplan '+(S.teams.find(x=>x.id===pid.slice(5))||{}).name:PLANS[pid].name,items:items.map(([ex,sets])=>({ex,sets,done:0})),start:Date.now()};save();go('planrun');};
  if(S.planRun)ask('Es läuft schon ein Plan. Abbrechen und neu starten?','Neu starten',go2,true);else go2();}
 function planDone(){return S.planRun&&S.planRun.items.every(i=>i.done>=i.sets);}
-function vPlanRun(){const P=S.planRun;if(!P){view='train';return vTrain();}const fin=P.items.filter(i=>i.done>=i.sets).length;const nextI=P.items.findIndex(i=>i.done<i.sets);
+function vPlanRun(){const P=S.planRun;if(!P){view='train';return vTrain();}setTimeout(teamPlanMarkDone,0);const fin=P.items.filter(i=>i.done>=i.sets).length;const nextI=P.items.findIndex(i=>i.done<i.sets);
  return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('train')">← Training</button><h2 class="sp" style="margin:0">${esc(P.name)}</h2><span class="badge" style="font-size:16px;padding:6px 12px">⏱ <span id="ptimer">${fmtT(Date.now()-P.start)}</span></span></div>
  <p class="muted">${AV(U(P.uid))} ${esc(U(P.uid).nick)}</p>
  <div class="row" style="margin-bottom:10px"><h3 style="margin:0">Übungen</h3><span class="badge">${fin}/${P.items.length}</span></div>
@@ -2362,7 +2550,7 @@ function createTeam(){const n=document.getElementById('tn').value.trim();if(n.le
 function vTeam(id){const t=S.teams.find(x=>x.id===id);if(!t){view='home';return vHome();}const mg=canManage(t);
  if(!mg){return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('home')">← Start</button><h2 style="margin:0">${esc(t.name)}</h2></div>
   <div class="card"><p class="muted">${TTYPE[t.type]} · Kapitän: ${t.captains.map(c=>AV(U(c))+' '+esc(U(c).nick)).join(', ')||'–'}</p><div class="chips">${t.members.map(m=>`<span class="badge" style="font-size:14px;padding:6px 10px">${AV(U(m))} ${esc(U(m).nick)}</span>`).join('')}</div>
-  <button class="ghost sm" style="margin-top:14px" onclick="leaveTeam('${t.id}')">Gruppe verlassen</button></div>`;}
+  <button class="ghost sm" style="margin-top:14px" onclick="leaveTeam('${t.id}')">Gruppe verlassen</button></div>${teamPlanCard(t)}`;}
  const st=teamStats(t);const mx=Math.max(1,...st.rows.map(r=>r.c.week));const lazy=st.rows.filter(r=>!r.c.last||r.c.last<Date.now()-14*DAY);
  const sorted=st.rows.slice().sort((a,b)=>b.c.week-a.c.week||b.c.days-a.c.days);
  return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('teams')">← Gruppen</button><h2 class="sp" style="margin:0">${esc(t.name)}</h2><span class="badge ${t.type==='team'?'y':''}">${TTYPE[t.type]}</span></div>
@@ -2372,6 +2560,7 @@ function vTeam(id){const t=S.teams.find(x=>x.id===id);if(!t){view='home';return 
  <div class="stat"><div class="v">${st.act}/${t.members.length}</div><div class="k">Diese Woche aktiv</div></div>
  <div class="stat"><div class="v">${st.sum}</div><div class="k">Einheiten 7 Tage</div></div>
  <div class="stat"><div class="v">${st.avg!=null?f1(st.avg):'–'}</div><div class="k">Ø Average Gruppe</div></div></div>
+ ${teamPlanCard(t)}
  ${lazy.length?`<div class="banner" style="background:#e5484d14;border-color:#e5484d55">💤 Seit 2 Wochen nicht trainiert: ${lazy.map(r=>esc(U(r.id).nick)).join(', ')}</div>`:''}
  <div class="card"><h3>Training diese Woche</h3>${sorted.length?sorted.map(r=>`<div class="row" style="margin:8px 0;flex-wrap:nowrap"><span style="width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${AV(U(r.id))} ${esc(U(r.id).nick)}</span>
   <div class="sp" style="background:var(--panel2);border-radius:99px;height:14px;overflow:hidden"><div style="height:100%;width:${r.c.week/mx*100}%;background:var(--accent);border-radius:99px"></div></div><b style="width:28px;text-align:right">${r.c.week}</b></div>`).join(''):'<p class="muted">Noch keine Spieler.</p>'}</div>
@@ -2436,7 +2625,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&view==='admin'&&!isStaff())view='home';
  if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null;
  renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
- switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
+ switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'club':h=vClub();break;case'coach':h=me().role==='player'?vCoach():vClub();break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
   case'online':h=vOnline(param);break;case'mysettings':h=vMySettings();break;case'watch':h=isStaff()||m.role==='player'?vWatch(param):'';break;case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;

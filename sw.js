@@ -1,5 +1,5 @@
 // DartClub Service Worker: immer die neueste Version laden, offline die letzte gespeicherte nutzen
-const C='dartclub-v27';
+const C='dartclub-v28';
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./manifest.webmanifest','./icon-192.png','./icon-512.png'])));});
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin||u.pathname.startsWith('/api/')||u.pathname.includes('/videos/'))return;
