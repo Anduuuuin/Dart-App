@@ -687,7 +687,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=30;
+const APPV=31;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1008,7 +1008,7 @@ function wchHome(){const w=wchBoard();const e=EX[w.ex];const i=w.list.findIndex(
  const left=Math.ceil((weekStart()+7*DAY-Date.now())/DAY);
  return `<div class="card" style="border-color:#f2c14e55;background:linear-gradient(135deg,#f2c14e14,transparent)"><div class="row"><b class="sp" style="font-size:17px">🏅 Wochen-Challenge</b><span class="muted small">noch ${left} ${left===1?'Tag':'Tage'}</span></div>
  <div style="font-size:20px;font-weight:800;margin:6px 0 2px">${esc(e.name)}</div><div class="muted small">${i>=0?`Du bist <b style="color:var(--gold)">Platz ${i+1}</b> von ${w.list.length} · dein Bestwert: ${w.list[i].val} ${esc(e.unit||'')}`:w.list.length?`${w.list.length} ${w.list.length===1?'Spieler hat':'Spieler haben'} schon mitgemacht – du noch nicht!`:'Noch hat keiner mitgemacht – hol dir Platz 1!'}</div>
- ${lw?`<div class="muted small" style="margin-top:4px">🏆 Sieger letzte Woche: <b style="color:var(--text)">${esc(U(lw.id).nick)}</b> (${esc(EX[last.ex].name)})</div>`:''}
+ ${lw&&pubSet().wch?`<div class="muted small" style="margin-top:4px">🏆 Sieger letzte Woche: <b style="color:var(--text)">${esc(U(lw.id).nick)}</b> (${esc(EX[last.ex].name)})</div>`:''}
  <div class="row" style="margin-top:10px"><button class="ghost sp" onclick="clubTab='week';go('club')">Bestenliste</button><button class="pri sp" onclick="go('ex','${w.ex}')">▶ Mitmachen</button></div></div>`;}
 /* ---- Erfolge / Abzeichen ---- */
 function weekStreak(id){const ws=new Set([...gamesOf(id).map(g=>weekNo(g.date)),...trainsOf(id).map(t=>weekNo(t.date))]);let cur=weekNo(),best=0,run=0,now=0;
@@ -1032,16 +1032,34 @@ function badgesHTML(id){const b=badgesOf(id);const ok=b.filter(x=>x.ok).length;
  return `<div class="sec" style="margin-top:0">Erfolge · ${ok} von ${b.length}</div><div class="badgegrid">${b.map(x=>`<div class="bdg ${x.ok?'ok':''}"><div class="bi">${x.i}</div><div class="bn">${x.n}</div>${x.ok?'<div class="bv">✓ geschafft</div>':`<div class="bp"><i style="width:${Math.min(100,x.v/x.goal*100)}%"></i></div><div class="bv">${Math.round(x.v)} / ${x.goal}</div>`}</div>`).join('')}</div>
  <button class="pri" style="width:100%;margin-top:14px;padding:14px" onclick="playerCard('${id}')">🪪 Spielerkarte erstellen & teilen</button>`;}
 /* ---- Ehrentafel ---- */
-function honors(){const ps=players();const best=(f,low)=>{let r=null;ps.forEach(u=>{const v=f(u);if(v==null||v===0||!isFinite(v))return;if(!r||(low?v<r.v:v>r.v))r={u,v};});return r;};
+function honors(all){const ps=players();const best=(f,low)=>{let r=null;ps.forEach(u=>{const v=f(u);if(v==null||v===0||!isFinite(v))return;if(!r||(low?v<r.v:v>r.v))r={u,v};});return r;};
  const cs={};ps.forEach(u=>cs[u.id]=calc(u.id));const mon=new Date();mon.setDate(1);mon.setHours(0,0,0,0);
- return[['📈','Bester Spiel-Average',best(u=>cs[u.id].games?cs[u.id].best:null),v=>f1(v)],['🎯','Höchstes Finish',best(u=>cs[u.id].hiCo||null),v=>v],
+ const H=[['📈','Bester Spiel-Average',best(u=>cs[u.id].games?cs[u.id].best:null),v=>f1(v)],['🎯','Höchstes Finish',best(u=>cs[u.id].hiCo||null),v=>v],
   ['🔥','Meiste 180er',best(u=>cs[u.id].s180||null),v=>v+'×'],['📊','Bester Gesamt-Average (ab 10 Spielen)',best(u=>cs[u.id].games>=10?cs[u.id].avg:null),v=>f1(v)],
 ['🕐','Around the Clock (Darts)',best(u=>cs[u.id].atcBest,true),v=>v],
   ["🎲","Bob's 27",best(u=>cs[u.id].bobBest),v=>v],['📅','Längste Trainingsserie (Wochen)',best(u=>weekStreak(u.id).best||null),v=>v],
-  ['💪',`Meiste Einheiten im ${mon.toLocaleDateString('de-DE',{month:'long'})}`,best(u=>trainsOf(u.id).filter(t=>t.date>=mon.getTime()).length+gamesOf(u.id).filter(g=>g.date>=mon.getTime()).length||null),v=>v]];}
+  ['💪',`Meiste Einheiten im ${mon.toLocaleDateString('de-DE',{month:'long'})}`,best(u=>trainsOf(u.id).filter(t=>t.date>=mon.getTime()).length+gamesOf(u.id).filter(g=>g.date>=mon.getTime()).length||null),v=>v]];H.forEach((h,i)=>h.key=HON_KEYS[i]);return all?H:H.filter(h=>pubSet().honor[h.key]!==false);}
+
+/* ---- Was sehen alle Mitglieder? (Admin legt es fest) ---- */
+const HON_KEYS=['bestAvg','hiCo','s180','avgAll','atc','bob','streak','month'];
+function pubSet(){const p=(S.settings&&S.settings.pub)||{};return{cols:p.cols||[],honor:p.honor||{},wch:p.wch!==false,cmp:p.cmp!==false};}
+function pubUpd(f){S.settings=S.settings||{};const p=S.settings.pub=Object.assign({cols:[],honor:{},wch:true,cmp:true},S.settings.pub||{});f(p);save();render();}
+function pubCard(){const p=pubSet();const chip=(on,click,l)=>`<button class="${on?'on':''}" onclick="${click}">${l}</button>`;
+ return `<div class="card"><h3>👁️ Öffentliche Statistiken</h3><p class="muted small" style="margin-top:0">Lege fest, was <b>alle Mitglieder</b> über die anderen sehen. Die eigene Statistik sieht jeder immer, Kapitäne sehen weiter die Werte ihrer Gruppe.</p>
+ <label>📊 Vereinsübersicht – diese Werte aller Spieler sind für alle sichtbar</label><div class="chips">${Object.entries(TSTAT).map(([k,[l]])=>chip(p.cols.includes(k),`pubUpd(q=>{q.cols=q.cols.includes('${k}')?q.cols.filter(x=>x!=='${k}'):[...q.cols,'${k}']})`,l)).join('')}</div>
+ <p class="muted small" style="margin:6px 0 0">${p.cols.length?'Unter 🏆 Verein → „📊 Übersicht“ sichtbar.':'Nichts gewählt = keine Übersicht (Standard).'}</p>
+ <label>🎖️ Ehrentafel – welche Rekorde mit Namen gezeigt werden</label><div class="chips">${honors(true).map(h=>chip(p.honor[h.key]!==false,`pubUpd(q=>{q.honor=Object.assign({},q.honor,{'${h.key}':q.honor['${h.key}']===false})})`,h[0]+' '+h[1].replace(/ im .*$/,' im Monat'))).join('')}</div>
+ <label>🏅 Wochen-Challenge</label><div class="chips">${chip(p.wch,'pubUpd(q=>q.wch=true)','Bestenliste mit Namen')}${chip(!p.wch,'pubUpd(q=>q.wch=false)','Nur eigene Platzierung')}</div>
+ <label>🧠 Trainer</label><div class="chips">${chip(p.cmp,'pubUpd(q=>q.cmp=true)','Vereinsschnitt zum Vergleich zeigen')}${chip(!p.cmp,'pubUpd(q=>q.cmp=false)','Ohne Vereinsvergleich')}</div></div>`;}
+let ovSort=null;
+function vOverview(){const p=pubSet();const cols=p.cols.filter(k=>TSTAT[k]);if(!cols.length)return '<div class="card muted">Der Admin hat keine Werte für die Übersicht freigegeben.</div>';
+ const sk=cols.includes(ovSort)?ovSort:cols[0];const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?-1e9:n;};
+ const rows=players().map(u=>({u,c:calc(u.id)})).sort((a,b)=>num(TSTAT[sk][1](b.c))-num(TSTAT[sk][1](a.c)));
+ return `<p class="muted small" style="margin-top:0">Spaltenkopf antippen zum Sortieren.</p><div class="card" style="overflow-x:auto"><table><tr><th>Spieler</th>${cols.map(k=>`<th style="cursor:pointer;${k===sk?'color:var(--accent)':''}" onclick="ovSort='${k}';render()">${TSTAT[k][0]}${k===sk?' ▾':''}</th>`).join('')}</tr>
+ ${rows.map(({u,c})=>`<tr${u.id===meId?' style="background:#2fbf7112"':''}><td style="white-space:nowrap">${AV(u)} <b>${esc(u.nick)}</b></td>${cols.map(k=>`<td>${TSTAT[k][1](c)}</td>`).join('')}</tr>`).join('')}</table></div>`;}
 /* ---- Vereins-Seite ---- */
 let clubTab='week';
-function vClub(){const m=me();const seg=`<div class="seg">${[['week','🏅 Wochen-Challenge'],['honor','🎖️ Ehrentafel']].map(([k,l])=>`<button class="${clubTab===k?'on':''}" onclick="clubTab='${k}';render()">${l}</button>`).join('')}</div>`;
+function vClub(){const m=me();if(clubTab==='table'&&!pubSet().cols.length)clubTab='week';const seg=`<div class="seg">${[['week','🏅 Wochen-Challenge'],['honor','🎖️ Ehrentafel'],...(pubSet().cols.length?[['table','📊 Übersicht']]:[])].map(([k,l])=>`<button class="${clubTab===k?'on':''}" onclick="clubTab='${k}';render()">${l}</button>`).join('')}</div>`;
  let b='';
  if(clubTab==='rank')clubTab='week';
  if(false){const r=ranking();const myI=r.findIndex(x=>x.u.id===meId);const inc=m.role==='player'?chalOpenFor(meId):[];
@@ -1060,8 +1078,9 @@ function vClub(){const m=me();const seg=`<div class="seg">${[['week','🏅 Woche
    <p class="muted small" style="margin:0 0 10px">Es zählt dein bester Durchgang der Woche · ${e.better==='low'?'weniger ist besser':'mehr ist besser'} (${esc(e.unit||'')}).</p>
    ${m.role==='player'?`<button class="pri" style="width:100%;padding:14px" onclick="go('ex','${w.ex}')">▶ Jetzt mitmachen</button>`:''}
    ${isStaff()?`<button class="ghost sm" style="margin-top:8px" onclick="wchPick()">Übung dieser Woche ändern</button>`:''}</div>
-   <div class="sec">Bestenliste</div>${w.list.length?`<div class="card" style="padding:6px 10px">${w.list.map((x,i)=>`<div class="row rkrow ${x.id===meId?'me':''}" style="flex-wrap:nowrap"><b class="rk">${i<3?['🥇','🥈','🥉'][i]:i+1+'.'}</b>${AV(U(x.id),28)}<b class="sp">${esc(U(x.id).nick)}</b><b style="font-size:19px">${x.val}</b><span class="muted small">${esc(e.unit||'')}</span></div>`).join('')}</div>`:'<div class="card muted">Noch keine Teilnehmer diese Woche.</div>'}
-   ${last.list.length?`<div class="sec">Letzte Woche: ${esc(EX[last.ex].name)}</div><div class="card" style="padding:6px 10px">${last.list.slice(0,3).map((x,i)=>`<div class="row rkrow" style="flex-wrap:nowrap"><b class="rk">${['🥇','🥈','🥉'][i]}</b>${AV(U(x.id),28)}<b class="sp">${esc(U(x.id).nick)}</b><b>${x.val}</b></div>`).join('')}</div>`:''}`;}
+   <div class="sec">Bestenliste</div>${!pubSet().wch&&!isStaff()?(()=>{const i=w.list.findIndex(x=>x.id===meId);return `<div class="card">${i>=0?`Du bist <b>Platz ${i+1}</b> von ${w.list.length} – dein Bestwert: <b>${w.list[i].val}</b>`:`${w.list.length} Teilnehmer bisher – mach mit!`}<div class="muted small" style="margin-top:4px">Die Bestenliste mit Namen ist ausgeblendet.</div></div>`;})():w.list.length?`<div class="card" style="padding:6px 10px">${w.list.map((x,i)=>`<div class="row rkrow ${x.id===meId?'me':''}" style="flex-wrap:nowrap"><b class="rk">${i<3?['🥇','🥈','🥉'][i]:i+1+'.'}</b>${AV(U(x.id),28)}<b class="sp">${esc(U(x.id).nick)}</b><b style="font-size:19px">${x.val}</b><span class="muted small">${esc(e.unit||'')}</span></div>`).join('')}</div>`:'<div class="card muted">Noch keine Teilnehmer diese Woche.</div>'}
+   ${last.list.length&&(pubSet().wch||isStaff())?`<div class="sec">Letzte Woche: ${esc(EX[last.ex].name)}</div><div class="card" style="padding:6px 10px">${last.list.slice(0,3).map((x,i)=>`<div class="row rkrow" style="flex-wrap:nowrap"><b class="rk">${['🥇','🥈','🥉'][i]}</b>${AV(U(x.id),28)}<b class="sp">${esc(U(x.id).nick)}</b><b>${x.val}</b></div>`).join('')}</div>`:''}`;}
+ if(clubTab==='table')b=vOverview();
  if(clubTab==='honor'){b=`<p class="muted small" style="margin-top:0">Die Rekorde des Vereins – wer schafft es auf die Tafel?</p><div class="honor">${honors().map(([i,t,r,fmt])=>`<div class="card hon"><div class="hi">${i}</div><div class="sp"><div class="muted small">${esc(t)}</div>${r?`<div class="row" style="gap:8px;margin-top:4px">${AV(r.u,26)}<b>${esc(r.u.nick)}</b></div>`:'<div class="muted">noch frei</div>'}</div>${r?`<div class="hv">${fmt(r.v)}</div>`:''}</div>`).join('')}</div>`;}
  return `<div class="ph"><h1>🏆 Verein</h1><p>Wochen-Challenge und Rekorde</p></div>${seg}${b}`;}
 function wchPick(){const wk=weekNo();modal(`<h3>Übung dieser Woche</h3><div style="max-height:60vh;overflow:auto">${WCH_POOL.filter(e=>EX[e]).map(e=>`<button style="width:100%;text-align:left;margin-bottom:6px" onclick="S.club=S.club||{};S.club.wchSet=Object.assign({},S.club.wchSet,{${wk}:'${e}'});save();closeModal();render()">${esc(EX[e].name)}</button>`).join('')}</div><button class="ghost" style="width:100%" onclick="closeModal()">Abbrechen</button>`);}
@@ -1074,8 +1093,8 @@ function clubMedian(f){const v=players().map(u=>f(calc(u.id))).filter(x=>x!=null
 function coach(id){const c=calc(id);const now=Date.now();const a=periodStats(id,now-30*DAY,now),b=periodStats(id,now-60*DAY,now-30*DAY);const out=[];
  const exDone=(cat,days)=>trainsOf(id,'ex').some(t=>EX[t.ex]&&EX[t.ex].cat===cat&&t.date>now-days*DAY);
  const medCo=clubMedian(x=>x.dd>=10?x.coPct:null),medAvg=clubMedian(x=>x.games?x.avg:null);
- if(c.dd>=10&&(c.coPct<30||(medCo&&c.coPct<medCo-3)))out.push({k:'co',t:'Doppel & Checkout',w:3+(30-c.coPct)/10,why:`Deine Checkout-Quote liegt bei ${f1(c.coPct)} %${medCo?` (Verein: ${f1(medCo)} %)`:''}. Jedes verpasste Doppel kostet Legs.`,ex:['dblouts','daw1','catch40','fin4160'],m:'co'});
- if(c.games>=3&&medAvg&&c.avg<medAvg-2)out.push({k:'sc',t:'Scoring',w:2+(medAvg-c.avg)/5,why:`Dein Average (${f1(c.avg)}) liegt unter dem Vereinsschnitt (${f1(medAvg)}). Mehr Punkte pro Aufnahme bringen dich schneller ins Finish.`,ex:['t20c','priestley','score501','n99t20'],m:'avg'});
+ if(c.dd>=10&&(c.coPct<30||(medCo&&c.coPct<medCo-3)))out.push({k:'co',t:'Doppel & Checkout',w:3+(30-c.coPct)/10,why:`Deine Checkout-Quote liegt bei ${f1(c.coPct)} %${medCo&&pubSet().cmp?` (Verein: ${f1(medCo)} %)`:''}. Jedes verpasste Doppel kostet Legs.`,ex:['dblouts','daw1','catch40','fin4160'],m:'co'});
+ if(c.games>=3&&medAvg&&c.avg<medAvg-2)out.push({k:'sc',t:'Scoring',w:2+(medAvg-c.avg)/5,why:pubSet().cmp?`Dein Average (${f1(c.avg)}) liegt unter dem Vereinsschnitt (${f1(medAvg)}).`:`Dein Average liegt bei ${f1(c.avg)} – da ist noch Luft nach oben.`+` Mehr Punkte pro Aufnahme bringen dich schneller ins Finish.`,ex:['t20c','priestley','score501','n99t20'],m:'avg'});
  const f9=c.fAvg(9);if(f9!=null&&c.games>=5&&f9<c.avg+4)out.push({k:'start',t:'Starke Starts',w:1.5,why:`Deine ersten 9 Darts (Ø ${f1(f9)}) sind kaum besser als dein Schnitt – Profis legen im Start am meisten vor.`,ex:['t20c','skill','sprint'],m:'avg'});
  const l=c.avgs.slice(-10).map(x=>x.v);if(l.length>=6){const mu=l.reduce((s,x)=>s+x,0)/l.length;const sd=Math.sqrt(l.reduce((s,x)=>s+(x-mu)**2,0)/l.length);if(sd>8)out.push({k:'cons',t:'Konstanz',w:1.5+sd/10,why:`Deine Averages schwanken stark (±${f1(sd)}). Gleichmäßiger Wurf = gleichmäßige Ergebnisse.`,ex:['singles','skill','paw'],m:'avg'});}
  if(!exDone('bull',45))out.push({k:'bull',t:'Bull',w:.8,why:'Du hast länger kein Bull trainiert – wichtig für Finishes wie 50, 100, 170 und für das Ausbullen.',ex:['bullc','bull500'],m:null});
@@ -3734,7 +3753,7 @@ function vAdmin(){const adm=me().role==='admin';
  if(setTab==='groups')body=`<div class="row" style="margin-bottom:12px"><span class="muted sp">${S.teams.length} Gruppen & Mannschaften</span><button class="pri" onclick="newTeam()">＋ Neue Gruppe</button></div>
   <div class="card">${S.teams.length?S.teams.map(t=>`<div class="setrow"><div style="flex:1;min-width:0"><b>${esc(t.name)}</b> <span class="badge ${t.type==='team'?'y':''}">${TTYPE[t.type]}</span><div class="muted small">${t.members.length} Spieler · Kapitän: ${t.captains.map(c=>esc(U(c).nick)).join(', ')||'–'} · Code <b style="color:var(--gold)">${t.code}</b></div></div>
   <div class="row acts"><button class="sm" onclick="go('team','${t.id}')">Öffnen</button><button class="sm" onclick="renameTeam('${t.id}')">Umbenennen</button>${adm?`<button class="sm" onclick="setTeamCap('${t.id}')">Kapitän</button>`:''}<button class="sm" onclick="t2=S.teams.find(x=>x.id==='${t.id}');t2.code=joinCode();save();render();toast('Neuer Beitrittscode: '+t2.code)">Neuer Code</button><button class="sm red" onclick="ask('Gruppe „${esc(t.name)}“ löschen? Die Statistiken der Spieler bleiben.','Löschen',()=>{S.teams=S.teams.filter(x=>x.id!=='${t.id}');save();render();},true)">Löschen</button></div></div>`).join(''):'<p class="muted">Noch keine Gruppen.</p>'}</div>`;
- if(setTab==='club')body=`${syInfoCard()}${SY.on&&me().role!=='admin'?`<div style="margin-bottom:12px">${fbBtn(true)}</div>`:''}<div class="card"><h3>Name der App</h3><p class="muted small" style="margin-top:0">Erscheint neben dem Logo. Leer lassen für „DartClub“.</p>
+ if(setTab==='club')body=`${syInfoCard()}${me().role==='admin'?pubCard():''}${SY.on&&me().role!=='admin'?`<div style="margin-bottom:12px">${fbBtn(true)}</div>`:''}<div class="card"><h3>Name der App</h3><p class="muted small" style="margin-top:0">Erscheint neben dem Logo. Leer lassen für „DartClub“.</p>
   <div class="row"><input id="appn" class="sp" maxlength="24" placeholder="DartClub" value="${esc(appName())}"><button class="pri" onclick="S.settings.name=document.getElementById('appn').value.trim();save();render();toast('Name gespeichert')">Speichern</button></div></div>
   <div class="card"><h3>Vereinslogo</h3><div class="row"><div style="width:72px;height:72px;display:flex;align-items:center;justify-content:center;background:#0d1110;border:1px solid var(--line);border-radius:14px">${logoSVG(60)}</div>
   <div class="sp muted small">Erscheint in der Navigation, oben in der Kopfzeile und groß auf der Login-Seite. Am besten PNG mit transparentem Hintergrund.</div></div>
