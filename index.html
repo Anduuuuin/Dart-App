@@ -687,7 +687,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=32;
+const APPV=33;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -756,6 +756,7 @@ function vMySettings(){const m=me();const q=getQuick();const bm=bigMode();
  ${SY.on?sec('📺 Zuschauer-Anzeige','Dürfen andere Geräte (z. B. der PC neben dem Board) deine laufenden Spiele live anzeigen?',watchBtn(true)):''}
  ${sec('🖥️ Großanzeige auf diesem Gerät','Große Spieleranzeige beim Spielen. „Automatisch“ = groß auf Tablet und PC, normal auf dem Handy.',
   `<div class="chips">${[['auto','Automatisch'],['on','Immer groß'],['off','Immer normal']].map(([k,l])=>`<button class="${bm===k?'on':''}" onclick="setBigMode('${k}')">${l}</button>`).join('')}</div>`)}
+ ${m.role==='player'?sec('👁️ Meine Statistik für andere','Wer darf deine Werte in Vereinsübersicht, Spielerliste, Ehrentafel und Wochen-Bestenliste sehen? Kapitäne deiner Gruppen und der Admin sehen sie immer.',`<div class="chips">${[['all','Alle Vereinsmitglieder'],['groups','Nur meine Gruppen'],['none','Niemand']].map(([k,l])=>`<button class="${(m.statVis||'all')===k?'on':''}" onclick="setStatVis('${k}')">${l}</button>`).join('')}</div>`):''}
  ${sec('🎯 Spielbeginn','Wer bei X01, Minispielen und Turnierspielen anfängt (gilt für dieses Gerät).',starterHTML().replace('<label>Wer fängt an?</label>',''))}`;}
 /* ===================== Online-Modus (Stufe 1): gegen Vereinsmitglieder, jeder an seinem eigenen Board ===================== */
 let ONL_PUSH=false;const ONL_SEEN=new Set();let ONL_FIRST=true;
@@ -1059,7 +1060,16 @@ function vOverview(){const p=pubSet();const cols=p.cols.filter(k=>TSTAT[k]);if(!
  ${rows.map(({u,c})=>`<tr${u.id===meId?' style="background:#2fbf7112"':''}><td style="white-space:nowrap">${AV(u)} <b>${esc(u.nick)}</b></td>${cols.map(k=>`<td>${TSTAT[k][1](c)}</td>`).join('')}</tr>`).join('')}</table></div>`;}
 
 /* ---- Geschlossene Gruppen: Statistiken ihrer Mitglieder sehen nur Gruppenmitglieder ---- */
-function canSeePub(id){if(id===meId||isStaff())return true;const cl=S.teams.filter(t=>t.closed&&t.members.includes(id));if(!cl.length)return true;return cl.some(t=>t.members.includes(meId)||t.captains.includes(meId));}
+function canSeePub(id){const m=me();if(!m||id===meId||m.role==='admin')return true;const u=S.users.find(x=>x.id===id);if(!u)return false;
+ const share=t=>t.members.includes(meId)||t.captains.includes(meId);const my=S.teams.filter(t=>t.members.includes(id)||t.captains.includes(id));
+ if(S.teams.some(t=>t.captains.includes(meId)&&t.members.includes(id)))return true;
+ const v=u.statVis||'all';if(v==='none')return false;if(v==='groups'&&!my.some(share))return false;
+ const cl=S.teams.filter(t=>t.closed&&t.members.includes(id));return !cl.length||cl.some(share);}
+const pubLimited=()=>me()&&me().role==='club';
+function pubStatsCard(id){const u=U(id),c=calc(id),cols=pubSet().cols.filter(k=>TSTAT[k]);
+ return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go(backTo[0]||'people',backTo[1])">← Zurück</button><h2 class="sp" style="margin:0">${AV(u,34)} ${esc(u.nick)}</h2></div>
+ ${!canSeePub(id)?'<div class="card muted">🔒 Dieser Spieler hat seine Statistik nicht für alle freigegeben.</div>':cols.length?`<div class="stats">${cols.map(k=>`<div class="stat"><div class="v">${TSTAT[k][1](c,id)}</div><div class="k">${TSTAT[k][0]}</div></div>`).join('')}</div><p class="muted small">Welche Werte hier stehen, legt der Admin unter „👁️ Öffentliche Statistiken“ fest.</p>`:'<div class="card muted">Der Admin hat keine Statistiken zur öffentlichen Ansicht freigegeben.</div>'}`;}
+function setStatVis(v){const m=me();if(!m)return;m.statVis=v;save();render();}
 function visPlayers(){return players().filter(u=>canSeePub(u.id));}
 function togClosed(tid){const t=S.teams.find(x=>x.id===tid);if(!t||!canManage(t))return;t.closed=!t.closed;save();render();toast(t.closed?'🔒 Statistiken der Gruppe sind jetzt nur für Mitglieder sichtbar':'Statistiken der Gruppe wieder für alle sichtbar');}
 /* ---- Vereins-Seite ---- */
@@ -2693,6 +2703,9 @@ function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
 /* ===================== Spieler-Übersicht (Verein/Kapitän) ===================== */
 function peopleSeg(a){return `<div class="ph"><h1>Spieler</h1><p>Profile, Leistung und Gruppen</p></div><div class="seg"><button class="${a==='people'?'on':''}" onclick="go('people')">👤 Alle Spieler (${players().length})</button><button class="${a==='teams'?'on':''}" onclick="go('teams')">👥 Gruppen & Mannschaften (${S.teams.length})</button></div>`;}
 function vPeople(){const ps=players().map(p=>({p,c:calc(p.id)}));
+ if(pubLimited()){const cols=pubSet().cols.filter(k=>TSTAT[k]);return `${peopleSeg('people')}<div class="row" style="margin-bottom:12px"><div class="searchbox sp" style="min-width:200px"><input placeholder="Spieler suchen …" oninput="const q=this.value.toLowerCase();document.querySelectorAll('#ptab tr[data-n]').forEach(e=>e.style.display=e.dataset.n.includes(q)?'':'none')"></div><button class="pri" onclick="newProfile(false)">＋ Profil anlegen</button></div>
+ <div class="card" style="overflow-x:auto">${ps.length?`<table id="ptab"><tr><th>Spieler</th>${cols.map(k=>`<th>${TSTAT[k][0]}</th>`).join('')}</tr>${ps.map(({p,c})=>{const ok=canSeePub(p.id);return `<tr class="click" data-n="${esc(p.nick.toLowerCase())}" onclick="backTo=['people'];go('player','${p.id}')"><td style="white-space:nowrap">${AV(p)} <b>${esc(p.nick)}</b></td>${cols.map(k=>`<td>${ok?TSTAT[k][1](c,p.id):'<span class="muted">🔒</span>'}</td>`).join('')}</tr>`;}).join('')}</table>`:'<p class="muted">Noch keine Spieler.</p>'}</div>
+ <p class="muted small">${cols.length?'Angezeigt werden die Werte, die der Admin unter „👁️ Öffentliche Statistiken“ freigegeben hat. 🔒 = Spieler hat seine Statistik nicht freigegeben.':'Der Admin hat keine Statistiken zur öffentlichen Ansicht freigegeben – deshalb stehen hier nur die Namen.'}</p>`;}
  return `${peopleSeg('people')}<div class="row" style="margin-bottom:12px"><div class="searchbox sp" style="min-width:200px"><input placeholder="Spieler suchen …" oninput="const q=this.value.toLowerCase();document.querySelectorAll('#ptab tr[data-n]').forEach(e=>e.style.display=e.dataset.n.includes(q)?'':'none')"></div><button class="pri" onclick="newProfile(false)">＋ Profil anlegen</button></div>
  <div class="card" style="overflow-x:auto">${ps.length?`<table id="ptab"><tr><th>Spieler</th><th>Einheiten 7 T.</th><th>Tage 30 T.</th><th>Ø (letzte 10)</th><th>Trend</th><th>Zuletzt aktiv</th></tr>
  ${ps.map(({p,c})=>`<tr class="click" data-n="${esc(p.nick.toLowerCase())}" onclick="backTo=['people'];go('player','${p.id}')"><td style="white-space:nowrap">${AV(p)} <b>${esc(p.nick)}</b></td><td>${c.week}</td><td>${c.days}</td><td>${c.games?f1(c.recentAvg):'–'}</td>
@@ -3855,8 +3868,8 @@ function vTeam(id){const t=S.teams.find(x=>x.id===id);if(!t){view='home';return 
  <div class="card"><h3>Training diese Woche</h3>${sorted.length?sorted.map(r=>`<div class="row" style="margin:8px 0;flex-wrap:nowrap"><span style="width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${AV(U(r.id))} ${esc(U(r.id).nick)}</span>
   <div class="sp" style="background:var(--panel2);border-radius:99px;height:14px;overflow:hidden"><div style="height:100%;width:${r.c.week/mx*100}%;background:var(--accent);border-radius:99px"></div></div><b style="width:28px;text-align:right">${r.c.week}</b></div>`).join(''):'<p class="muted">Noch keine Spieler.</p>'}</div>
  <div class="card" style="overflow-x:auto"><div class="row" style="margin-bottom:8px"><h3 class="sp" style="margin:0">Leistung der Spieler</h3><button class="sm" onclick="teamStatSel('${t.id}')">📊 Statistiken wählen</button><button class="sm pri" onclick="addMembers('${t.id}')">＋ Spieler hinzufügen</button></div>
- ${st.rows.length?(()=>{const cols=(t.stats||TSTAT_DEF).filter(k=>TSTAT[k]);return `<table><tr><th>Spieler</th>${cols.map(k=>`<th>${TSTAT[k][0]}</th>`).join('')}<th></th></tr>
- ${sorted.map(({id,c})=>`<tr class="click" onclick="backTo=['team','${t.id}'];go('player','${id}')"><td>${AV(U(id))} <b>${esc(U(id).nick)}</b>${t.captains.includes(id)?' ⭐':''}</td>${cols.map(k=>`<td${k==='last'?' class="muted"':''}>${TSTAT[k][1](c,id)}</td>`).join('')}
+ ${st.rows.length?(()=>{const cols=pubLimited()?pubSet().cols.filter(k=>TSTAT[k]):(t.stats||TSTAT_DEF).filter(k=>TSTAT[k]);return `<table><tr><th>Spieler</th>${cols.map(k=>`<th>${TSTAT[k][0]}</th>`).join('')}<th></th></tr>
+ ${sorted.map(({id,c})=>`<tr class="click" onclick="backTo=['team','${t.id}'];go('player','${id}')"><td>${AV(U(id))} <b>${esc(U(id).nick)}</b>${t.captains.includes(id)?' ⭐':''}</td>${cols.map(k=>`<td${k==='last'?' class="muted"':''}>${!pubLimited()||canSeePub(id)?TSTAT[k][1](c,id):'🔒'}</td>`).join('')}
  <td style="text-align:right">${`<button class="sm ghost" onclick="event.stopPropagation();rmMember('${t.id}','${id}')" title="Aus Gruppe entfernen">✕</button>`}</td></tr>`).join('')}</table>`;})():''}
  <p class="muted small" style="margin-top:10px">Spieler antippen für die ausführliche Statistik. Spieler können auch selbst beitreten: Start → „Gruppe beitreten“ → Code ${t.code}.</p></div>
  <div class="card"><div class="row" style="flex-wrap:nowrap"><div class="sp"><b>🔒 Statistiken nur in der Gruppe</b><div class="muted small">${t.closed?'An: Die Werte der Mitglieder sehen nur andere Mitglieder dieser Gruppe (und Kapitän, Vereinszugang, Admin). In Vereinsübersicht, Ehrentafel und Wochen-Challenge tauchen sie für alle anderen nicht auf.':'Aus: Die Mitglieder erscheinen wie alle anderen in Vereinsübersicht, Ehrentafel und Wochen-Challenge.'}</div></div><button class="${t.closed?'pri':''}" onclick="togClosed('${t.id}')">${t.closed?'An':'Aus'}</button></div></div>
@@ -3916,7 +3929,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&view==='admin'&&!isStaff())view='home';
  if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null;
  renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
- switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'club':h=vClub();break;case'coach':h=me().role==='player'?vCoach():vClub();break;case'player':h=canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
+ switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'club':h=vClub();break;case'coach':h=me().role==='player'?vCoach():vClub();break;case'player':h=pubLimited()&&param!==meId?pubStatsCard(param):canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
   case'online':h=vOnline(param);break;case'mysettings':h=vMySettings();break;case'watch':h=isStaff()||m.role==='player'?vWatch(param):'';break;case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
