@@ -687,7 +687,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=28;
+const APPV=29;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1026,8 +1026,7 @@ const BADGES=[
  ['💪','10 Trainings',d=>d.tr,10],['🏋️','50 Trainings',d=>d.tr,50],['🦾','250 Trainings',d=>d.tr,250],
  ['📅','4 Wochen am Stück',d=>d.streak,4],['🗓️','12 Wochen am Stück',d=>d.streak,12],
  ['🎲','10 Minispiel-Siege',d=>d.mgw,10],['🎯','Checkout-Quote 40 %',d=>d.coPct,40],
- ['⚔️','Herausforderung gewonnen',d=>d.chw,1],['🛡️','5 Herausforderungen gewonnen',d=>d.chw,5],
- ['🏅','Wochen-Challenge gewonnen',d=>d.wch,1],['🏆','Wertung 1200',d=>d.elo,1200]];
+ ['🏅','Wochen-Challenge gewonnen',d=>d.wch,1]];
 function badgesOf(id){const d=badgeData(id);return BADGES.map(([i,n,f,goal])=>{const v=f(d)||0;return{i,n,goal,v,ok:v>=goal};});}
 function badgesHTML(id){const b=badgesOf(id);const ok=b.filter(x=>x.ok).length;
  return `<div class="sec" style="margin-top:0">Erfolge · ${ok} von ${b.length}</div><div class="badgegrid">${b.map(x=>`<div class="bdg ${x.ok?'ok':''}"><div class="bi">${x.i}</div><div class="bn">${x.n}</div>${x.ok?'<div class="bv">✓ geschafft</div>':`<div class="bp"><i style="width:${Math.min(100,x.v/x.goal*100)}%"></i></div><div class="bv">${Math.round(x.v)} / ${x.goal}</div>`}</div>`).join('')}</div>
@@ -1037,14 +1036,15 @@ function honors(){const ps=players();const best=(f,low)=>{let r=null;ps.forEach(
  const cs={};ps.forEach(u=>cs[u.id]=calc(u.id));const mon=new Date();mon.setDate(1);mon.setHours(0,0,0,0);
  return[['📈','Bester Spiel-Average',best(u=>cs[u.id].games?cs[u.id].best:null),v=>f1(v)],['🎯','Höchstes Finish',best(u=>cs[u.id].hiCo||null),v=>v],
   ['🔥','Meiste 180er',best(u=>cs[u.id].s180||null),v=>v+'×'],['📊','Bester Gesamt-Average (ab 10 Spielen)',best(u=>cs[u.id].games>=10?cs[u.id].avg:null),v=>f1(v)],
-  ['🏆','Höchste Wertung',best(u=>(eloAll().n[u.id]||0)>=5?eloOf(u.id):null),v=>v],['🕐','Around the Clock (Darts)',best(u=>cs[u.id].atcBest,true),v=>v],
+['🕐','Around the Clock (Darts)',best(u=>cs[u.id].atcBest,true),v=>v],
   ["🎲","Bob's 27",best(u=>cs[u.id].bobBest),v=>v],['📅','Längste Trainingsserie (Wochen)',best(u=>weekStreak(u.id).best||null),v=>v],
   ['💪',`Meiste Einheiten im ${mon.toLocaleDateString('de-DE',{month:'long'})}`,best(u=>trainsOf(u.id).filter(t=>t.date>=mon.getTime()).length+gamesOf(u.id).filter(g=>g.date>=mon.getTime()).length||null),v=>v]];}
 /* ---- Vereins-Seite ---- */
-let clubTab='rank';
-function vClub(){const m=me();const seg=`<div class="seg">${[['rank','🏆 Rangliste'],['week','🏅 Wochen-Challenge'],['honor','🎖️ Ehrentafel']].map(([k,l])=>`<button class="${clubTab===k?'on':''}" onclick="clubTab='${k}';render()">${l}</button>`).join('')}</div>`;
+let clubTab='week';
+function vClub(){const m=me();const seg=`<div class="seg">${[['week','🏅 Wochen-Challenge'],['honor','🎖️ Ehrentafel']].map(([k,l])=>`<button class="${clubTab===k?'on':''}" onclick="clubTab='${k}';render()">${l}</button>`).join('')}</div>`;
  let b='';
- if(clubTab==='rank'){const r=ranking();const myI=r.findIndex(x=>x.u.id===meId);const inc=m.role==='player'?chalOpenFor(meId):[];
+ if(clubTab==='rank')clubTab='week';
+ if(false){const r=ranking();const myI=r.findIndex(x=>x.u.id===meId);const inc=m.role==='player'?chalOpenFor(meId):[];
   const mine=chals().filter(c=>(c.from===meId||c.to===meId)&&c.status==='accepted');
   b=`${inc.map(c=>`<div class="banner" style="margin-bottom:10px">⚔️ <b>${esc(U(c.from).nick)}</b> fordert dich heraus! <span class="muted small">(501 · Best of 3)</span><div class="row" style="margin-top:8px"><button class="ghost sp" onclick="chalAnswer('${c.id}',false)">Ablehnen</button><button class="pri sp" onclick="chalAnswer('${c.id}',true)">Annehmen</button></div></div>`).join('')}
   ${mine.map(c=>{const o=c.from===meId?c.to:c.from;return `<div class="card" style="border-color:var(--accent)"><b>⚔️ Herausforderung gegen ${esc(U(o).nick)}</b><div class="muted small">501 · Best of 3 · Double Out – das nächste Spiel von euch beiden zählt.</div><div class="row" style="margin-top:8px"><button class="pri sp" onclick="chalPlay('${c.id}',false)">🎯 Jetzt hier spielen</button>${SY.on?`<button class="ghost sp" onclick="chalPlay('${c.id}',true)">🌐 Online</button>`:''}</div></div>`;}).join('')}
@@ -1063,7 +1063,7 @@ function vClub(){const m=me();const seg=`<div class="seg">${[['rank','🏆 Rangl
    <div class="sec">Bestenliste</div>${w.list.length?`<div class="card" style="padding:6px 10px">${w.list.map((x,i)=>`<div class="row rkrow ${x.id===meId?'me':''}" style="flex-wrap:nowrap"><b class="rk">${i<3?['🥇','🥈','🥉'][i]:i+1+'.'}</b>${AV(U(x.id),28)}<b class="sp">${esc(U(x.id).nick)}</b><b style="font-size:19px">${x.val}</b><span class="muted small">${esc(e.unit||'')}</span></div>`).join('')}</div>`:'<div class="card muted">Noch keine Teilnehmer diese Woche.</div>'}
    ${last.list.length?`<div class="sec">Letzte Woche: ${esc(EX[last.ex].name)}</div><div class="card" style="padding:6px 10px">${last.list.slice(0,3).map((x,i)=>`<div class="row rkrow" style="flex-wrap:nowrap"><b class="rk">${['🥇','🥈','🥉'][i]}</b>${AV(U(x.id),28)}<b class="sp">${esc(U(x.id).nick)}</b><b>${x.val}</b></div>`).join('')}</div>`:''}`;}
  if(clubTab==='honor'){b=`<p class="muted small" style="margin-top:0">Die Rekorde des Vereins – wer schafft es auf die Tafel?</p><div class="honor">${honors().map(([i,t,r,fmt])=>`<div class="card hon"><div class="hi">${i}</div><div class="sp"><div class="muted small">${esc(t)}</div>${r?`<div class="row" style="gap:8px;margin-top:4px">${AV(r.u,26)}<b>${esc(r.u.nick)}</b></div>`:'<div class="muted">noch frei</div>'}</div>${r?`<div class="hv">${fmt(r.v)}</div>`:''}</div>`).join('')}</div>`;}
- return `<div class="ph"><h1>🏆 Verein</h1><p>Rangliste, Wochen-Challenge und Rekorde</p></div>${seg}${b}`;}
+ return `<div class="ph"><h1>🏆 Verein</h1><p>Wochen-Challenge und Rekorde</p></div>${seg}${b}`;}
 function wchPick(){const wk=weekNo();modal(`<h3>Übung dieser Woche</h3><div style="max-height:60vh;overflow:auto">${WCH_POOL.filter(e=>EX[e]).map(e=>`<button style="width:100%;text-align:left;margin-bottom:6px" onclick="S.club=S.club||{};S.club.wchSet=Object.assign({},S.club.wchSet,{${wk}:'${e}'});save();closeModal();render()">${esc(EX[e].name)}</button>`).join('')}</div><button class="ghost" style="width:100%" onclick="closeModal()">Abbrechen</button>`);}
 function chalHome(){const inc=chalOpenFor(meId);const acc=chals().filter(c=>(c.from===meId||c.to===meId)&&c.status==='accepted');if(!inc.length&&!acc.length)return '';
  return `<div class="banner" style="margin-bottom:12px;cursor:pointer" onclick="clubTab='rank';go('club')">⚔️ ${inc.length?`<b>${esc(U(inc[0].from).nick)}</b> fordert dich heraus!`:`Offene Herausforderung gegen <b>${esc(U(acc[0].from===meId?acc[0].to:acc[0].from).nick)}</b>`} – antippen</div>`;}
@@ -1109,7 +1109,7 @@ function playerCard(id){const u=U(id),c=calc(id),b=badgesOf(id).filter(x=>x.ok);
   if(img)x.drawImage(img,W/2-170,130,340,340);else{x.fillStyle='#e9f1ed';x.font=`900 150px ${F}`;x.textBaseline='middle';x.fillText((u.nick||'?').split(/[\s\-_.]+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('')||'?',W/2,305);x.textBaseline='alphabetic';}
   x.restore();x.strokeStyle='#2fbf71';x.lineWidth=8;x.beginPath();x.arc(W/2,300,174,0,Math.PI*2);x.stroke();
   x.fillStyle='#ffffff';x.font=`900 92px ${F}`;x.fillText(u.nick,W/2,575);
-  x.fillStyle='#f2c14e';x.font=`800 40px ${F}`;x.fillText(ri>=0?`Platz ${ri+1} der Rangliste · Wertung ${r[ri].elo}`:'DartClub-Spieler',W/2,640);
+  x.fillStyle='#f2c14e';x.font=`800 40px ${F}`;x.fillText('DartClub-Spieler',W/2,640);
   const st=[['3-Dart-Average',c.games?f1(c.avg):'–'],['Bester Average',c.games?f1(c.best):'–'],['Höchstes Finish',c.hiCo||'–'],['180er',c.s180],['Checkout-Quote',c.coPct!=null?f1(c.coPct)+'%':'–'],['Spiele',c.games]];
   st.forEach(([k,v],i)=>{const cx=W/2+((i%3)-1)*320,cy=760+Math.floor(i/3)*190;x.fillStyle='#ffffff10';rr(cx-145,cy-70,290,160,26);x.fill();
    x.fillStyle='#ffffff';x.font=`900 66px ${F}`;x.fillText(String(v),cx,cy+20);x.fillStyle='#9fb3aa';x.font=`600 28px ${F}`;x.fillText(k,cx,cy+66);});
@@ -1342,7 +1342,7 @@ function heatHTML(id,days=28){const acts=[...gamesOf(id).map(g=>g.date),...train
 function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  return `<div class="ph"><h1>${h<11?'Guten Morgen':h<18?'Hi':'Guten Abend'}, ${esc(m.nick)} ${AV(m)}</h1><p>${c.week?`Diese Woche schon ${c.week}× trainiert – stark!`:'Diese Woche noch nicht trainiert – Zeit für eine Runde!'}</p></div>
  ${isStandalone()?'':`<div class="banner"><b>📲 DartClub aufs Handy</b> <span class="muted small">– als App auf dem Startbildschirm, ohne Play Store, startet im Vollbild.</span><div style="margin-top:10px">${installBtn(true)}</div></div>`}
- ${onlHomeBanner()}${chalHome()}
+ ${onlHomeBanner()}
  <div class="quickrow">
   <button class="qbtn hero" onclick="trTab='ex';go('train')"><span class="i">📋</span><b>Übung starten</b><small>${Object.keys(EX).length} Übungen mit Anleitung</small></button>
   <button class="qbtn" onclick="trTab='plans';go('train')"><span class="i">🗂️</span><b>Trainingsplan</b><small>Mehrere Übungen am Stück</small></button>
@@ -1595,7 +1595,7 @@ function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const befo
  const sc=f.sets?L.sets:L.legsTotal;
  const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
   players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?i===wi:true),...(({last,ld,lp,...r})=>r)(L.st[i])}))};
- if(L.online)g.online=true;S.games.push(g);try{chalOnGame(g);}catch(e){}
+ if(L.online)g.online=true;S.games.push(g);
  if(L.online)onlDone(L,draw?'🤝 Unentschieden':`🏆 ${U(L.players[wi]).nick} gewinnt`);
  if(L.tref)applyResult(L.tref.tid,L.tref.mid,draw?'DRAW':L.players[wi],sc[0],sc[1]);
  S.live=null;save();
