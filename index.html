@@ -687,7 +687,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=31;
+const APPV=32;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1003,7 +1003,7 @@ function wchOf(t){const pool=WCH_POOL.filter(e=>EX[e]&&EX[e].better);const o=(S.
 function wchBoard(t){const ex=wchOf(t),a=weekStart(t),b=a+7*DAY,low=EX[ex].better==='low';const best={};
  S.trainings.forEach(x=>{if(x.mode!=='ex'||x.ex!==ex||x.complete===false||x.date<a||x.date>=b||!isReal(x.uid))return;const u=S.users.find(u=>u.id===x.uid);if(!u||u.priv)return;
   if(best[x.uid]==null||(low?x.val<best[x.uid].val:x.val>best[x.uid].val))best[x.uid]={val:x.val,date:x.date};});
- return{ex,list:Object.entries(best).map(([id,v])=>({id,...v})).sort((x,y)=>low?x.val-y.val||x.date-y.date:y.val-x.val||x.date-y.date)};}
+ return{ex,list:Object.entries(best).filter(([id])=>canSeePub(id)).map(([id,v])=>({id,...v})).sort((x,y)=>low?x.val-y.val||x.date-y.date:y.val-x.val||x.date-y.date)};}
 function wchHome(){const w=wchBoard();const e=EX[w.ex];const i=w.list.findIndex(x=>x.id===meId);const last=wchBoard(Date.now()-7*DAY);const lw=last.list[0];
  const left=Math.ceil((weekStart()+7*DAY-Date.now())/DAY);
  return `<div class="card" style="border-color:#f2c14e55;background:linear-gradient(135deg,#f2c14e14,transparent)"><div class="row"><b class="sp" style="font-size:17px">🏅 Wochen-Challenge</b><span class="muted small">noch ${left} ${left===1?'Tag':'Tage'}</span></div>
@@ -1032,7 +1032,7 @@ function badgesHTML(id){const b=badgesOf(id);const ok=b.filter(x=>x.ok).length;
  return `<div class="sec" style="margin-top:0">Erfolge · ${ok} von ${b.length}</div><div class="badgegrid">${b.map(x=>`<div class="bdg ${x.ok?'ok':''}"><div class="bi">${x.i}</div><div class="bn">${x.n}</div>${x.ok?'<div class="bv">✓ geschafft</div>':`<div class="bp"><i style="width:${Math.min(100,x.v/x.goal*100)}%"></i></div><div class="bv">${Math.round(x.v)} / ${x.goal}</div>`}</div>`).join('')}</div>
  <button class="pri" style="width:100%;margin-top:14px;padding:14px" onclick="playerCard('${id}')">🪪 Spielerkarte erstellen & teilen</button>`;}
 /* ---- Ehrentafel ---- */
-function honors(all){const ps=players();const best=(f,low)=>{let r=null;ps.forEach(u=>{const v=f(u);if(v==null||v===0||!isFinite(v))return;if(!r||(low?v<r.v:v>r.v))r={u,v};});return r;};
+function honors(all){const ps=visPlayers();const best=(f,low)=>{let r=null;ps.forEach(u=>{const v=f(u);if(v==null||v===0||!isFinite(v))return;if(!r||(low?v<r.v:v>r.v))r={u,v};});return r;};
  const cs={};ps.forEach(u=>cs[u.id]=calc(u.id));const mon=new Date();mon.setDate(1);mon.setHours(0,0,0,0);
  const H=[['📈','Bester Spiel-Average',best(u=>cs[u.id].games?cs[u.id].best:null),v=>f1(v)],['🎯','Höchstes Finish',best(u=>cs[u.id].hiCo||null),v=>v],
   ['🔥','Meiste 180er',best(u=>cs[u.id].s180||null),v=>v+'×'],['📊','Bester Gesamt-Average (ab 10 Spielen)',best(u=>cs[u.id].games>=10?cs[u.id].avg:null),v=>f1(v)],
@@ -1054,9 +1054,14 @@ function pubCard(){const p=pubSet();const chip=(on,click,l)=>`<button class="${o
 let ovSort=null;
 function vOverview(){const p=pubSet();const cols=p.cols.filter(k=>TSTAT[k]);if(!cols.length)return '<div class="card muted">Der Admin hat keine Werte für die Übersicht freigegeben.</div>';
  const sk=cols.includes(ovSort)?ovSort:cols[0];const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?-1e9:n;};
- const rows=players().map(u=>({u,c:calc(u.id)})).sort((a,b)=>num(TSTAT[sk][1](b.c))-num(TSTAT[sk][1](a.c)));
+ const rows=visPlayers().map(u=>({u,c:calc(u.id)})).sort((a,b)=>num(TSTAT[sk][1](b.c))-num(TSTAT[sk][1](a.c)));
  return `<p class="muted small" style="margin-top:0">Spaltenkopf antippen zum Sortieren.</p><div class="card" style="overflow-x:auto"><table><tr><th>Spieler</th>${cols.map(k=>`<th style="cursor:pointer;${k===sk?'color:var(--accent)':''}" onclick="ovSort='${k}';render()">${TSTAT[k][0]}${k===sk?' ▾':''}</th>`).join('')}</tr>
  ${rows.map(({u,c})=>`<tr${u.id===meId?' style="background:#2fbf7112"':''}><td style="white-space:nowrap">${AV(u)} <b>${esc(u.nick)}</b></td>${cols.map(k=>`<td>${TSTAT[k][1](c)}</td>`).join('')}</tr>`).join('')}</table></div>`;}
+
+/* ---- Geschlossene Gruppen: Statistiken ihrer Mitglieder sehen nur Gruppenmitglieder ---- */
+function canSeePub(id){if(id===meId||isStaff())return true;const cl=S.teams.filter(t=>t.closed&&t.members.includes(id));if(!cl.length)return true;return cl.some(t=>t.members.includes(meId)||t.captains.includes(meId));}
+function visPlayers(){return players().filter(u=>canSeePub(u.id));}
+function togClosed(tid){const t=S.teams.find(x=>x.id===tid);if(!t||!canManage(t))return;t.closed=!t.closed;save();render();toast(t.closed?'🔒 Statistiken der Gruppe sind jetzt nur für Mitglieder sichtbar':'Statistiken der Gruppe wieder für alle sichtbar');}
 /* ---- Vereins-Seite ---- */
 let clubTab='week';
 function vClub(){const m=me();if(clubTab==='table'&&!pubSet().cols.length)clubTab='week';const seg=`<div class="seg">${[['week','🏅 Wochen-Challenge'],['honor','🎖️ Ehrentafel'],...(pubSet().cols.length?[['table','📊 Übersicht']]:[])].map(([k,l])=>`<button class="${clubTab===k?'on':''}" onclick="clubTab='${k}';render()">${l}</button>`).join('')}</div>`;
@@ -3854,6 +3859,7 @@ function vTeam(id){const t=S.teams.find(x=>x.id===id);if(!t){view='home';return 
  ${sorted.map(({id,c})=>`<tr class="click" onclick="backTo=['team','${t.id}'];go('player','${id}')"><td>${AV(U(id))} <b>${esc(U(id).nick)}</b>${t.captains.includes(id)?' ⭐':''}</td>${cols.map(k=>`<td${k==='last'?' class="muted"':''}>${TSTAT[k][1](c,id)}</td>`).join('')}
  <td style="text-align:right">${`<button class="sm ghost" onclick="event.stopPropagation();rmMember('${t.id}','${id}')" title="Aus Gruppe entfernen">✕</button>`}</td></tr>`).join('')}</table>`;})():''}
  <p class="muted small" style="margin-top:10px">Spieler antippen für die ausführliche Statistik. Spieler können auch selbst beitreten: Start → „Gruppe beitreten“ → Code ${t.code}.</p></div>
+ <div class="card"><div class="row" style="flex-wrap:nowrap"><div class="sp"><b>🔒 Statistiken nur in der Gruppe</b><div class="muted small">${t.closed?'An: Die Werte der Mitglieder sehen nur andere Mitglieder dieser Gruppe (und Kapitän, Vereinszugang, Admin). In Vereinsübersicht, Ehrentafel und Wochen-Challenge tauchen sie für alle anderen nicht auf.':'Aus: Die Mitglieder erscheinen wie alle anderen in Vereinsübersicht, Ehrentafel und Wochen-Challenge.'}</div></div><button class="${t.closed?'pri':''}" onclick="togClosed('${t.id}')">${t.closed?'An':'Aus'}</button></div></div>
  <div class="row"><button class="sm" onclick="renameTeam('${t.id}')">Umbenennen</button>${isStaff()?`<button class="sm" onclick="setTeamCap('${t.id}')">Kapitän ändern</button>`:''}<button class="sm red" onclick="ask('Gruppe „${esc(t.name)}“ löschen? Die Statistiken der Spieler bleiben erhalten.','Löschen',()=>{S.teams=S.teams.filter(x=>x.id!=='${t.id}');save();go('teams');},true)">Gruppe löschen</button></div>`;}
 let addSel=[];
 function addMembers(tid){const t=S.teams.find(x=>x.id===tid);addSel=[];const cand=players().filter(p=>!t.members.includes(p.id));
