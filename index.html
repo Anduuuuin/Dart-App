@@ -698,7 +698,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=37;
+const APPV=38;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -3262,7 +3262,7 @@ function vExList(){const uid=trUid();const all=Object.entries(EX);
 /* --- Detailseite --- */
 function vExDetail(id){const e=EX[id];if(!e){view='train';return vTrain();}const uid=trUid();const runs=uid?exRuns(uid,id):[];const b=uid?exBest(uid,id):null;const last=runs[runs.length-1];
  return `<button class="sm ghost" onclick="go('train')" style="margin-bottom:12px">← Übungen</button>
- <h1 style="font-size:32px;margin-bottom:8px">${e.name}</h1><p class="muted" style="font-size:17px;margin-top:0">${e.desc}</p>
+ <h1 style="font-size:32px;margin-bottom:8px">${e.name}</h1><p class="muted" style="font-size:17px;margin-top:0">${e.desc}</p>${id==='c121'?`<button class="ghost" style="width:100%;margin-bottom:8px" onclick="go('mg','duel121')">👥 Zu zweit oder mehr spielen → 121 Duell</button>`:''}
  <div class="stats" style="margin:16px 0"><div class="stat"><div class="k">⏱ Dauer</div><div class="v">${e.dur} Min.</div></div><div class="stat"><div class="k">🔁 Sets</div><div class="v">${e.sets}</div></div>
  ${uid?`<div class="stat"><div class="k">⭐ Rekord</div><div class="v" style="font-size:20px">${b!=null?exFmt(id,b):'–'}</div></div><div class="stat"><div class="k">Zuletzt</div><div class="v" style="font-size:20px">${last?exFmt(id,last.val,last):'–'}</div></div>`:''}</div>
  <div class="card"><h3>Anleitung</h3>${e.steps.map((s,i)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start;margin:10px 0"><span style="flex:none;width:30px;height:30px;border-radius:50%;border:2px solid #2fbf7188;background:#2fbf7118;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">${i+1}</span><span style="padding-top:4px">${s}</span></div>`).join('')}</div>
@@ -3459,8 +3459,8 @@ const MG={
   status:(st,i)=>`🐎 ${Math.min(st.p[i].pos,20)}/20${st.p[i].pos>=20?' · Zielgerade':''}`,
   hint:(st,p)=>{const x=st.p[p].pos;return x>=20?'Ziel: Bull!':`Nächstes Feld: ${x%5===4?'🚧 Doppel ':''}${ORD[x]}`;},result:st=>byDesc(st,x=>x.pos)},
  killer:killerGame(false),blindkiller:{...killerGame(true),hidden:true},
- duel121:{name:'121 Duell',cat:'🎯 Ziel',min:2,max:8,noElim:true,dur:20,visitInput:true,desc:'Der Finish-Klassiker 121 – gegeneinander: Wer checkt am höchsten?',
-  rules:['Jeder startet bei 121 und hat pro Versuch 3 Aufnahmen (9 Darts), um mit Double Out auszuchecken.','Ihr wechselt euch nach jeder Aufnahme ab – jeder spielt auf seine eigene Zahl.','Geschafft: Dein nächster Versuch geht eine Zahl höher (122, 123 …).','Checkst du schon mit der ersten Aufnahme, ist die Zahl gesichert – tiefer fällst du nicht mehr.','Nicht geschafft: zurück auf deine gesicherte Zahl.','Jeder hat 10 Versuche. Gewonnen hat das höchste geschaffte Finish (bei Gleichstand: mehr Checks).'],
+ duel121:{name:'121 Duell',cat:'🎯 Ziel',min:2,max:8,noElim:true,keep:(st,p)=>st.p[p].v>0&&st.p[p].a<10,dur:20,visitInput:true,desc:'Der Finish-Klassiker 121 – gegeneinander: Wer checkt am höchsten?',
+  rules:['Jeder startet bei 121 und hat pro Versuch 3 Aufnahmen (9 Darts), um mit Double Out auszuchecken.','Jeder spielt seinen Versuch am Stück – bis zu 9 Darts, bis er gecheckt hat oder die 3 Aufnahmen vorbei sind. Dann ist der Nächste dran.','Geschafft: Dein nächster Versuch geht eine Zahl höher (122, 123 …).','Checkst du schon mit der ersten Aufnahme, ist die Zahl gesichert – tiefer fällst du nicht mehr.','Nicht geschafft: zurück auf deine gesicherte Zahl.','Jeder hat 10 Versuche. Gewonnen hat das höchste geschaffte Finish (bei Gleichstand: mehr Checks).'],
   init(st){st.p.forEach(x=>{x.t=121;x.safe=121;x.rem=121;x.v=0;x.a=0;x.best=0;x.ok=0;});},
   active:(st,i)=>st.p[i].a<10,
   visit(st,p,v){const me=st.p[p];
@@ -3611,7 +3611,7 @@ function mgNext(){const st=S.live,g=MG[st.id];g.endTurn?.(st,st.cur);if(st.winne
  st.cur=i;st.dart=0;st.darts=[];st.endTurn=false;g.start?.(st,i);}
 function mgVisit(v){const st=S.live,g=MG[st.id];if(!onlOk())return;if(mgBotCur()&&!BOT.acting){toast('🤖 Der Dartbot ist dran');return;}if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
  st.hist.push(JSON.stringify({...st,hist:undefined}));if(st.hist.length>60)st.hist.shift();
- g.visit(st,st.cur,v);if(st.winner!==null||st.done)return mgEnd();st.endTurn=true;mgNext();if(st.winner!==null||st.done)return mgEnd();save();render();}
+ g.visit(st,st.cur,v);if(st.winner!==null||st.done)return mgEnd();if(g.keep&&g.keep(st,st.cur)){save();render();return;}st.endTurn=true;mgNext();if(st.winner!==null||st.done)return mgEnd();save();render();}
 function mgUndo(){const st=S.live;if(!onlOk(true))return;botStop();let h=st.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen');let o=JSON.parse(h);
  while(isBot(o.ps[o.cur])&&st.hist.length&&!o.ps.every(isBot)){h=st.hist.pop();o=JSON.parse(h);}o.hist=st.hist;S.live=o;save();render();}
 function mgEnd(){const st=S.live,g=MG[st.id];let rank=g.result(st);if(st.winner!==null){rank=[st.winner,...rank.filter(i=>i!==st.winner)];}
