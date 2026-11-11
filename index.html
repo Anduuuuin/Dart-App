@@ -700,7 +700,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=43;
+const APPV=44;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1211,22 +1211,22 @@ let PCARD=null;
 function pcardSave(){if(!PCARD)return;const a=document.createElement('a');a.href=PCARD.url;a.download=`Spielerkarte-${PCARD.name}.png`;document.body.appendChild(a);a.click();a.remove();}
 function pcardShare(){if(!PCARD)return;PCARD.cv.toBlob(async bl=>{try{const f=new File([bl],`Spielerkarte-${PCARD.name}.png`,{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'Meine Spielerkarte'});else pcardSave();}catch(e){}},'image/png');}
 /* ---- Gruppen-Trainingsplan ---- */
-let GP_SEL={};
-function teamPlanEdit(tid){const t=S.teams.find(x=>x.id===tid);GP_SEL={};((t.plan&&t.plan.items)||[]).forEach(([e,s])=>GP_SEL[e]=s);
+let GP_SEL={},GP_TID=null,GP_LV={};
+function teamPlanEdit(tid){const t=S.teams.find(x=>x.id===tid);GP_SEL={};GP_TID=tid;GP_LV=Object.assign({},(t.plan&&t.plan.botLv)||{});((t.plan&&t.plan.items)||[]).forEach(([e,s])=>GP_SEL[e]=s);
  modal(`<h3>📋 Gruppenplan für ${esc(t.name)}</h3><p class="muted small" style="margin-top:0">Wähle Übungen und Sets. Alle Mitglieder sehen den Plan auf ihrer Startseite und können ihn mit einem Tipp starten – du siehst, wer ihn geschafft hat.</p>
  <label>Hinweis an die Gruppe (optional)</label><input id="gpn" maxlength="80" value="${esc((t.plan&&t.plan.note)||'')}" placeholder="z. B. Bis Donnerstag vor dem Spieltag">
  <div id="gpl" style="max-height:46vh;overflow:auto;margin-top:10px">${gpList()}</div>
  <div class="row" style="margin-top:12px">${t.plan?`<button class="red sm" onclick="teamPlanDel('${tid}')">Plan löschen</button>`:''}<span class="sp"></span><button class="ghost" onclick="closeModal()">Abbrechen</button><button class="pri" onclick="teamPlanSave('${tid}')">Speichern</button></div>`);}
-function gpList(){return botPlanPick("GP_SEL[BPK()]=(GP_SEL[BPK()]||0)+1;const el=document.getElementById('gpl');el.innerHTML=gpList();")+'<div class="sec">Übungen</div>'+Object.entries(EX).filter(([id,e])=>e.type!=='x01bot'||GP_SEL[id]).map(([id,e])=>{const s=GP_SEL[id]||0;return `<div class="row" style="flex-wrap:nowrap;padding:6px 0;border-top:1px solid var(--line)"><span class="sp" style="${s?'font-weight:700':''}">${esc(e.name)} <span class="muted small">~${e.dur} Min.</span></span><button class="sm ghost" onclick="gpSet('${id}',-1)">−</button><b style="width:22px;text-align:center">${s}</b><button class="sm ghost" onclick="gpSet('${id}',1)">＋</button></div>`;}).join('');}
+function gpList(){return botPlanPick("GP_SEL[BPK()]=(GP_SEL[BPK()]||0)+1;const el=document.getElementById('gpl');el.innerHTML=gpList();",true)+gpLvHTML()+'<div class="sec">Übungen</div>'+Object.entries(EX).filter(([id,e])=>e.type!=='x01bot'||GP_SEL[id]).map(([id,e])=>{const s=GP_SEL[id]||0;return `<div class="row" style="flex-wrap:nowrap;padding:6px 0;border-top:1px solid var(--line)"><span class="sp" style="${s?'font-weight:700':''}">${esc(e.name)} <span class="muted small">~${e.dur} Min.</span></span><button class="sm ghost" onclick="gpSet('${id}',-1)">−</button><b style="width:22px;text-align:center">${s}</b><button class="sm ghost" onclick="gpSet('${id}',1)">＋</button></div>`;}).join('');}
 function gpSet(id,d){GP_SEL[id]=Math.max(0,Math.min(9,(GP_SEL[id]||0)+d));if(!GP_SEL[id])delete GP_SEL[id];const el=document.getElementById('gpl');const sc=el.scrollTop;el.innerHTML=gpList();el.scrollTop=sc;}
 function teamPlanSave(tid){const t=S.teams.find(x=>x.id===tid);const items=Object.entries(GP_SEL).filter(([e,s])=>s>0);if(!items.length)return toast('Mindestens eine Übung wählen');
- t.plan={id:uid(),items,note:document.getElementById('gpn').value.trim(),set:Date.now(),by:meId,done:{}};save();closeModal();render();toast('📋 Gruppenplan gespeichert');}
+ t.plan={id:uid(),items,note:document.getElementById('gpn').value.trim(),set:Date.now(),by:meId,done:{},botLv:Object.assign({},GP_LV)};save();closeModal();render();toast('📋 Gruppenplan gespeichert');}
 function teamPlanDel(tid){const t=S.teams.find(x=>x.id===tid);delete t.plan;save();closeModal();render();}
 function teamPlanCard(t){if(!t.plan)return canManage(t)?`<div class="card"><div class="row"><b class="sp">📋 Gruppenplan</b><button class="sm pri" onclick="teamPlanEdit('${t.id}')">Plan festlegen</button></div><p class="muted small" style="margin:6px 0 0">Gib deiner Gruppe einen gemeinsamen Trainingsplan vor.</p></div>`:'';
  const p=t.plan,done=p.done||{};const n=t.members.filter(id=>done[id]).length;
  return `<div class="card" style="border-color:#2fbf7155"><div class="row"><b class="sp">📋 Gruppenplan · ${n}/${t.members.length} geschafft</b>${canManage(t)?`<button class="sm" onclick="teamPlanEdit('${t.id}')">Ändern</button>`:''}</div>
  ${p.note?`<p style="margin:6px 0">${esc(p.note)}</p>`:''}<div class="muted small">${p.items.map(([e,s])=>esc(EX[e]?.name||e)+(s>1?` ×${s}`:'')).join(' · ')} · ~${planDur(p.items)} Min.</div>
- ${canManage(t)?`<div class="chips" style="margin-top:10px">${t.members.map(id=>`<span class="badge ${done[id]?'g':''}" style="font-size:13px;padding:5px 10px">${done[id]?'✓':'○'} ${esc(U(id).nick)}</span>`).join('')}</div>`:''}
+ ${canManage(t)?`<div class="chips" style="margin-top:10px">${t.members.map(id=>`<span class="badge ${done[id]?'g':''}" style="font-size:13px;padding:5px 10px">${done[id]?'✓':'○'} ${esc(U(id).nick)}${p.items.some(([e])=>e.startsWith('x01bot_auto_'))?` · 🤖 Ø ${(p.botLv||{})[id]||50}`:''}</span>`).join('')}</div>`:''}
  ${t.members.includes(meId)?`<button class="${done[meId]?'ghost':'pri'}" style="width:100%;margin-top:10px" onclick="startPlan('team:${t.id}')">${done[meId]?'✓ Geschafft – nochmal trainieren':'▶ Plan starten'}</button>`:''}</div>`;}
 function teamPlansHome(){const ts=S.teams.filter(t=>t.plan&&t.members.includes(meId));return ts.map(t=>{const d=(t.plan.done||{})[meId];return `<div class="card" style="border-color:#2fbf7155"><div class="row"><b class="sp">📋 Plan von „${esc(t.name)}“</b>${d?'<span class="badge g">✓ geschafft</span>':'<span class="badge y">offen</span>'}</div>${t.plan.note?`<div style="margin-top:4px">${esc(t.plan.note)}</div>`:''}<div class="muted small" style="margin-top:4px">${t.plan.items.length} Übungen · ~${planDur(t.plan.items)} Min.</div>${d?'':`<button class="pri" style="width:100%;margin-top:10px" onclick="startPlan('team:${t.id}')">▶ Plan starten</button>`}</div>`;}).join('');}
 function teamPlanMarkDone(){const P=S.planRun;if(!P||!String(P.pid).startsWith('team:')||!planDone())return;const t=S.teams.find(x=>x.id===P.pid.slice(5));if(!t||!t.plan)return;t.plan.done=t.plan.done||{};if(!t.plan.done[P.uid]){t.plan.done[P.uid]=Date.now();save();}}
@@ -2600,10 +2600,14 @@ function loginPickSug(id){const u=S.users.find(x=>x.id===id);if(!u)return;docume
 
 /* Baustein „501 gegen den Bot“ in Plan-Editoren */
 let BP={lv:60,bo:3};const BPK=()=>'x01bot_'+BP.lv+'_'+BP.bo;
-function botPlanPick(onAdd){return `<div class="card" style="margin:0 0 10px;border-color:#2fbf7155"><b>🤖 501 gegen den Dartbot</b><div class="muted small" style="margin:2px 0 8px">Zählt als erledigt, wenn das Match zu Ende gespielt ist.</div>
- <div class="chips" id="bplv">${BOT_LV.map(([v])=>`<button class="${BP.lv===v?'on':''}" onclick="BP.lv=${v};[...this.parentNode.children].forEach(b=>b.classList.remove('on'));this.classList.add('on')">Ø ${v}</button>`).join('')}</div>
+function botPlanPick(onAdd,grp){if(!grp&&BP.lv==='auto')BP.lv=60;return `<div class="card" style="margin:0 0 10px;border-color:#2fbf7155"><b>🤖 501 gegen den Dartbot</b><div class="muted small" style="margin:2px 0 8px">Zählt als erledigt, wenn das Match zu Ende gespielt ist.</div>
+ <div class="chips" id="bplv">${grp?`<button class="${BP.lv==='auto'?'on':''}" onclick="BP.lv='auto';[...this.parentNode.children].forEach(b=>b.classList.remove('on'));this.classList.add('on')">👥 Je Spieler einzeln</button>`:''}${BOT_LV.map(([v])=>`<button class="${BP.lv===v?'on':''}" onclick="BP.lv=${v};[...this.parentNode.children].forEach(b=>b.classList.remove('on'));this.classList.add('on')">Ø ${v}</button>`).join('')}</div>
  <div class="chips" style="margin-top:6px">${[3,5].map(b=>`<button class="${BP.bo===b?'on':''}" onclick="BP.bo=${b};[...this.parentNode.children].forEach(x=>x.classList.remove('on'));this.classList.add('on')">Best of ${b}</button>`).join('')}</div>
  <button class="pri" style="width:100%;margin-top:8px" onclick="${onAdd.replace(/"/g,'&quot;')}">＋ Match hinzufügen</button></div>`;}
+
+function gpLvHTML(){if(!Object.keys(GP_SEL).some(k=>k.startsWith('x01bot_auto_')))return '';const t=S.teams.find(x=>x.id===GP_TID);if(!t)return '';
+ return `<div class="card" style="margin:0 0 10px"><b>👥 Bot-Stärke je Spieler</b><div class="muted small" style="margin:2px 0 8px">Gilt für die Matches „Stärke je Spieler“. Ohne Auswahl: Ø 50.</div>
+ ${t.members.map(id=>`<div class="row" style="flex-wrap:nowrap;padding:5px 0;border-top:1px solid var(--line)"><span class="sp">${AV(U(id),22)} ${esc(U(id).nick)}</span><select onchange="GP_LV['${id}']=+this.value" style="width:auto">${BOT_LV.map(([v,l])=>`<option value="${v}" ${(GP_LV[id]||50)===v?'selected':''}>Ø ${v} · ${l}</option>`).join('')}</select></div>`).join('')||'<p class="muted small">Noch keine Mitglieder.</p>'}</div>`;}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -3186,6 +3190,7 @@ Object.assign(EX,{
 const xr=(a,b,st=1)=>{const r=[];for(let n=a;st>0?n<=b:n>=b;n+=st)r.push(n);return r;};
 const EXCAT={warm:'Warm-up',score:'Scoring',dbl:'Doppel',co:'Checkout',bull:'Bull',kids:'Kids',bot:'Gegen den Bot'};
 /* 501 gegen den Dartbot als Baustein für Trainingspläne: jede Stärke als Best of 3 und Best of 5 */
+[3,5].forEach(bo=>{EX['x01bot_auto_'+bo]={name:`501 vs. Bot (Stärke je Spieler) · Best of ${bo}`,cat:'bot',dur:bo===3?12:20,sets:1,type:'x01bot',lv:50,bo,unit:'',desc:`501-Match gegen den Dartbot – die Stärke legt der Kapitän für jeden Spieler einzeln fest.`,steps:[`501 Double Out, Best of ${bo} Legs.`,'Jeder spielt gegen den Bot mit der Stärke, die der Kapitän für ihn eingestellt hat.','Zählt als erledigt, sobald das Match zu Ende gespielt ist.']};});
 [20,30,40,50,60,70,80,90,100,110].forEach(lv=>[3,5].forEach(bo=>{EX['x01bot_'+lv+'_'+bo]={name:`501 vs. Bot Ø ${lv} · Best of ${bo}`,cat:'bot',dur:bo===3?12:20,sets:1,type:'x01bot',lv,bo,unit:'',
  desc:`Ein komplettes 501-Match (Double Out, Best of ${bo} Legs) gegen den Dartbot mit Average ${lv}.`,steps:[`501 Double Out, Best of ${bo} Legs – wer zuerst ${Math.floor(bo/2)+1} Legs hat, gewinnt.`,`Der Dartbot spielt mit einem Average von etwa ${lv} und wirft von selbst.`,'Im Trainingsplan zählt das Match als erledigt, sobald es zu Ende gespielt ist – egal ob Sieg oder Niederlage.']};}));
 Object.assign(EX.singles,{cat:'warm'});Object.assign(EX.atcw,{cat:'warm'});Object.assign(EX.skill,{cat:'score'});Object.assign(EX.score250,{cat:'score'});Object.assign(EX.sprint,{cat:'score'});
@@ -3419,7 +3424,7 @@ function doManualEx(id){const e=EX[id];const pu=trUid();let val,extra={};
  S.trainings.push({id:uid(),uid:pu,date:Date.now(),mode:'ex',ex:id,val,complete:true,manual:true,...extra});save();closeModal();toast(rec?'⭐ Neuer Rekord gespeichert!':'Ergebnis gespeichert');render();}
 
 /* --- Trainingspläne --- */
-function planItems(pid,uid){if(String(pid).startsWith('team:')){const t=S.teams.find(x=>x.id===pid.slice(5));return t&&t.plan?t.plan.items.map(x=>x.slice()):[];}if(pid==='mine')return(S.myPlans[uid]||[]).map(x=>x.slice());const cfg=(S.planCfg[uid]||{})[pid]||{};return PLANS[pid].items.map(([e,s])=>[e,cfg[e]??s]);}
+function planItems(pid,uid){if(String(pid).startsWith('team:')){const t=S.teams.find(x=>x.id===pid.slice(5));return t&&t.plan?t.plan.items.map(x=>{const m=/^x01bot_auto_(\d)$/.exec(x[0]);return m?['x01bot_'+((t.plan.botLv||{})[uid]||50)+'_'+m[1],x[1]]:x.slice();}):[];}if(pid==='mine')return(S.myPlans[uid]||[]).map(x=>x.slice());const cfg=(S.planCfg[uid]||{})[pid]||{};return PLANS[pid].items.map(([e,s])=>[e,cfg[e]??s]);}
 const planDur=items=>items.reduce((a,[e,s])=>a+EX[e].dur*s,0);
 function setSets(pid,ex,d,i){const uid=trUid();
  if(pid==='mine'){const it=S.myPlans[uid][i];it[1]=Math.max(1,Math.min(9,it[1]+d));}
