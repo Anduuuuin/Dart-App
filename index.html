@@ -698,7 +698,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=38;
+const APPV=39;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1118,6 +1118,12 @@ function gchSave(tid){const t=S.teams.find(x=>x.id===tid);const d=+document.quer
  t.chal={id:uid(),kind:document.getElementById('gck').value,title:document.getElementById('gct').value.trim(),from:from.getTime(),to:from.getTime()+d*DAY,by:meId};save();closeModal();render();toast('🏁 Challenge gestartet – die Gruppe sieht sie auf ihrer Startseite');}
 function gchDel(tid){const t=S.teams.find(x=>x.id===tid);delete t.chal;save();closeModal();render();}
 function gchHome(){return S.teams.filter(t=>t.chal&&t.members.includes(meId)&&Date.now()<t.chal.to+3*DAY).map(t=>gchCard(t,true)).join('');}
+
+/* Mitglieder sehen die Statistik ihrer Mitspieler in der Gruppe */
+function teamMateStats(t){if(!t.members.includes(meId))return '';const cols=(t.stats||TSTAT_DEF).filter(k=>TSTAT[k]);const rows=t.members.map(id=>({id,c:calc(id)}));
+ return `<div class="sec">📈 Statistiken der Gruppe</div><div class="card" style="overflow-x:auto"><table><tr><th>Spieler</th>${cols.map(k=>`<th>${TSTAT[k][0]}</th>`).join('')}</tr>
+ ${rows.map(({id,c})=>{const ok=canSee(id);return `<tr${ok?` class="click" onclick="backTo=['team','${t.id}'];go('player','${id}')"`:''}${id===meId?' style="background:#2fbf7112"':''}><td style="white-space:nowrap">${AV(U(id))} <b>${esc(U(id).nick)}</b></td>${cols.map(k=>`<td>${ok?TSTAT[k][1](c,id):'<span class="muted">🔒</span>'}</td>`).join('')}</tr>`;}).join('')}</table></div>
+ <p class="muted small" style="margin-top:-4px">Spieler antippen für die komplette Statistik. 🔒 = Spieler hat seine Statistik für niemanden freigegeben.</p>`;}
 /* ---- Vereins-Seite ---- */
 let clubTab='week';
 function vClub(){const m=me();if(clubTab==='table'&&!pubSet().cols.length)clubTab='week';const seg=`<div class="seg">${[['week','🏅 Wochen-Challenge'],['honor','🎖️ Ehrentafel'],...(pubSet().cols.length?[['table','📊 Übersicht']]:[])].map(([k,l])=>`<button class="${clubTab===k?'on':''}" onclick="clubTab='${k}';render()">${l}</button>`).join('')}</div>`;
@@ -3938,7 +3944,7 @@ function demoData(){const names=[['Pfeilblitz','⚡'],['Triple-Tom','🐯'],['Bu
 /* ===================== Gruppen & Kapitäne ===================== */
 let backTo=['people'];
 const TTYPE={training:'Trainingsgruppe',team:'Mannschaft'};
-function canSee(id){return isStaff()||id===meId||S.teams.some(t=>t.captains.includes(meId)&&t.members.includes(id));}
+function canSee(id){if(isStaff()||id===meId||S.teams.some(t=>t.captains.includes(meId)&&t.members.includes(id)))return true;const u=S.users.find(x=>x.id===id);if(u&&u.statVis==='none')return false;return S.teams.some(t=>t.members.includes(meId)&&t.members.includes(id));}
 function canManage(t){return isStaff()||t.captains.includes(meId);}
 function myTeams(){return isStaff()?S.teams:S.teams.filter(t=>t.captains.includes(meId));}
 function togCap(id){const u=S.users.find(x=>x.id===id);u.captain=!u.captain;
@@ -3976,7 +3982,7 @@ function createTeam(){const n=document.getElementById('tn').value.trim();if(n.le
 function vTeam(id){const t=S.teams.find(x=>x.id===id);if(!t){view='home';return vHome();}const mg=canManage(t);
  if(!mg){return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('home')">← Start</button><h2 style="margin:0">${esc(t.name)}</h2></div>
   <div class="card"><p class="muted">${TTYPE[t.type]} · Kapitän: ${t.captains.map(c=>AV(U(c))+' '+esc(U(c).nick)).join(', ')||'–'}</p><div class="chips">${t.members.map(m=>`<span class="badge" style="font-size:14px;padding:6px 10px">${AV(U(m))} ${esc(U(m).nick)}</span>`).join('')}</div>
-  <button class="ghost sm" style="margin-top:14px" onclick="leaveTeam('${t.id}')">Gruppe verlassen</button></div>${teamPlanCard(t)}${gchCard(t)}`;}
+  <button class="ghost sm" style="margin-top:14px" onclick="leaveTeam('${t.id}')">Gruppe verlassen</button></div>${teamMateStats(t)}${teamPlanCard(t)}${gchCard(t)}`;}
  const st=teamStats(t);const mx=Math.max(1,...st.rows.map(r=>r.c.week));const lazy=st.rows.filter(r=>!r.c.last||r.c.last<Date.now()-14*DAY);
  const sorted=st.rows.slice().sort((a,b)=>b.c.week-a.c.week||b.c.days-a.c.days);
  return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('teams')">← Gruppen</button><h2 class="sp" style="margin:0">${esc(t.name)}</h2><span class="badge ${t.type==='team'?'y':''}">${TTYPE[t.type]}</span></div>
