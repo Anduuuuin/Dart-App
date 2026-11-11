@@ -483,6 +483,17 @@ input,select,textarea{font-size:max(16px,1em)}
 .bdg .bi{font-size:34px}.bdg .bn{font-weight:800;font-size:14px;margin-top:4px}.bdg .bv{font-size:12px;color:var(--muted);margin-top:4px}
 .bdg .bp{height:6px;background:var(--panel2);border-radius:99px;margin-top:8px;overflow:hidden}.bdg .bp i{display:block;height:100%;background:var(--accent)}
 .honor{display:grid;gap:10px}.hon{display:flex;align-items:center;gap:14px;margin:0}.hon .hi{font-size:32px;width:44px;text-align:center}.hon .hv{font-size:24px;font-weight:900;color:var(--gold)}
+/* ===== Kamera im Online-Spiel ===== */
+#rtcbox{position:fixed;left:10px;bottom:calc(env(safe-area-inset-bottom) + 84px);z-index:60;display:flex;flex-direction:column;gap:8px;max-width:46vw}
+#rtcbox .rv{position:relative;width:min(46vw,300px);aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;border:2px solid var(--accent);box-shadow:0 8px 28px #0009;cursor:pointer}
+#rtcbox .rv.me{width:min(26vw,150px);border-color:var(--line);opacity:.9}
+#rtcbox video{width:100%;height:100%;object-fit:cover;display:block}
+#rtcbox .rv span{position:absolute;left:6px;bottom:4px;font-size:12px;font-weight:800;background:#000a;padding:2px 7px;border-radius:99px}
+#rtcbox .rv span b{cursor:pointer;margin-left:4px}
+#rtcbox .rwait{background:#000c;color:var(--muted);font-size:12px;padding:8px 10px;border-radius:10px;max-width:240px}
+#rtcbox.big{left:0;right:0;top:0;bottom:0;max-width:none;background:#000e;align-items:center;justify-content:center;padding:12px}
+#rtcbox.big .rv{width:min(96vw,calc(88vh*16/9));border-width:3px}
+body.livebig #rtcbox:not(.big),body.livetab #rtcbox:not(.big){bottom:14px}
 </style>
 </head>
 <body>
@@ -687,7 +698,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=34;
+const APPV=35;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -2476,6 +2487,58 @@ function showQR(){if(!me()||me().role!=='admin'||!SY.on||!SY.key)return;
  <div style="padding:6px 0">${qrSVG(inviteLink())}</div>
  <ol class="muted small" style="padding-left:20px;margin:10px 0 0;line-height:1.6"><li>Am Tablet die <b>Kamera</b> öffnen und auf den Code halten.</li><li>Den erscheinenden Link antippen – die App öffnet sich mit dem Verein verbunden.</li><li>Im Chrome-Menü <b>⋮ → „App installieren“</b> bzw. „Zum Startbildschirm hinzufügen“.</li></ol>
  <button class="ghost" style="width:100%;margin-top:12px" onclick="closeModal()">Schließen</button>`);}
+/* ===================== Kamera im Online-Spiel (Bild direkt von Gerät zu Gerät) ===================== */
+const RTC={room:null,on:false,stream:null,pcs:{},since:0,poll:null,ice:null,remote:{},facing:'environment',big:null,err:null};
+async function rtcApi(path,opt){const r=await fetch(SY.api.replace(/\/api\/dc\/$/,'')+'/api/dc/'+path,{...opt,headers:{'Content-Type':'application/json','X-Club-Key':SY.key}});if(!r.ok)throw new Error(r.status);return r.json();}
+async function rtcIce(){if(RTC.ice)return RTC.ice;try{RTC.ice=(await rtcApi('ice')).ice;}catch(e){RTC.ice=[{urls:['stun:stun.l.google.com:19302']}];}return RTC.ice;}
+function rtcSend(to,msg){return rtcApi('sig',{method:'POST',body:JSON.stringify({room:RTC.room,from:meId,to,msg})}).catch(()=>{});}
+function rtcPeers(){const L=S.live;if(!L||!L.online)return[];const ps=L.kind==='x01'?L.players:L.ps;return ps.filter(p=>p!==meId&&!isBot(p));}
+/* aktivieren, sobald ein Online-Spiel offen ist (empfangen geht immer, senden nur mit eingeschalteter Kamera) */
+function rtcTick(){const L=S.live;const room=L&&L.online&&view==='live'?L.online:null;
+ if(room!==RTC.room){(RTC.peers||[]).forEach(p=>RTC.room&&rtcSend(p,{t:'bye'}));rtcStopAll();RTC.peers=room?rtcPeers():[];RTC.room=room;RTC.since=0;if(room){rtcIce();RTC.poll=setInterval(rtcPoll,700);rtcPoll();rtcPeers().forEach(p=>{rtcSend(p,{t:'hello'});if(rtcInit(p))rtcPc(p,true);});}}
+ rtcBox();}
+function rtcStopAll(){clearInterval(RTC.poll);RTC.poll=null;Object.keys(RTC.pcs).forEach(p=>{try{RTC.pcs[p].pc.close();}catch(e){}});RTC.pcs={};RTC.remote={};
+ if(RTC.stream){RTC.stream.getTracks().forEach(t=>t.stop());RTC.stream=null;}RTC.on=false;RTC.big=null;const b=document.getElementById('rtcbox');if(b)b.remove();}
+async function rtcPoll(){if(!RTC.room||RTC.busy)return;RTC.busy=true;try{const r=await rtcApi(`sig?room=${encodeURIComponent(RTC.room)}&me=${encodeURIComponent(meId)}&since=${RTC.since}`);
+ if(r.last<RTC.since)RTC.since=0;for(const m of r.msgs){RTC.since=Math.max(RTC.since,m.id);await rtcOn(m.from,m.msg);}}catch(e){}finally{RTC.busy=false;try{rtcBox();}catch(e){}}}
+const rtcInit=p=>meId<p;
+async function rtcAttach(o){const t=o.pc.getTransceivers().find(x=>x.receiver&&x.receiver.track&&x.receiver.track.kind==='video');if(!t)return;
+ const want=RTC.stream||null;if(o.src!==want||(want&&(!t.sender.track||t.sender.track.readyState!=='live'))){const old=o.track;const tr=want?want.getVideoTracks()[0].clone():null;o.track=tr;o.src=want;
+  try{await t.sender.replaceTrack(tr);}catch(e){}if(old)setTimeout(()=>{try{old.stop();}catch(e){}},500);}
+ const dir=want?'sendrecv':'recvonly';if(t.direction!==dir)t.direction=dir;}
+async function rtcPc(p,fresh){if(RTC.pcs[p]&&!fresh)return RTC.pcs[p];if(RTC.pcs[p]){try{RTC.pcs[p].pc.close();if(RTC.pcs[p].track)RTC.pcs[p].track.stop();}catch(e){}delete RTC.remote[p];}
+ const pc=new RTCPeerConnection({iceServers:RTC.ice||[{urls:['stun:stun.l.google.com:19302']}]});const o={pc,polite:!rtcInit(p),making:false,ignore:false};RTC.pcs[p]=o;
+ pc.onicecandidate=e=>{if(e.candidate)rtcSend(p,{t:'ice',c:e.candidate});};
+ pc.ontrack=e=>{RTC.remote[p]=e.streams[0]||new MediaStream([e.track]);e.track.onunmute=()=>{RTC.err=null;rtcBox();};e.track.onmute=()=>rtcBox();rtcBox();};
+ pc.onnegotiationneeded=async()=>{try{o.making=true;await pc.setLocalDescription();rtcSend(p,{t:'sdp',d:pc.localDescription});}catch(e){}finally{o.making=false;}};
+ pc.onconnectionstatechange=()=>{if(pc.connectionState==='connected')RTC.err=null;if(pc.connectionState==='failed'){RTC.err='Keine direkte Verbindung möglich – das Netzwerk blockiert das Bild.';try{pc.restartIce();}catch(e){}}if(pc.connectionState==='closed')delete RTC.remote[p];rtcBox();};
+ if(rtcInit(p)){pc.addTransceiver('video',{direction:'recvonly'});await rtcAttach(o);}
+ return o;}
+async function rtcOn(from,m){if(!m)return;
+ if(m.t==='hello'){if(rtcInit(from))await rtcPc(from,true);else if(RTC.pcs[from]){try{RTC.pcs[from].pc.close();}catch(e){}delete RTC.pcs[from];delete RTC.remote[from];rtcBox();}return;}
+ if(m.t==='bye'){if(RTC.pcs[from]){try{RTC.pcs[from].pc.close();}catch(e){}delete RTC.pcs[from];}delete RTC.remote[from];rtcBox();return;}
+ const o=await rtcPc(from),pc=o.pc;
+ try{if(m.t==='sdp'){const d=m.d;const coll=d.type==='offer'&&(o.making||pc.signalingState!=='stable');o.ignore=!o.polite&&coll;if(o.ignore)return;
+   await pc.setRemoteDescription(d);if(d.type==='offer'){if(!rtcInit(from))await rtcAttach(o);await pc.setLocalDescription();rtcSend(from,{t:'sdp',d:pc.localDescription});}}
+  else if(m.t==='ice'){try{await pc.addIceCandidate(m.c);}catch(e){if(!o.ignore)throw e;}}}catch(e){console.warn('rtc',e);}}
+async function rtcToggle(){if(RTC.stream){RTC.stream.getTracks().forEach(t=>t.stop());RTC.stream=null;RTC.on=false;for(const o of Object.values(RTC.pcs))await rtcAttach(o);rtcBox();render();toast('📷 Kamera aus');return;}
+ try{RTC.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:RTC.facing},width:{ideal:1280},height:{ideal:720}},audio:false});}catch(e){toast('📷 Kamera nicht erlaubt oder nicht vorhanden');return;}
+ RTC.on=true;for(const p of rtcPeers()){if(RTC.pcs[p])await rtcAttach(RTC.pcs[p]);else if(rtcInit(p))await rtcPc(p);else rtcSend(p,{t:'hello'});}
+ rtcBox();render();toast('📷 Kamera an – richte sie aufs Board');}
+async function rtcFlip(){RTC.facing=RTC.facing==='environment'?'user':'environment';if(!RTC.stream)return;RTC.stream.getTracks().forEach(t=>t.stop());
+ try{RTC.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:RTC.facing},width:{ideal:1280},height:{ideal:720}},audio:false});}catch(e){return;}
+ for(const o of Object.values(RTC.pcs))await rtcAttach(o);const b=document.getElementById('rtcbox');if(b)b.dataset.k='';rtcBox();}
+function rtcBtn(){const L=S.live;if(!L||!L.online)return '';return `<button class="sm ${RTC.stream?'pri':'ghost'}" onclick="rtcToggle()" title="Kamera ein/aus – der Gegner sieht dein Board">${RTC.stream?'📷 Kamera an':'📷 Kamera'}</button>`;}
+/* das Video-Fenster liegt über der App und bleibt beim Neuzeichnen erhalten */
+function rtcBox(){let b=document.getElementById('rtcbox');const ids=Object.keys(RTC.remote).filter(p=>RTC.remote[p]&&RTC.remote[p].getVideoTracks().some(t=>t.readyState==='live'&&!t.muted));
+ if(!RTC.room||(!ids.length&&!RTC.stream)){if(b)b.remove();return;}
+ if(!b){b=document.createElement('div');b.id='rtcbox';document.body.appendChild(b);}
+ const want=ids.map(p=>'r'+p).concat(RTC.stream?['me']:[]).join(',')+'|'+(RTC.big||'')+'|'+(RTC.err||'');if(b.dataset.k===want)return;b.dataset.k=want;
+ b.className=RTC.big?'big':'';b.innerHTML='';
+ ids.forEach(p=>{const w=document.createElement('div');w.className='rv';w.onclick=()=>{RTC.big=RTC.big===p?null:p;rtcBox();};const v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.muted=true;v.srcObject=RTC.remote[p];setTimeout(()=>v.play&&v.play().catch(()=>{}),50);
+  const l=document.createElement('span');l.textContent='📷 '+U(p).nick;w.append(v,l);if(RTC.big&&RTC.big!==p)w.style.display='none';b.appendChild(w);});
+ if(RTC.stream&&!RTC.big){const w=document.createElement('div');w.className='rv me';const v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.muted=true;v.srcObject=RTC.stream;const l=document.createElement('span');l.innerHTML='Du <b onclick="event.stopPropagation();rtcFlip()">🔄</b>';w.append(v,l);b.appendChild(w);}
+ if(!ids.length&&RTC.stream){const n=document.createElement('div');n.className='rwait';n.textContent=RTC.err||'Dein Bild wird gesendet. Hat der Gegner auch seine Kamera an, erscheint hier sein Board.';b.appendChild(n);}}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -2562,7 +2625,7 @@ function renderNav(){const m=me();const n=document.getElementById('nav');const o
   if(!on){n.innerHTML='';return;}const k=navKey();
   n.innerHTML=`<div class="nlogo">${LOGO(38)}</div>${tabs().map(([v,i,l])=>`<button class="${k===v?'on':''}" onclick="${v==='train'?"trTab=trTab||'play';":''}go('${v}')"><span class="i">${i}</span><span>${l}</span></button>`).join('')}`;}
 function renderHeader(){const m=me();const h=document.getElementById('hdr');
-  if(!m||view==='live'){h.innerHTML=`<div class="top">${LOGO(30)}${view==='live'?`<div class="me">${SY.on&&S.live&&S.live.kind!=='mg'?watchBtn():''}<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button></div>`:''}</div>`;return;}
+  if(!m||view==='live'){h.innerHTML=`<div class="top">${LOGO(30)}${view==='live'?`<div class="me">${S.live&&S.live.online&&S.live.kind!=='mg'&&!(S.live.kind==='x01'&&bigOn())?rtcBtn():''}${SY.on&&S.live&&S.live.kind!=='mg'?watchBtn():''}<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button></div>`:''}</div>`;return;}
   const roleL=m.captain?'Kapitän':{admin:'Admin',club:'Verein',player:'Spieler'}[m.role];
   h.innerHTML=`<div class="top">${LOGO(30)}<div class="me">${AV(m)} ${esc(m.nick)} <span class="badge">${roleL}</span><button class="sm ghost" onclick="go('mysettings')" title="Einstellungen">⚙️</button><button class="sm ghost" onclick="logout()" title="Abmelden">Abmelden</button></div></div>
   ${demoBar()}`;}
@@ -2831,7 +2894,7 @@ function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=botCur()?`🤖 ${BOT.show.length?BOT.show.join(' · '):'zielt …'}`:notIn?'Double In: erst ein Doppel treffen':L.coOff?'':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
  const big=bigOn();
- return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.online?'<span class="badge g">🌐 Online</span> ':''}${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost" onclick="togCo()" title="Checkout-Wege anzeigen oder ausblenden">${L.coOff?'🧮 Wege: aus':'🧮 Wege: an'}</button><button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
+ return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.online?'<span class="badge g">🌐 Online</span> ':''}${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost" onclick="togCo()" title="Checkout-Wege anzeigen oder ausblenden">${L.coOff?'🧮 Wege: aus':'🧮 Wege: an'}</button><button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${rtcBtn()}${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
  <div class="xgrid"><div class="xl"><div class="sc-players n${L.players.length}">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${i===L.cur&&L.players.length>1?'<div class="turn">🎯 AM WURF</div>':''}${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
   <div class="nm">${AV(U(id))} ${esc(U(id).nick)}${hcLabel(L,i)?` <span class="badge y" title="Handicap">⚖️ ${hcLabel(L,i)}</span>`:''}${L.din&&L.inn&&!L.inn[i]?' <span class="badge" title="Noch kein Doppel getroffen">🔒 D-In</span>':''}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
@@ -3550,7 +3613,7 @@ function vMG(){const st=S.live,g=MG[st.id];const p=st.cur;
  <div class="mggrid">${nums.map(n=>`<button onclick="mgThrow(${n})">${st.mult===3?'T':st.mult===2?'D':''}${n}</button>`).join('')}</div>
  <div class="row" style="gap:6px;margin-top:6px"><button class="sp" style="padding:14px 0;font-weight:800" onclick="mgThrow(25)">${st.mult>=2?'Bullseye 50':'Bull 25'}</button><button class="sp red" style="padding:14px 0" onclick="mgThrow(0)">Daneben</button><button style="padding:14px 18px" onclick="mgUndo()">↶</button></div></div>`}`;
  if(bigOn())return vMGbig(st,g,p,padHTML);
- return `<div class="row muted small" style="margin-bottom:8px">${st.online?'<span class="badge g">🌐 Online</span>':''}<b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="row muted small" style="margin-bottom:8px">${st.online?'<span class="badge g">🌐 Online</span>':''}<b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${rtcBtn()}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="card mgpl" style="padding:10px 12px">${st.ps.map((id,i)=>`<div class="row ${i===p?'mgcur':''}" style="flex-wrap:nowrap;padding:8px;border-radius:12px;${i===p?'background:linear-gradient(90deg,#1fb35a26,transparent);box-shadow:inset 3px 0 0 var(--accent)':''};${mgActive(st,i)?'':'opacity:.45'}">${AV(U(id),36)}<div class="sp" style="min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(U(id).nick)}</b><div class="muted small" style="margin-top:2px">${g.status(st,i)}</div></div>${i===p?'<span class="badge g">am Zug</span>':''}</div>`).join('')}</div>
  ${g.extra?g.extra(st):''}
  <div class="card mgtask" style="text-align:center;padding:14px"><div class="muted small">${esc(U(st.ps[p]).nick)} ist dran${g.visitInput?' · Aufnahme eintippen':` · Dart ${st.dart+1} von 3`}</div>
@@ -3564,7 +3627,7 @@ function vMGbig(st,g,p,padHTML){const n=st.ps.length;
   <div class="nm">${AV(U(id))}<span>${esc(U(id).nick)}${mgTro(st,id)}</span></div>
   <div class="stv">${g.status(st,i)}</div>
   ${cur?`<div class="hint">${g.hint(st,p)}</div>${g.visitInput?'':`<div class="dts">${[0,1,2].map(k=>`<span class="${k===st.dart?'on':''}">${st.darts[k]?dName(st.darts[k]):'·'}</span>`).join('')}</div>`}`:''}</div>`;}).join('');
- return `<div class="mgb"><div class="row muted small mgtop">${st.online?'<span class="badge g">🌐 Online</span>':''}<b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
+ return `<div class="mgb"><div class="row muted small mgtop">${st.online?'<span class="badge g">🌐 Online</span>':''}<b style="color:var(--text)">${g.name}</b>${g.rounds?`<span>· Runde ${Math.min(st.round,g.rounds)} von ${g.rounds}</span>`:''}${st.sets&&st.sets.n>1?`<span>· Durchgang ${st.sets.no} von ${st.sets.n}</span>`:''}<span class="sp"></span>${matchMedia(BIGQ).matches?`<button class="sm ghost" onclick="togBig()">${bigOn()?'📱 Normale Anzeige':'📺 Großanzeige'}</button>`:''}${rtcBtn()}${SY.on?watchBtn():''}<button class="sm ghost" onclick="mgRules()">📖 Regeln</button></div>
  <div class="mggrid2"><div class="mgl"><div class="mgps n${Math.min(n,8)}">${cards}</div>${g.extra?`<div class="mgx">${g.extra(st)}</div>`:''}</div><div class="mgr">${padHTML}</div></div></div>`;}
 
 /* ===================== Turniere ===================== */
@@ -3962,7 +4025,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&view==='home'&&m.role!=='player')view='tour';
  if(m&&view==='admin'&&!isStaff())view='home';
  if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null;
- renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
+ renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{rtcTick();}catch(e){}},0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'club':h=vClub();break;case'coach':h=me().role==='player'?vCoach():vClub();break;case'player':h=pubLimited()&&param!==meId?pubStatsCard(param):canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;

@@ -100,3 +100,47 @@ routerUse((e) => {
   }
   return e.next();
 });
+
+// ---------- Kamera im Online-Spiel: kurze Verbindungs-Nachrichten zwischen zwei Geräten ----------
+// Es werden nur technische Verbindungsdaten ausgetauscht (kein Video). Das Bild geht direkt von Gerät zu Gerät.
+routerAdd("POST", "/api/dc/sig", (e) => {
+  const key = $os.getenv("CLUB_KEY");
+  if (!key || e.request.header.get("X-Club-Key") !== key) throw new UnauthorizedError("Falscher Vereins-Code");
+  const b = e.requestInfo().body || {};
+  const room = String(b.room || "").slice(0, 40), to = String(b.to || "").slice(0, 40), from = String(b.from || "").slice(0, 40);
+  const msg = JSON.stringify(b.msg || null);
+  if (!room || !to || !from || msg.length > 20000) throw new BadRequestError("Ungültig");
+  const now = Date.now();
+  const k = "sig:" + room + ":" + to;
+  let id = 0;
+  $app.store().setFunc(k, (old) => {
+    let arr = [];
+    try { arr = old ? JSON.parse(old) : []; } catch (_) { arr = []; }
+    arr = arr.filter((m) => now - m.at < 120000).slice(-150);
+    id = (arr.length ? arr[arr.length - 1].id : 0) + 1;
+    arr.push({ id: id, from: from, msg: msg, at: now });
+    return JSON.stringify(arr);
+  });
+  return e.json(200, { id: id });
+});
+routerAdd("GET", "/api/dc/sig", (e) => {
+  const key = $os.getenv("CLUB_KEY");
+  if (!key || e.request.header.get("X-Club-Key") !== key) throw new UnauthorizedError("Falscher Vereins-Code");
+  const q = e.request.url.query();
+  const room = String(q.get("room") || ""), me = String(q.get("me") || "");
+  const since = parseInt(q.get("since") || "0", 10) || 0;
+  const raw = $app.store().get("sig:" + room + ":" + me);
+  let arr = [];
+  try { arr = raw ? JSON.parse(raw) : []; } catch (_) { arr = []; }
+  const out = arr.filter((m) => m.id > since).map((m) => ({ id: m.id, from: m.from, msg: JSON.parse(m.msg) }));
+  return e.json(200, { msgs: out, last: arr.length ? arr[arr.length - 1].id : 0 });
+});
+// Verbindungshelfer (STUN/TURN). TURN ist optional: TURN_URL, TURN_USER, TURN_PASS in /opt/pb/verein/env
+routerAdd("GET", "/api/dc/ice", (e) => {
+  const key = $os.getenv("CLUB_KEY");
+  if (!key || e.request.header.get("X-Club-Key") !== key) throw new UnauthorizedError("Falscher Vereins-Code");
+  const ice = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
+  const tu = $os.getenv("TURN_URL");
+  if (tu) ice.push({ urls: tu.split(","), username: $os.getenv("TURN_USER"), credential: $os.getenv("TURN_PASS") });
+  return e.json(200, { ice: ice });
+});
