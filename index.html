@@ -698,7 +698,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=40;
+const APPV=41;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -2552,6 +2552,41 @@ function tmSync(L,i){if(!L||!L.team)return;const t=L.team[i];L.team.forEach((x,j
 function tmName(L,t){return (t===0?'Team A':'Team B')+' ('+L.players.filter((_,j)=>L.team[j]===t).map(id=>U(id).nick).join(' & ')+')';}
 function dblHTML(){const on=!!setup.dbl;return `<label>Spielart</label><div class="chips"><button class="${on?'':'on'}" onclick="setup.dbl=false;render()">👤 Einzel</button><button class="${on?'on':''}" onclick="setup.dbl=true;while(setup.slots.length<4)setup.slots.push({id:null,label:'Gast'});setup.slots=setup.slots.slice(0,4);setup.hcOn=false;render()">👥 Doppel (2 gegen 2)</button></div>
  ${on?`<p class="muted small" style="margin:6px 0 0"><b>Team A</b> = Spieler 1 + 2 · <b>Team B</b> = Spieler 3 + 4. Geworfen wird abwechselnd wie im echten Doppel: A1 → B1 → A2 → B2. Jedes Team hat einen gemeinsamen Rest, die Statistik zählt für jeden Spieler einzeln.</p>`:''}`;}
+
+/* ===================== Checkout-Rechner (nur Kopfrechnen) ===================== */
+const CC_DARTS=(()=>{const a=[];for(let n=1;n<=20;n++){a.push({l:''+n,v:n,d:false},{l:'D'+n,v:2*n,d:true},{l:'T'+n,v:3*n,d:false});}a.push({l:'25',v:25,d:false},{l:'Bull',v:50,d:true});return a;})();
+let CC_M=null;function ccMin(r){if(!CC_M){CC_M={};const s1=new Set(CC_DARTS.map(x=>x.v)),s2=new Set();CC_DARTS.forEach(a=>CC_DARTS.forEach(b=>s2.add(a.v+b.v)));const fin=CC_DARTS.filter(x=>x.d);
+ for(let q=2;q<=170;q++){let b=9;fin.forEach(f=>{const rest=q-f.v;if(rest===0)b=Math.min(b,1);else if(rest>0&&s1.has(rest))b=Math.min(b,2);else if(rest>0&&s2.has(rest))b=Math.min(b,3);});CC_M[q]=b;}}return CC_M[r]||9;}
+function ccTask(){const bog=[169,168,166,165,163,162,159];const r=Math.random();let rest,darts=3;
+ if(r<.1){rest=bog[Math.floor(Math.random()*bog.length)];}
+ else{const pool=r<.35?[2,60]:r<.75?[61,120]:[121,170];do{rest=pool[0]+Math.floor(Math.random()*(pool[1]-pool[0]+1));}while(rest<2||bog.includes(rest)&&Math.random()<.7);
+  if(rest<=110&&Math.random()<.3)darts=2;if(rest<=50&&Math.random()<.25)darts=1;}
+ return{rest,darts,possible:ccMin(rest)<=darts};}
+function ccStart(){const s=S.live.st;s.task=ccTask();s.pick=[];s.mult=1;s.fb=null;s.ts=Date.now();}
+function ccPick(v,lbl,dbl){const s=S.live.st;if(s.fb)return;if(s.pick.length>=s.task.darts)return toast(`Nur ${s.task.darts} ${s.task.darts===1?'Dart':'Darts'}`);s.pick.push({v,l:lbl,d:dbl});s.mult=1;render();}
+function ccNum(n){const s=S.live.st;const m=s.mult;ccPick(n*m,(m===3?'T':m===2?'D':'')+n,m===2);}
+function ccCheck(none){const L=S.live,s=L.st,t=s.task;if(s.fb)return;const sum=s.pick.reduce((a,x)=>a+x.v,0);let ok;
+ if(none)ok=!t.possible;else ok=t.possible&&s.pick.length>0&&s.pick.length<=t.darts&&sum===t.rest&&s.pick[s.pick.length-1].d;
+ const why=none?(t.possible?'Doch – das geht!':''):(!s.pick.length?'Kein Dart gewählt':sum!==t.rest?`Deine Darts ergeben ${sum}, nicht ${t.rest}`:!s.pick[s.pick.length-1].d?'Der letzte Dart muss ein Doppel oder das Bull sein':!t.possible?'Hier gibt es kein Finish':'');
+ const pro=t.possible?(CO[t.rest]&&CO[t.rest].length<=t.darts?CO[t.rest].join(' · '):ccRoute(t.rest,t.darts)):'kein Finish möglich';
+ exSnap();if(ok)s.ok++;s.q++;s.log.push(ok?'✓':'✗');s.fb={ok,why,pro,mine:none?'Kein Finish':s.pick.map(x=>x.l).join(' · ')};save();render();}
+function ccRoute(r,n){const fin=CC_DARTS.filter(x=>x.d).sort((a,b)=>b.v-a.v);const big=CC_DARTS.slice().sort((a,b)=>b.v-a.v);
+ for(const f of fin)if(f.v===r)return f.l;if(n>=2)for(const a of big)for(const f of fin)if(a.v+f.v===r)return a.l+' · '+f.l;
+ if(n>=3)for(const a of big)for(const b of big)for(const f of fin)if(a.v+b.v+f.v===r)return a.l+' · '+b.l+' · '+f.l;return '–';}
+function ccNext(){const L=S.live,s=L.st;if(s.q>=10){const sec=Math.round((Date.now()-s.t0)/1000);return finishEx(s.ok,{time:sec});}ccStart();save();render();}
+function vCoCalc(){const L=S.live,s=L.st;if(!s.task){ccStart();}const t=s.task,f=s.fb;const sum=s.pick.reduce((a,x)=>a+x.v,0);
+ const head=`<div class="row" style="margin-bottom:8px"><b class="sp">🧮 Checkout-Rechner</b><span class="muted">Aufgabe ${Math.min(s.q+(f?0:1),10)}/10 · ✓ ${s.ok}</span><button class="sm ghost" onclick="ask('Übung abbrechen?','Abbrechen',()=>{S.live=null;save();go('ex','cocalc')},true)">✕</button></div>
+ <div class="muted small" style="margin-bottom:8px;letter-spacing:2px">${s.log.join(' ')}</div>`;
+ const task=`<div class="card" style="text-align:center;padding:18px 12px"><div class="muted">Rest</div><div class="big-target" style="font-size:min(18vh,84px);line-height:1">${t.rest}</div><div style="font-weight:800;color:var(--gold)">mit ${t.darts} ${t.darts===1?'Dart':'Darts'} · Double Out</div>
+  <div class="row" style="justify-content:center;gap:8px;margin-top:12px;min-height:44px">${Array.from({length:t.darts},(_,i)=>`<span class="badge" style="font-size:20px;padding:8px 14px;min-width:64px;${s.pick[i]?'border-color:var(--accent)':''}">${s.pick[i]?s.pick[i].l:'·'}</span>`).join('')}</div>
+  ${s.pick.length&&!f?`<div class="muted small" style="margin-top:6px">Summe: ${sum} · noch ${t.rest-sum}</div>`:''}</div>`;
+ if(f)return head+task+`<div class="card" style="text-align:center;border-color:${f.ok?'var(--accent)':'var(--accent2)'}"><div style="font-size:42px">${f.ok?'✅':'❌'}</div><h3 style="margin:4px 0">${f.ok?'Richtig!':'Leider falsch'}</h3>${f.why?`<p class="muted" style="margin:4px 0">${esc(f.why)}</p>`:''}
+  <p style="margin:8px 0 0">Deine Antwort: <b>${esc(f.mine||'–')}</b></p><p style="margin:4px 0 0">Profi-Weg: <b style="color:var(--gold)">${esc(f.pro)}</b></p>
+  <button class="pri" style="width:100%;margin-top:14px;padding:16px;font-size:18px" onclick="ccNext()">${s.q>=10?'Ergebnis ansehen':'Nächste Aufgabe ›'}</button></div>`;
+ return head+task+`<div class="card mgpad"><div class="row" style="gap:6px;margin-bottom:8px">${[[1,'Single'],[2,'Double'],[3,'Triple']].map(([m,l])=>`<button class="sp ${s.mult===m?'pri':''}" onclick="S.live.st.mult=${m};render()">${l}</button>`).join('')}</div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">${Array.from({length:20},(_,i)=>`<button style="padding:12px 0;font-size:18px" onclick="ccNum(${i+1})">${i+1}</button>`).join('')}</div>
+  <div class="row" style="gap:6px;margin-top:6px"><button class="sp" onclick="ccPick(25,'25',false)">25</button><button class="sp" onclick="ccPick(50,'Bull',true)">Bull</button><button class="sp" onclick="if(S.live.st.pick.length){S.live.st.pick.pop();render();}">⌫</button></div>
+  <div class="row" style="gap:6px;margin-top:10px"><button class="sp red" onclick="ccCheck(true)">🚫 Kein Finish</button><button class="sp pri" style="padding:14px" onclick="ccCheck(false)">✔ Prüfen</button></div></div>`;}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -3191,6 +3226,9 @@ Object.assign(EX,{
   steps:['Ein Dart auf Doppel 1, dann ein Dart auf Doppel 2 und so weiter.','Nach D20 ein Dart aufs Bullseye.','Tippe pro Dart Treffer oder Daneben.','Maximum: 21 Treffer.']},
  d8:hitsEx('D8','dbl'),d10:hitsEx('D10','dbl'),d12:hitsEx('D12','dbl'),d18:hitsEx('D18','dbl'),
  /* ---- Checkout ---- */
+ cocalc:{name:'Checkout-Rechner',cat:'co',dur:5,sets:1,type:'cocalc',max:10,unit:'richtig',better:'high',
+  desc:'Nur Kopfrechnen, kein Board nötig: Finde für jeden Rest einen Checkout-Weg mit Double Out – so schnell wie möglich.',
+  steps:['Du bekommst 10 Aufgaben: einen Rest und wie viele Darts du noch hast.','Tippe deinen Weg ein – z. B. T20, T19, D12. Der letzte Dart muss ein Doppel oder das Bull sein.','Gibt es kein Finish, tippe „Kein Finish“ (z. B. bei 169 oder wenn die Darts nicht reichen).','Nach jeder Aufgabe siehst du, ob es stimmt, und den Profi-Weg. Ergebnis: richtige Antworten – die Zeit zählt als Bonus mit.']},
  c121:{name:'121',cat:'co',dur:12,sets:1,type:'cogame',start:121,rounds:10,visits:3,step:1,lock:true,dOut:true,unit:'höchstes Finish',better:'high',
   desc:'Der Profi-Klassiker fürs Finishen: Checke die 121 mit 9 Darts – jeder Check bringt dich eine Zahl höher.',
   steps:['Du startest bei 121 und hast 9 Darts (3 Aufnahmen), um mit Double Out auszuchecken.','Geschafft: Die nächste Runde geht auf 122, dann 123 und so weiter.','Checkst du schon mit den ersten 3 Darts, ist die Zahl gesichert – tiefer fällst du nicht mehr.','Nicht geschafft: zurück auf deine gesicherte Zahl (am Anfang 121).','Es gibt 10 Runden. Ergebnis: dein höchstes geschafftes Finish.']},
@@ -3279,7 +3317,7 @@ function vExDetail(id){const e=EX[id];if(!e){view='train';return vTrain();}const
 
 /* --- Übung durchführen --- */
 function startEx(id,planIdx=null){const e=EX[id];const uid=planIdx!=null?S.planRun.uid:trUid();if(!uid)return toast('Erst Spieler wählen');
- const st={targets:{i:0,hits:0},hits:{v:0,hits:0},skill:{v:0,t:0,s:0,selT:null,selS:null},total:{sum:0,visits:[]},sprint:{rem:e.start,darts:0,visits:0},atc:{t:1,darts:0,dv:0},finlist:{n:e.from,ok:0},ladder:{n:e.from,rem:e.from,visits:0},streak:{n:e.from,rem:e.from,v:0,ok:0},tlist:{i:0,sum:0},visits:{v:0,sum:0,last:[]},catch:{i:0,v:0,rem:e.list?e.list[0]:0,pts:0,ok:0,darts:0},cogame:{cur:e.start,safe:e.start,rem:e.start,v:0,r:1,best:0,ok:0,log:[]},bull:{v:0,t:0,s:0,selT:null,selS:null}}[e.type];
+ const st={targets:{i:0,hits:0},hits:{v:0,hits:0},skill:{v:0,t:0,s:0,selT:null,selS:null},total:{sum:0,visits:[]},sprint:{rem:e.start,darts:0,visits:0},atc:{t:1,darts:0,dv:0},finlist:{n:e.from,ok:0},ladder:{n:e.from,rem:e.from,visits:0},streak:{n:e.from,rem:e.from,v:0,ok:0},tlist:{i:0,sum:0},visits:{v:0,sum:0,last:[]},catch:{i:0,v:0,rem:e.list?e.list[0]:0,pts:0,ok:0,darts:0},cogame:{cur:e.start,safe:e.start,rem:e.start,v:0,r:1,best:0,ok:0,log:[]},cocalc:{q:0,ok:0,task:null,pick:[],mult:1,t0:Date.now(),fb:null,log:[]},bull:{v:0,t:0,s:0,selT:null,selS:null}}[e.type];
  S.live={kind:'ex',ex:id,uid,st:JSON.parse(JSON.stringify(st)),hist:[],input:'',planIdx};save();go('live');}
 function exSnap(){const L=S.live;L.hist.push(JSON.stringify(L.st));if(L.hist.length>80)L.hist.shift();}
 function exUndo(){const L=S.live;if(L.input){L.input='';render();return;}const h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen');L.st=JSON.parse(h);save();render();}
@@ -3287,7 +3325,7 @@ function padH(){return `<div class="inbox">${S.live.input||'<span class="muted" 
 const bigBtns=(fn,labels)=>`<div class="row">${labels.map(([v,l,c])=>`<button class="${c||'pri'} sp" style="padding:22px 0;font-size:22px" onclick="${fn}(${v})">${l}</button>`).join('')}</div>`;
 const undoBtn=()=>`<button class="ghost sm" style="margin-top:12px" onclick="exUndo()">↶ Rückgängig</button>`;
 const prog=(a,b)=>`<div style="height:10px;background:var(--panel2);border-radius:99px;margin:12px 0;overflow:hidden"><div style="height:100%;width:${Math.min(100,a/b*100)}%;background:var(--accent)"></div></div>`;
-function vEx(){const L=S.live,e=EX[L.ex],s=L.st;let body='';
+function vEx(){const L=S.live,e=EX[L.ex],s=L.st;let body='';if(e.type==='cocalc')return vCoCalc();
  const head=`<div class="muted" style="text-align:center">${AV(U(L.uid))} <b style="color:var(--text)">${esc(U(L.uid).nick)}</b> · ${e.name}${L.planIdx!=null?` · <span style="color:var(--gold)">${esc(S.planRun.name)}</span>`:''}</div>`;
  const big=(lab,sub)=>`<div class="muted" style="margin-top:14px;text-align:center">${sub}</div><div class="big-target">${lab}</div>`;
  const hitBtns=fn=>bigBtns(fn,[[0,'0','red'],[1,'1'],[2,'2'],[3,'3']]);
