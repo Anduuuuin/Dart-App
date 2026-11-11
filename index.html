@@ -494,6 +494,8 @@ input,select,textarea{font-size:max(16px,1em)}
 #rtcbox.big{left:0;right:0;top:0;bottom:0;max-width:none;background:#000e;align-items:center;justify-content:center;padding:12px}
 #rtcbox.big .rv{width:min(96vw,calc(88vh*16/9));border-width:3px}
 body.livebig #rtcbox:not(.big),body.livetab #rtcbox:not(.big){bottom:14px}
+.lsug{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.lsug button{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px;font-size:16px}
 </style>
 </head>
 <body>
@@ -698,7 +700,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=41;
+const APPV=43;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1215,7 +1217,7 @@ function teamPlanEdit(tid){const t=S.teams.find(x=>x.id===tid);GP_SEL={};((t.pla
  <label>Hinweis an die Gruppe (optional)</label><input id="gpn" maxlength="80" value="${esc((t.plan&&t.plan.note)||'')}" placeholder="z. B. Bis Donnerstag vor dem Spieltag">
  <div id="gpl" style="max-height:46vh;overflow:auto;margin-top:10px">${gpList()}</div>
  <div class="row" style="margin-top:12px">${t.plan?`<button class="red sm" onclick="teamPlanDel('${tid}')">Plan löschen</button>`:''}<span class="sp"></span><button class="ghost" onclick="closeModal()">Abbrechen</button><button class="pri" onclick="teamPlanSave('${tid}')">Speichern</button></div>`);}
-function gpList(){return Object.entries(EX).map(([id,e])=>{const s=GP_SEL[id]||0;return `<div class="row" style="flex-wrap:nowrap;padding:6px 0;border-top:1px solid var(--line)"><span class="sp" style="${s?'font-weight:700':''}">${esc(e.name)} <span class="muted small">~${e.dur} Min.</span></span><button class="sm ghost" onclick="gpSet('${id}',-1)">−</button><b style="width:22px;text-align:center">${s}</b><button class="sm ghost" onclick="gpSet('${id}',1)">＋</button></div>`;}).join('');}
+function gpList(){return botPlanPick("GP_SEL[BPK()]=(GP_SEL[BPK()]||0)+1;const el=document.getElementById('gpl');el.innerHTML=gpList();")+'<div class="sec">Übungen</div>'+Object.entries(EX).filter(([id,e])=>e.type!=='x01bot'||GP_SEL[id]).map(([id,e])=>{const s=GP_SEL[id]||0;return `<div class="row" style="flex-wrap:nowrap;padding:6px 0;border-top:1px solid var(--line)"><span class="sp" style="${s?'font-weight:700':''}">${esc(e.name)} <span class="muted small">~${e.dur} Min.</span></span><button class="sm ghost" onclick="gpSet('${id}',-1)">−</button><b style="width:22px;text-align:center">${s}</b><button class="sm ghost" onclick="gpSet('${id}',1)">＋</button></div>`;}).join('');}
 function gpSet(id,d){GP_SEL[id]=Math.max(0,Math.min(9,(GP_SEL[id]||0)+d));if(!GP_SEL[id])delete GP_SEL[id];const el=document.getElementById('gpl');const sc=el.scrollTop;el.innerHTML=gpList();el.scrollTop=sc;}
 function teamPlanSave(tid){const t=S.teams.find(x=>x.id===tid);const items=Object.entries(GP_SEL).filter(([e,s])=>s>0);if(!items.length)return toast('Mindestens eine Übung wählen');
  t.plan={id:uid(),items,note:document.getElementById('gpn').value.trim(),set:Date.now(),by:meId,done:{}};save();closeModal();render();toast('📋 Gruppenplan gespeichert');}
@@ -2587,6 +2589,21 @@ function vCoCalc(){const L=S.live,s=L.st;if(!s.task){ccStart();}const t=s.task,f
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">${Array.from({length:20},(_,i)=>`<button style="padding:12px 0;font-size:18px" onclick="ccNum(${i+1})">${i+1}</button>`).join('')}</div>
   <div class="row" style="gap:6px;margin-top:6px"><button class="sp" onclick="ccPick(25,'25',false)">25</button><button class="sp" onclick="ccPick(50,'Bull',true)">Bull</button><button class="sp" onclick="if(S.live.st.pick.length){S.live.st.pick.pop();render();}">⌫</button></div>
   <div class="row" style="gap:6px;margin-top:10px"><button class="sp red" onclick="ccCheck(true)">🚫 Kein Finish</button><button class="sp pri" style="padding:14px" onclick="ccCheck(false)">✔ Prüfen</button></div></div>`;}
+
+/* Login: Namensvorschläge ab dem ersten Buchstaben (private Profile erscheinen nicht) */
+function loginSug(v){const el=document.getElementById('lsug');if(!el)return;const q=(v||'').trim().toLowerCase();
+ if(!q){el.innerHTML='';return;}
+ const ps=allPlayers().filter(u=>!u.priv&&(u.nick||'').toLowerCase().startsWith(q)).sort((a,b)=>a.nick.localeCompare(b.nick)).slice(0,6);
+ if(ps.length===1&&ps[0].nick.toLowerCase()===q){el.innerHTML='';return;}
+ el.innerHTML=ps.map(u=>`<button type="button" onclick="loginPickSug('${u.id}')">${AV(u,24)} <b>${esc(u.nick)}</b></button>`).join('');}
+function loginPickSug(id){const u=S.users.find(x=>x.id===id);if(!u)return;document.getElementById('lpl').value=u.nick;document.getElementById('lsug').innerHTML='';const p=document.getElementById('lppin');p&&p.focus();}
+
+/* Baustein „501 gegen den Bot“ in Plan-Editoren */
+let BP={lv:60,bo:3};const BPK=()=>'x01bot_'+BP.lv+'_'+BP.bo;
+function botPlanPick(onAdd){return `<div class="card" style="margin:0 0 10px;border-color:#2fbf7155"><b>🤖 501 gegen den Dartbot</b><div class="muted small" style="margin:2px 0 8px">Zählt als erledigt, wenn das Match zu Ende gespielt ist.</div>
+ <div class="chips" id="bplv">${BOT_LV.map(([v])=>`<button class="${BP.lv===v?'on':''}" onclick="BP.lv=${v};[...this.parentNode.children].forEach(b=>b.classList.remove('on'));this.classList.add('on')">Ø ${v}</button>`).join('')}</div>
+ <div class="chips" style="margin-top:6px">${[3,5].map(b=>`<button class="${BP.bo===b?'on':''}" onclick="BP.bo=${b};[...this.parentNode.children].forEach(x=>x.classList.remove('on'));this.classList.add('on')">Best of ${b}</button>`).join('')}</div>
+ <button class="pri" style="width:100%;margin-top:8px" onclick="${onAdd.replace(/"/g,'&quot;')}">＋ Match hinzufügen</button></div>`;}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -2700,7 +2717,7 @@ function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=allPlayers();
  return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p>${installBtn(false)?`<div style="margin-top:16px">${installBtn(false)}</div>`:''}<div style="margin-top:12px">${helpBtn(false)}</div></div>${SY.on?'':`<div class="banner"><div class="row"><div class="sp"><h3 style="margin:0 0 4px">🧪 Demo-Modus</h3><span class="muted small">Alles mit Beispiel-Spielern, Kids-Team und laufenden Turnieren ausprobieren. Oben kannst du jederzeit zwischen Admin, Verein und Spieler wechseln.</span></div><button class="pri" onclick="startDemo()">Demo starten</button></div></div>`}
  <div class="grid2">
  <div class="card" style="margin:0"><h3>🏠 Spieler-Login</h3><p class="muted small">Für zu Hause: Training, Spielen und deine Statistik.</p>
- ${ps.length?`<label>Spitzname</label><input id="lpl" value="${(()=>{const mine=myDevicePlayer();const u=mine&&S.users.find(x=>x.id===mine);return u?esc(u.nick):'';})()}" placeholder="Deinen Spitznamen eintippen" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" maxlength="30" onkeydown="if(event.key==='Enter')document.getElementById('lppin').focus()">
+ ${ps.length?`<label>Spitzname</label><input id="lpl" value="${(()=>{const mine=myDevicePlayer();const u=mine&&S.users.find(x=>x.id===mine);return u?esc(u.nick):'';})()}" placeholder="Deinen Spitznamen eintippen" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" maxlength="30" oninput="loginSug(this.value)" onkeydown="if(event.key==='Enter')document.getElementById('lppin').focus()"><div id="lsug" class="lsug"></div>
  <label>PIN</label><input id="lppin" onkeydown="if(event.key==='Enter')loginPlayer()" type="${PINT}" class="pinf" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" maxlength="4" placeholder="4 Ziffern">
  <button class="pri" style="width:100%;margin-top:12px" onclick="loginPlayer()">Anmelden</button>`:'<p class="muted small">Noch keine Profile.</p>'}
  <button class="ghost" style="width:100%;margin-top:8px" onclick="newProfile(true)">＋ Neues Profil anlegen</button></div>
@@ -3055,10 +3072,10 @@ function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const befo
  if(L.tref)applyResult(L.tref.tid,L.tref.mid,draw?'DRAW':L.players[wi],sc[0],sc[1]);
  S.live=null;save();
  const rec=g.players.filter(p=>!isGuest(p.id)&&p.darts&&p.pts/p.darts*3>before[p.id]&&gamesOf(p.id).length>1);
- if(L.online){view='online';param=null;}else if(L.tref?.board){view='board';param=L.tref.board;}else if(g.tid){view='tourview';param=g.tid;}else view='play';render();
+ if(L.planEx&&L.planEx.idx!=null&&S.planRun&&S.planRun.items[L.planEx.idx]){S.planRun.items[L.planEx.idx].done++;save();view='planrun';param=null;}else if(L.online){view='online';param=null;}else if(L.tref?.board){view='board';param=L.tref.board;}else if(g.tid){view='tourview';param=g.tid;}else view='play';render();
  modal(`<h2>${draw?'🤝 Unentschieden!':`🏆 ${esc(L.team?tmName(L,L.team[wi]):U(L.players[wi]).nick)} gewinnt!`}</h2><p class="muted small">${fmtStr(f)}</p><table>${g.players.map((p,i)=>`<tr><td>${AV(U(p.id))} ${esc(U(p.id).nick)}</td><td>${f.sets?`<b>${L.sets[i]}</b> Sets · ${p.legs} Legs`:(f.bo>1?`<b>${p.legs}</b> Legs`:'')}</td><td>Ø ${f1(p.pts/p.darts*3)}</td></tr>`).join('')}</table>
  ${rec.length?`<div class="banner" style="margin-top:12px">⭐ Neuer persönlicher Rekord-Average: ${rec.map(p=>esc(U(p.id).nick)).join(', ')}!</div>`:''}
- <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal();${L.tref?.board?`go('board',${L.tref.board})`:g.tid?`go('tourview','${g.tid}')`:L.online?`go('online')`:`go('${me().role==='player'?'home':'play'}')`}">Weiter</button>`);}
+ <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal();${L.tref?.board?`go('board',${L.tref.board})`:g.tid?`go('tourview','${g.tid}')`:L.planEx&&L.planEx.idx!=null&&S.planRun?`go('planrun')`:L.online?`go('online')`:`go('${me().role==='player'?'home':'play'}')`}">Weiter</button>`);}
 function leaveLive(){if(S.live&&S.live.online)return onlLeave();const wasTr=S.live&&S.live.kind!=='x01';ask('Spiel abbrechen? Der Spielstand geht verloren.','Abbrechen bestätigen',()=>{const t=S.live?.tref;S.live=null;save();t?.board?go('board',t.board):t?go('tourview',t.tid):go(wasTr?(S.planRun?'planrun':'train'):me().role==='player'?'home':'play');},true);}
 
 /* ===================== Training ===================== */
@@ -3167,7 +3184,10 @@ Object.assign(EX,{
   desc:'Trainiere deine Bull-Genauigkeit – präzisere Treffer bringen mehr Punkte.',
   steps:['Wirf 10 Aufnahmen (30 Darts) auf das Bull.','Jedes Single Bull (25) zählt 1 Punkt.','Jedes Bullseye (50) zählt 2 Punkte.','Ergebnis: Gesamtpunkte aus 30 Darts (maximal 60).']}});
 const xr=(a,b,st=1)=>{const r=[];for(let n=a;st>0?n<=b:n>=b;n+=st)r.push(n);return r;};
-const EXCAT={warm:'Warm-up',score:'Scoring',dbl:'Doppel',co:'Checkout',bull:'Bull',kids:'Kids'};
+const EXCAT={warm:'Warm-up',score:'Scoring',dbl:'Doppel',co:'Checkout',bull:'Bull',kids:'Kids',bot:'Gegen den Bot'};
+/* 501 gegen den Dartbot als Baustein für Trainingspläne: jede Stärke als Best of 3 und Best of 5 */
+[20,30,40,50,60,70,80,90,100,110].forEach(lv=>[3,5].forEach(bo=>{EX['x01bot_'+lv+'_'+bo]={name:`501 vs. Bot Ø ${lv} · Best of ${bo}`,cat:'bot',dur:bo===3?12:20,sets:1,type:'x01bot',lv,bo,unit:'',
+ desc:`Ein komplettes 501-Match (Double Out, Best of ${bo} Legs) gegen den Dartbot mit Average ${lv}.`,steps:[`501 Double Out, Best of ${bo} Legs – wer zuerst ${Math.floor(bo/2)+1} Legs hat, gewinnt.`,`Der Dartbot spielt mit einem Average von etwa ${lv} und wirft von selbst.`,'Im Trainingsplan zählt das Match als erledigt, sobald es zu Ende gespielt ist – egal ob Sieg oder Niederlage.']};}));
 Object.assign(EX.singles,{cat:'warm'});Object.assign(EX.atcw,{cat:'warm'});Object.assign(EX.skill,{cat:'score'});Object.assign(EX.score250,{cat:'score'});Object.assign(EX.sprint,{cat:'score'});
 Object.assign(EX.fin2140,{cat:'co'});Object.assign(EX.ladder,{cat:'co'});Object.assign(EX.streak61,{cat:'co'});Object.assign(EX.d16,{cat:'dbl'});Object.assign(EX.d20,{cat:'dbl'});Object.assign(EX.bullpts,{cat:'bull'});
 const hitsEx=(t,cat,extra='')=>({name:`${t}-Challenge`,cat,dur:2,sets:1,type:'hits',target:t,visits:5,unit:'Treffer',max:15,better:'high',desc:`15 Darts auf die ${t.replace('D','Doppel ').replace('T','Treble ')}${extra}.`,steps:[`Wirf 5 Aufnahmen (15 Darts) auf die ${t}.`,`Jeder Dart im ${t}-Feld zählt als Treffer.`,'Ergebnis: Treffer aus 15 Darts.']});
@@ -3299,8 +3319,8 @@ function vTrain(){const self=me().role==='player';
  const pick=!self?`<div class="card"><label style="margin-top:0">Wer trainiert?</label><div class="slots"><div class="slot ${exUser?'':'guest'}" onclick="openPicker({title:'Wer trainiert?',exclude:[],onPick:id=>{exUser=id;}})">${AV(exUser?U(exUser):{nick:'?',guest:true},40)}<div class="who"><b>${exUser?esc(U(exUser).nick):'Profil wählen'}</b><small>${exUser?'antippen zum Wechseln':'Übungen werden im Profil gespeichert'}</small></div></div></div></div>`:'';
  return `${tabsH}${run}${pick}${trTab==='ex'?vExList():vPlans()}`;}
 let exCat='all';
-function vExList(){const uid=trUid();const all=Object.entries(EX);
- return `<div class="seg">${[['all','Alle ('+all.length+')'],...Object.entries(EXCAT).map(([k,l])=>[k,l+' ('+all.filter(([,e])=>e.cat===k).length+')'])].map(([k,l])=>`<button class="${exCat===k?'on':''}" onclick="exCat='${k}';render()">${l}</button>`).join('')}</div><div class="grid2">${all.filter(([,e])=>exCat==='all'||e.cat===exCat).map(([id,e])=>{const b=uid?exBest(uid,id):null;return `<button class="tile" onclick="go('ex','${id}')">
+function vExList(){const uid=trUid();const all=Object.entries(EX).filter(([,e])=>e.type!=='x01bot');
+ return `<div class="seg">${[['all','Alle ('+all.length+')'],...Object.entries(EXCAT).filter(([k])=>all.some(([,e])=>e.cat===k)).map(([k,l])=>[k,l+' ('+all.filter(([,e])=>e.cat===k).length+')'])].map(([k,l])=>`<button class="${exCat===k?'on':''}" onclick="exCat='${k}';render()">${l}</button>`).join('')}</div><div class="grid2">${all.filter(([,e])=>exCat==='all'||e.cat===exCat).map(([id,e])=>{const b=uid?exBest(uid,id):null;return `<button class="tile" onclick="go('ex','${id}')">
  <div class="row" style="width:100%"><b class="sp">${e.name}</b><span class="badge">⏱ ${e.dur} Min.</span></div><small>${e.desc}</small>
  ${uid?`<small>Rekord: <b style="color:${b!=null?'var(--gold)':'var(--muted)'}">${b!=null?exFmt(id,b):'noch keiner'}</b> · ${exRuns(uid,id).length}× gemacht</small>`:''}</button>`;}).join('')}</div>`;}
 
@@ -3317,6 +3337,7 @@ function vExDetail(id){const e=EX[id];if(!e){view='train';return vTrain();}const
 
 /* --- Übung durchführen --- */
 function startEx(id,planIdx=null){const e=EX[id];const uid=planIdx!=null?S.planRun.uid:trUid();if(!uid)return toast('Erst Spieler wählen');
+ if(e.type==='x01bot'){const ps=[uid,'bot:'+e.lv];whoStarts(ps,first=>{startX01(ps,501,{sets:false,bo:e.bo,setLegs:3},true,null,{out:'double',first});S.live.planEx={idx:planIdx,ex:id};save();});return;}
  const st={targets:{i:0,hits:0},hits:{v:0,hits:0},skill:{v:0,t:0,s:0,selT:null,selS:null},total:{sum:0,visits:[]},sprint:{rem:e.start,darts:0,visits:0},atc:{t:1,darts:0,dv:0},finlist:{n:e.from,ok:0},ladder:{n:e.from,rem:e.from,visits:0},streak:{n:e.from,rem:e.from,v:0,ok:0},tlist:{i:0,sum:0},visits:{v:0,sum:0,last:[]},catch:{i:0,v:0,rem:e.list?e.list[0]:0,pts:0,ok:0,darts:0},cogame:{cur:e.start,safe:e.start,rem:e.start,v:0,r:1,best:0,ok:0,log:[]},cocalc:{q:0,ok:0,task:null,pick:[],mult:1,t0:Date.now(),fb:null,log:[]},bull:{v:0,t:0,s:0,selT:null,selS:null}}[e.type];
  S.live={kind:'ex',ex:id,uid,st:JSON.parse(JSON.stringify(st)),hist:[],input:'',planIdx};save();go('live');}
 function exSnap(){const L=S.live;L.hist.push(JSON.stringify(L.st));if(L.hist.length>80)L.hist.shift();}
@@ -3413,7 +3434,7 @@ function vPlans(){const uid=trUid();if(!uid)return `<div class="card muted">Wäh
   <div class="row" style="background:var(--bg);border-radius:99px;padding:3px;gap:2px;flex-wrap:nowrap"><button class="sm" style="border-radius:99px;background:transparent" onclick="setSets('${pid}','${e}',-1,${i})">−</button><b style="width:24px;text-align:center">${s}</b><button class="sm" style="border-radius:99px;background:transparent" onclick="setSets('${pid}','${e}',1,${i})">＋</button></div></div>`).join(''):'<p class="muted small">Noch keine Übungen.</p>'}
  <div class="row" style="margin-top:12px">${pid==='mine'?`<button class="ghost" onclick="addPlanEx()" style="color:var(--accent)">＋ Übung hinzufügen</button>`:`<button class="ghost sm" onclick="resetSets('${pid}')">Alle zurücksetzen</button>`}<span class="sp"></span>
  <button class="pri" ${items.some(x=>x[1]>0)?'':'disabled'} onclick="startPlan('${pid}')">▶ Training starten</button></div></div>`:''}</div>`;}).join('');}
-function addPlanEx(){modal(`<h3>Übung hinzufügen</h3>${Object.entries(EX).map(([id,e])=>`<button style="width:100%;text-align:left;margin-bottom:6px" onclick="const u=trUid();S.myPlans[u]=S.myPlans[u]||[];S.myPlans[u].push(['${id}',${e.sets}]);save();closeModal();render()"><b>${e.name}</b> <span class="muted small">· ${e.dur} Min.</span></button>`).join('')}<button class="ghost" style="width:100%;margin-top:6px" onclick="closeModal()">Abbrechen</button>`);}
+function addPlanEx(){modal(`<h3>Übung hinzufügen</h3>${botPlanPick("const u=trUid();S.myPlans[u]=S.myPlans[u]||[];S.myPlans[u].push([BPK(),1]);save();closeModal();render()")}<div class="sec">Übungen</div>${Object.entries(EX).filter(([,e])=>e.type!=='x01bot').map(([id,e])=>`<button style="width:100%;text-align:left;margin-bottom:6px" onclick="const u=trUid();S.myPlans[u]=S.myPlans[u]||[];S.myPlans[u].push(['${id}',${e.sets}]);save();closeModal();render()"><b>${e.name}</b> <span class="muted small">· ${e.dur} Min.</span></button>`).join('')}<button class="ghost" style="width:100%;margin-top:6px" onclick="closeModal()">Abbrechen</button>`);}
 function startPlan(pid){const uid=trUid();const items=planItems(pid,uid).filter(x=>x[1]>0);if(!items.length)return;
  const go2=()=>{S.planRun={uid,pid,name:pid==='mine'?'Mein Plan':String(pid).startsWith('team:')?'Gruppenplan '+(S.teams.find(x=>x.id===pid.slice(5))||{}).name:PLANS[pid].name,items:items.map(([ex,sets])=>({ex,sets,done:0})),start:Date.now()};save();go('planrun');};
  if(S.planRun)ask('Es läuft schon ein Plan. Abbrechen und neu starten?','Neu starten',go2,true);else go2();}
