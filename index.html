@@ -698,7 +698,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=39;
+const APPV=40;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -2665,16 +2665,17 @@ function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=allPlayers();
  return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p>${installBtn(false)?`<div style="margin-top:16px">${installBtn(false)}</div>`:''}<div style="margin-top:12px">${helpBtn(false)}</div></div>${SY.on?'':`<div class="banner"><div class="row"><div class="sp"><h3 style="margin:0 0 4px">🧪 Demo-Modus</h3><span class="muted small">Alles mit Beispiel-Spielern, Kids-Team und laufenden Turnieren ausprobieren. Oben kannst du jederzeit zwischen Admin, Verein und Spieler wechseln.</span></div><button class="pri" onclick="startDemo()">Demo starten</button></div></div>`}
  <div class="grid2">
  <div class="card" style="margin:0"><h3>🏠 Spieler-Login</h3><p class="muted small">Für zu Hause: Training, Spielen und deine Statistik.</p>
- ${ps.length?`<label>Spitzname</label><select id="lpl">${(()=>{const mine=myDevicePlayer();return `<option value="" ${mine?'':'selected'} disabled>– Spitzname wählen –</option>`+ps.map(p=>`<option value="${p.id}" ${p.id===mine?'selected':''}>${esc(p.nick)}</option>`).join('');})()}</select>
- <label>PIN</label><input id="lppin" type="${PINT}" class="pinf" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" maxlength="4" placeholder="4 Ziffern">
+ ${ps.length?`<label>Spitzname</label><input id="lpl" value="${(()=>{const mine=myDevicePlayer();const u=mine&&S.users.find(x=>x.id===mine);return u?esc(u.nick):'';})()}" placeholder="Deinen Spitznamen eintippen" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" maxlength="30" onkeydown="if(event.key==='Enter')document.getElementById('lppin').focus()">
+ <label>PIN</label><input id="lppin" onkeydown="if(event.key==='Enter')loginPlayer()" type="${PINT}" class="pinf" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" maxlength="4" placeholder="4 Ziffern">
  <button class="pri" style="width:100%;margin-top:12px" onclick="loginPlayer()">Anmelden</button>`:'<p class="muted small">Noch keine Profile.</p>'}
  <button class="ghost" style="width:100%;margin-top:8px" onclick="newProfile(true)">＋ Neues Profil anlegen</button></div>
  <div class="card" style="margin:0"><h3>🏟️ Verein & Admin</h3><p class="muted small">Für Laptop und Tablets im Vereinsheim: Turniere, Boards, Training.</p>
  <label>Zugang</label><select id="lacc"><option value="club">Vereinszugang</option><option value="admin">Admin</option></select>
  <label>PIN</label><input id="lpin" type="${PINT}" class="pinf" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" placeholder="PIN">
  <button class="pri" style="width:100%;margin-top:12px" onclick="loginStaff()">Anmelden</button></div></div>`;}
-function loginPlayer(){const id=document.getElementById('lpl').value,pin=document.getElementById('lppin').value;if(!id)return toast('Bitte zuerst deinen Spitznamen wählen');const u=S.users.find(x=>x.id===id);
- if(u&&(u.pin||'')===pin){rememberDevicePlayer(id);setMe(id);go('home');}else toast('Falsche PIN');}
+function loginPlayer(){const nm=(document.getElementById('lpl').value||'').trim().toLowerCase().replace(/\s+/g,' '),pin=document.getElementById('lppin').value;if(!nm)return toast('Bitte deinen Spitznamen eintippen');
+ const u=allPlayers().find(x=>(x.nick||'').trim().toLowerCase().replace(/\s+/g,' ')===nm&&(x.pin||'')===pin);
+ if(u){rememberDevicePlayer(u.id);setMe(u.id);go('home');}else toast('Spitzname oder PIN stimmt nicht');}
 // Nur auf dem eigenen Gerät ist der eigene Spitzname schon ausgewählt – auf fremden Geräten (z. B. Vereins-Tablet) ist das Feld leer
 function myDevicePlayer(){try{const id=localStorage.getItem('dc_myplayer');return S.users.some(u=>u.id===id)?id:'';}catch(e){return '';}}
 function rememberDevicePlayer(id){try{if(localStorage.getItem('dc_staffdevice'))return;localStorage.setItem('dc_myplayer',id);}catch(e){}} // Vereins-Tablets (Vereinszugang benutzt) merken sich nie einen Spieler
