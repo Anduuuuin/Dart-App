@@ -698,7 +698,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=35;
+const APPV=36;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -956,6 +956,7 @@ function mgBotAim(st,p){const g=MG[st.id];if(MG_BOT[st.id])return MG_BOT[st.id](
 /* Aufnahme-Spiele: 3 Pfeile werfen, Summe eintippen */
 function mgBotVisit(st,p,sig){const g=MG[st.id];const ds=[];
  if(g.tgs){const t=g.tgs[st.round-1];const aim=t==='D'?'D20':t==='T'?T20:t==='B'||t==='DB'?'Bull':'T'+t;let v=0;for(let k=0;k<3;k++){const d=botThrow(aim,sig);ds.push(d);if(g.tgHit(t,d))v+=d.v;}return{ds,v};}
+ if(st.id==='duel121'){const x=st.p[p];let r=x.rem,v=0;for(let k=3;k>=1;k--){const d=botThrow(botTarget(r,k,'double',true),sig);ds.push(d);const nr=r-d.v;if(nr<0||nr===1||(nr===0&&d.m!==2))return{ds,v:0};v+=d.v;r=nr;if(r===0)break;}return{ds,v};}
  if(st.id==='gotcha'||st.id==='elimination'){const rest=301-st.p[p].s;let r=rest,v=0;for(let k=3;k>=1;k--){const d=botThrow(botTarget(r,k,'single',true),sig);ds.push(d);v+=d.v;r-=d.v;if(r<=0)break;}return{ds,v};}
  if(st.id==='by5'){const need=(51-st.p[p].s)*5;const aim=need<60?'5':'20';let v=0;for(let k=0;k<3;k++){const d=botThrow(aim,sig);ds.push(d);v+=d.v;}if(ds.some(d=>d.v===0))v=0;return{ds,v};}
  if(st.id==='highlow'){const exp=botAvgOf(st.ps[p]);const aim=exp>st.hi+8?T20:st.lo>12?'1':T20;let v=0;for(let k=0;k<3;k++){const d=botThrow(aim,sig);ds.push(d);v+=d.v;}return{ds,v};}
@@ -2539,6 +2540,12 @@ function rtcBox(){let b=document.getElementById('rtcbox');const ids=Object.keys(
   const l=document.createElement('span');l.textContent='📷 '+U(p).nick;w.append(v,l);if(RTC.big&&RTC.big!==p)w.style.display='none';b.appendChild(w);});
  if(RTC.stream&&!RTC.big){const w=document.createElement('div');w.className='rv me';const v=document.createElement('video');v.autoplay=true;v.playsInline=true;v.muted=true;v.srcObject=RTC.stream;const l=document.createElement('span');l.innerHTML='Du <b onclick="event.stopPropagation();rtcFlip()">🔄</b>';w.append(v,l);b.appendChild(w);}
  if(!ids.length&&RTC.stream){const n=document.createElement('div');n.className='rwait';n.textContent=RTC.err||'Dein Bild wird gesendet. Hat der Gegner auch seine Kamera an, erscheint hier sein Board.';b.appendChild(n);}}
+
+/* ===================== Doppel (2 gegen 2) bei X01 ===================== */
+function tmSync(L,i){if(!L||!L.team)return;const t=L.team[i];L.team.forEach((x,j)=>{if(j===i||x!==t)return;L.scores[j]=L.scores[i];L.legs[j]=L.legs[i];L.sets[j]=L.sets[i];L.legsTotal[j]=L.legsTotal[i];if(L.inn)L.inn[j]=L.inn[i];});}
+function tmName(L,t){return (t===0?'Team A':'Team B')+' ('+L.players.filter((_,j)=>L.team[j]===t).map(id=>U(id).nick).join(' & ')+')';}
+function dblHTML(){const on=!!setup.dbl;return `<label>Spielart</label><div class="chips"><button class="${on?'':'on'}" onclick="setup.dbl=false;render()">👤 Einzel</button><button class="${on?'on':''}" onclick="setup.dbl=true;while(setup.slots.length<4)setup.slots.push({id:null,label:'Gast'});setup.slots=setup.slots.slice(0,4);setup.hcOn=false;render()">👥 Doppel (2 gegen 2)</button></div>
+ ${on?`<p class="muted small" style="margin:6px 0 0"><b>Team A</b> = Spieler 1 + 2 · <b>Team B</b> = Spieler 3 + 4. Geworfen wird abwechselnd wie im echten Doppel: A1 → B1 → A2 → B2. Jedes Team hat einen gemeinsamen Rest, die Statistik zählt für jeden Spieler einzeln.</p>`:''}`;}
 /* ===================== Rückmeldungen: Feedback & Fehler melden ===================== */
 // Senden kann jeder mit Vereins-Code. Lesen nur der Admin (Server prüft die Admin-PIN). Liegt NICHT in den Vereinsdaten.
 let fbKind='idee';const FB={items:null,err:'',filter:'open',busy:false};
@@ -2839,9 +2846,10 @@ function vPlay(){const self=me().role==='player';
  if(!self&&!setup.slots.length)setup.slots=[{id:null,label:'Heim'},{id:null,label:'Gast'}];
  return `<div class="card"><label style="margin-top:0">Spieler</label>${slotsHTML('setup.slots',setup.slots,{allowGuest:true,fixedFirst:self,addLabel:self?'Gast dazunehmen':'Spieler hinzufügen'})}
  <p class="muted small" style="margin:8px 0 0">${self?'Allein spielen oder einen Gast dazunehmen – deine Werte landen in deiner Statistik.':'Standard ist Heim gegen Gast. Wer seine Statistik will, tippt auf den Platz und wählt sein Profil.'}</p>
- ${botLevelsHTML()}
+ ${dblHTML()}
+ ${setup.dbl?'':botLevelsHTML()}
  ${optsHTML(setup,'setup',true)}
- ${hcHTML()}
+ ${setup.dbl?'':hcHTML()}
  ${starterHTML()}
  <button class="pri" style="width:100%;margin-top:18px;padding:16px" onclick="startFree()" ${setup.slots.length?'':'disabled'}>▶ Spiel starten</button></div>`;}
 
@@ -2874,7 +2882,10 @@ function optsHTML(o,name,allowEven=true,koNote=''){if(!o.fmt)o.fmt={sets:false,b
  ${o.din||o.out==='master'?`<p class="muted small" style="margin:8px 0 0">${o.din?'<b>Double In:</b> Die Punkte zählen erst ab dem ersten getroffenen Doppel – also nur die Punkte ab dem Doppel eintippen. ':''}${o.out==='master'?'<b>Master Out:</b> Beenden mit einem Doppel <b>oder</b> Triple.':''}</p>`:''}`
  :`<label>Check-out</label><div class="chips"><button class="${o.dOut?'on':''}" onclick="${name}.dOut=true;render()">Double Out</button><button class="${!o.dOut?'on':''}" onclick="${name}.dOut=false;render()">Single Out (Kids)</button></div>`}`;}
 function togSetup(id){const i=setup.players.indexOf(id);if(i>=0)setup.players.splice(i,1);else if(setup.players.length<4)setup.players.push(id);else toast('Maximal 4 Spieler');render();}
-function startFree(){const out=setup.out||(setup.dOut?'double':'single');const ps=slotIds(setup.slots);
+function startFree(){const out=setup.out||(setup.dOut?'double':'single');
+ if(setup.dbl){const p=slotIds(setup.slots);if(p.length!==4||setup.slots.some(sl=>!sl.id&&!sl.label))return toast('Für das Doppel braucht ihr genau 4 Spieler');
+  const ps=[p[0],p[2],p[1],p[3]];whoStarts(ps,first=>startX01(ps,setup.start,{...setup.fmt},out==='double',null,{out,din:!!setup.din,team:[0,1,0,1],first}));return;}
+ const ps=slotIds(setup.slots);
  let hc=null;if(setup.hcOn&&ps.length>1){hc=setup.slots.map((sl,i)=>{const h=(setup.hc||{})[i]||{};const st=h.m&&setup.start-h.m>=50?setup.start-h.m:null;return st||h.out?{start:st,out:h.out||null}:null;});if(!hc.some(x=>x))hc=null;}
  whoStarts(ps,first=>startX01(ps,setup.start,{...setup.fmt},out==='double',null,{out,din:!!setup.din,hc,first}));}
 function hcSet(i,k,v){setup.hc=setup.hc||{};setup.hc[i]=setup.hc[i]||{};setup.hc[i][k]=v;render();}
@@ -2888,7 +2899,7 @@ function hcHTML(){if(setup.slots.length<2)return '';const on=!!setup.hcOn;const 
 /* ===================== X01-Scorer ===================== */
 function startX01(ps,start,fmt,dOut,tref,mode){S.live=buildX01(ps,start,fmt,dOut,tref,mode);save();go('live');}
 function buildX01(ps,start,fmt,dOut,tref,mode){if(typeof fmt==='number')fmt={sets:false,bo:fmt,setLegs:3};const out=(mode&&mode.out)||(dOut?'double':'single'),din=!!(mode&&mode.din);
- return {kind:'x01',players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,coOff:!!(me()&&me().coHide),legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
+ return {kind:'x01',team:(mode&&mode.team)||null,players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,coOff:!!(me()&&me().coHide),legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
   st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,ch:0,co:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};}
 function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=botCur()?`🤖 ${BOT.show.length?BOT.show.join(' · '):'zielt …'}`:notIn?'Double In: erst ein Doppel treffen':L.coOff?'':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
@@ -2896,7 +2907,7 @@ function vX01(){const L=S.live;const f=L.fmt;
  const big=bigOn();
  return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.online?'<span class="badge g">🌐 Online</span> ':''}${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost" onclick="togCo()" title="Checkout-Wege anzeigen oder ausblenden">${L.coOff?'🧮 Wege: aus':'🧮 Wege: an'}</button><button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${rtcBtn()}${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
  <div class="xgrid"><div class="xl"><div class="sc-players n${L.players.length}">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${i===L.cur&&L.players.length>1?'<div class="turn">🎯 AM WURF</div>':''}${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
-  <div class="nm">${AV(U(id))} ${esc(U(id).nick)}${hcLabel(L,i)?` <span class="badge y" title="Handicap">⚖️ ${hcLabel(L,i)}</span>`:''}${L.din&&L.inn&&!L.inn[i]?' <span class="badge" title="Noch kein Doppel getroffen">🔒 D-In</span>':''}</div><div class="rem">${L.scores[i]}</div>
+  <div class="nm">${L.team?`<span class="badge ${L.team[i]?'r':'g'}" style="margin-right:4px">${L.team[i]?'B':'A'}</span>`:''}${AV(U(id))} ${esc(U(id).nick)}${hcLabel(L,i)?` <span class="badge y" title="Handicap">⚖️ ${hcLabel(L,i)}</span>`:''}${L.din&&L.inn&&!L.inn[i]?' <span class="badge" title="Noch kein Doppel getroffen">🔒 D-In</span>':''}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
   ${i===L.cur?`<div class="co">${co}</div>`:''}${i===L.cur&&AD.on&&AD.ok?`<div class="adw">${adDarts()}</div>`:''}</div>`;}).join('')}</div></div>
  <div class="xr"><div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
@@ -2922,7 +2933,7 @@ function visit(v,forceBust){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.
   modal(`<h3>Check-out ${prev}! 🎯</h3><p class="muted">Mit wie vielen Darts?</p><div class="row">${[1,2,3].map(d=>`<button class="pri sp" ${d<minD?'disabled':''} onclick="closeModal();finishLeg(${prev},${d})">${d}</button>`).join('')}</div><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal();render()">Abbrechen</button>`);return;}
  L.hist.push({i,prev,s:{...s,hf:[...(s.hf||[])]},inn:L.inn?L.inn[i]:true});if(L.din&&L.inn&&!L.inn[i]&&v>0&&!bust)L.inn[i]=true;
  firstN(s,3,bust?0:v);s.darts+=3;if(bust){s.last='Bust';toast('Überworfen! 💥');}else{L.scores[i]=rest;s.pts+=v;s.last=v;if(v===180){s.s180++;toast('🔥 ONE HUNDRED AND EIGHTY! 🔥');}else if(v>=140)s.s140++;else if(v>=100)s.s100++;}
- L.cur=(i+1)%L.players.length;save();render();
+ tmSync(L,i);L.cur=(i+1)%L.players.length;save();render();
  if(T&&T[prev]&&(prev<=50||T[prev].length<=2))s.ch=(s.ch||0)+1;}
 /* Checkout-Quote: wird automatisch gezählt – jede Aufnahme auf einem realistischen Finish (bis 50 oder 2-Dart-Finish) ist eine Chance */
 
@@ -2975,8 +2986,8 @@ let lpT=null,lpFired=false;
 function lpStart(d){lpEnd();lpFired=false;lpT=setTimeout(()=>{lpFired=true;lpT=null;try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}const L=S.live;if(!L||L.kind!=='x01')return;const rem=L.scores[L.cur];if(!canCheck(rem,d))return;L.input='';toast(`🎯 ${rem} gecheckt mit ${d} Dart${d>1?'s':''}!`);finishLeg(rem,d);},550);}
 function lpEnd(){if(lpT){clearTimeout(lpT);lpT=null;}}
 function undo(){const L=S.live;if(L.input){L.input='';render();return;}if(!onlOk(true))return;botStop();let h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
- while(h&&isBot(L.players[h.i])&&L.hist.length&&!L.players.every(isBot)){L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;h=L.hist.pop();}
- L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;save();render();}
+ while(h&&isBot(L.players[h.i])&&L.hist.length&&!L.players.every(isBot)){L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;tmSync(L,h.i);h=L.hist.pop();}
+ L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;tmSync(L,h.i);save();render();}
 /* Ergebnis entscheiden: wer zuerst die nötige Anzahl hat – sonst nach allen Legs/Sets: Höchster gewinnt, Gleichstand = Unentschieden */
 /* First 9/12/15/18: Punkte der ersten N Darts je Leg sammeln */
 function firstN(s,d,v){const a=s.ld||0;s.ld=a+d;s.lp=(s.lp||0)+v;[9,12,15,18].forEach(N=>{if(a<N&&s.ld>=N){s['f'+N]=(s['f'+N]||0)+s.lp;s['f'+N+'n']=(s['f'+N+'n']||0)+1;}});}
@@ -2985,8 +2996,8 @@ function decide(arr,bo){const need=fmtNeed(bo);const w=arr.findIndex(x=>x>=need)
  return{done:true,w:top.length===1?top[0]:null};}
 function finishLeg(v,d){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acting)return;const i=L.cur,s=L.st[i];const f=L.fmt;if(coTable(L)){s.ch=(s.ch||0)+1;s.co=(s.co||0)+1;}
  firstN(s,d,v);s.darts+=d;s.pts+=v;s.last=v;s.hiCo=Math.max(s.hiCo,v);if(v>=100){s.hf=s.hf||[];s.hf.push(v);}if(v>=140)s.s140++;else if(v>=100)s.s100++;
- L.legs[i]++;L.legsTotal[i]++;let msg=`Leg für ${esc(U(L.players[i]).nick)}!`;
- if(f.sets){if(L.legs[i]>=fmtNeed(f.setLegs)){L.sets[i]++;L.legs=L.players.map(()=>0);msg=`🎯 Set für ${esc(U(L.players[i]).nick)}!`;
+ L.legs[i]++;L.legsTotal[i]++;tmSync(L,i);let msg=L.team?`Leg für ${esc(tmName(L,L.team[i]))}!`:`Leg für ${esc(U(L.players[i]).nick)}!`;
+ if(f.sets){if(L.legs[i]>=fmtNeed(f.setLegs)){L.sets[i]++;tmSync(L,i);L.legs=L.players.map(()=>0);msg=`🎯 Set für ${esc(U(L.players[i]).nick)}!`;
    const r=decide(L.sets,f.bo);if(r.done)return endX01(r.w);}}
  else{const r=decide(L.legs,f.bo);if(r.done)return endX01(r.w);}
  toast(msg);
@@ -2994,14 +3005,14 @@ function finishLeg(v,d){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acti
 function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const before={};L.players.forEach(id=>before[id]=calc(id).best);
  const sc=f.sets?L.sets:L.legsTotal;
  const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
-  players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?i===wi:true),...(({last,ld,lp,...r})=>r)(L.st[i])}))};
+  players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?(L.team?L.team[i]===L.team[wi]:i===wi):true),...(({last,ld,lp,...r})=>r)(L.st[i])}))};
  if(L.online)g.online=true;S.games.push(g);
  if(L.online)onlDone(L,draw?'🤝 Unentschieden':`🏆 ${U(L.players[wi]).nick} gewinnt`);
  if(L.tref)applyResult(L.tref.tid,L.tref.mid,draw?'DRAW':L.players[wi],sc[0],sc[1]);
  S.live=null;save();
  const rec=g.players.filter(p=>!isGuest(p.id)&&p.darts&&p.pts/p.darts*3>before[p.id]&&gamesOf(p.id).length>1);
  if(L.online){view='online';param=null;}else if(L.tref?.board){view='board';param=L.tref.board;}else if(g.tid){view='tourview';param=g.tid;}else view='play';render();
- modal(`<h2>${draw?'🤝 Unentschieden!':`🏆 ${esc(U(L.players[wi]).nick)} gewinnt!`}</h2><p class="muted small">${fmtStr(f)}</p><table>${g.players.map((p,i)=>`<tr><td>${AV(U(p.id))} ${esc(U(p.id).nick)}</td><td>${f.sets?`<b>${L.sets[i]}</b> Sets · ${p.legs} Legs`:(f.bo>1?`<b>${p.legs}</b> Legs`:'')}</td><td>Ø ${f1(p.pts/p.darts*3)}</td></tr>`).join('')}</table>
+ modal(`<h2>${draw?'🤝 Unentschieden!':`🏆 ${esc(L.team?tmName(L,L.team[wi]):U(L.players[wi]).nick)} gewinnt!`}</h2><p class="muted small">${fmtStr(f)}</p><table>${g.players.map((p,i)=>`<tr><td>${AV(U(p.id))} ${esc(U(p.id).nick)}</td><td>${f.sets?`<b>${L.sets[i]}</b> Sets · ${p.legs} Legs`:(f.bo>1?`<b>${p.legs}</b> Legs`:'')}</td><td>Ø ${f1(p.pts/p.darts*3)}</td></tr>`).join('')}</table>
  ${rec.length?`<div class="banner" style="margin-top:12px">⭐ Neuer persönlicher Rekord-Average: ${rec.map(p=>esc(U(p.id).nick)).join(', ')}!</div>`:''}
  <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal();${L.tref?.board?`go('board',${L.tref.board})`:g.tid?`go('tourview','${g.tid}')`:L.online?`go('online')`:`go('${me().role==='player'?'home':'play'}')`}">Weiter</button>`);}
 function leaveLive(){if(S.live&&S.live.online)return onlLeave();const wasTr=S.live&&S.live.kind!=='x01';ask('Spiel abbrechen? Der Spielstand geht verloren.','Abbrechen bestätigen',()=>{const t=S.live?.tref;S.live=null;save();t?.board?go('board',t.board):t?go('tourview',t.tid):go(wasTr?(S.planRun?'planrun':'train'):me().role==='player'?'home':'play');},true);}
@@ -3446,6 +3457,19 @@ const MG={
   status:(st,i)=>`🐎 ${Math.min(st.p[i].pos,20)}/20${st.p[i].pos>=20?' · Zielgerade':''}`,
   hint:(st,p)=>{const x=st.p[p].pos;return x>=20?'Ziel: Bull!':`Nächstes Feld: ${x%5===4?'🚧 Doppel ':''}${ORD[x]}`;},result:st=>byDesc(st,x=>x.pos)},
  killer:killerGame(false),blindkiller:{...killerGame(true),hidden:true},
+ duel121:{name:'121 Duell',cat:'🎯 Ziel',min:2,max:8,noElim:true,dur:20,visitInput:true,desc:'Der Finish-Klassiker 121 – gegeneinander: Wer checkt am höchsten?',
+  rules:['Jeder startet bei 121 und hat pro Versuch 3 Aufnahmen (9 Darts), um mit Double Out auszuchecken.','Ihr wechselt euch nach jeder Aufnahme ab – jeder spielt auf seine eigene Zahl.','Geschafft: Dein nächster Versuch geht eine Zahl höher (122, 123 …).','Checkst du schon mit der ersten Aufnahme, ist die Zahl gesichert – tiefer fällst du nicht mehr.','Nicht geschafft: zurück auf deine gesicherte Zahl.','Jeder hat 10 Versuche. Gewonnen hat das höchste geschaffte Finish (bei Gleichstand: mehr Checks).'],
+  init(st){st.p.forEach(x=>{x.t=121;x.safe=121;x.rem=121;x.v=0;x.a=0;x.best=0;x.ok=0;});},
+  active:(st,i)=>st.p[i].a<10,
+  visit(st,p,v){const me=st.p[p];
+   if(v===me.rem&&!CO[v]){toast(`${v} ist mit Double Out nicht checkbar`);me.v++;}
+   else if(v===me.rem){me.ok++;me.best=Math.max(me.best,me.t);if(me.v===0&&me.t>me.safe){me.safe=me.t;toast(`🔒 ${me.t} gecheckt und gesichert!`);}else toast(`✓ ${me.t} gecheckt!`);me.a++;me.t++;me.rem=me.t;me.v=0;}
+   else{if(v>me.rem||me.rem-v===1)toast('Bust – Rest bleibt '+me.rem);else me.rem-=v;me.v++;}
+   if(me.v>=3){me.a++;toast(`✗ ${me.t} nicht geschafft – zurück auf ${me.safe}`);me.t=me.safe;me.rem=me.t;me.v=0;}
+   if(st.p.every(x=>x.a>=10))st.done=true;},
+  status:(st,i)=>{const x=st.p[i];return x.a>=10?`Fertig · bestes Finish <b>${x.best||'–'}</b>`:`Ziel <b>${x.t}</b> · Rest ${x.rem} · Aufn. ${x.v+1}/3 · Versuch ${x.a+1}/10${x.best?` · beste ${x.best}`:''}`;},
+  hint:(st,p)=>{const x=st.p[p];return CO[x.rem]?`Rest ${x.rem}: ${CO[x.rem].join(' · ')}`:`Rest ${x.rem} – stell dir ein Finish`;},
+  result:st=>st.ps.map((x,i)=>i).sort((a,b)=>(st.p[b].best-st.p[a].best)||(st.p[b].ok-st.p[a].ok))},
  gotcha:{name:'Gotcha',cat:'💀 Gruppe',min:2,max:8,dur:12,visitInput:true,desc:'Wer genau auf 301 kommt, gewinnt – aber pass auf, dass dich keiner einholt.',
   rules:['Alle zählen von 0 hoch, Ziel ist genau 301.','Wirfst du über 301, zählt die ganze Aufnahme nicht.','Hast du nach deiner Aufnahme genau den gleichen Stand wie ein anderer, fällt dieser auf 0 zurück! 😈','Wer zuerst genau 301 hat, gewinnt.'],
   init(st){st.p.forEach(x=>x.s=0);},start(st,p){st.p[p].ts=st.p[p].s;},
@@ -3580,7 +3604,7 @@ function mgNext(){const st=S.live,g=MG[st.id];g.endTurn?.(st,st.cur);if(st.winne
  const n=st.ps.length;let i=st.cur,wrapped=false;
  for(let k=0;k<n;k++){i++;if(i>=n){i=0;wrapped=true;}if(mgActive(st,i))break;}
  if(wrapped){g.endRound?.(st);st.round++;if(g.rounds&&st.round>g.rounds){st.done=true;return;}}
- const alive=st.ps.map((x,j)=>j).filter(j=>mgActive(st,j));if(!alive.length){st.done=true;return;}if(n>1&&alive.length<=1){st.winner=alive[0];st.done=true;return;}
+ const alive=st.ps.map((x,j)=>j).filter(j=>mgActive(st,j));if(!alive.length){st.done=true;return;}if(n>1&&alive.length<=1&&!g.noElim){st.winner=alive[0];st.done=true;return;}
  if(!mgActive(st,i)){i=alive[0];}
  st.cur=i;st.dart=0;st.darts=[];st.endTurn=false;g.start?.(st,i);}
 function mgVisit(v){const st=S.live,g=MG[st.id];if(!onlOk())return;if(mgBotCur()&&!BOT.acting){toast('🤖 Der Dartbot ist dran');return;}if(v>180||IMPOSSIBLE.includes(v)){toast(`${v} ist nicht möglich`);render();return;}
