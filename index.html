@@ -698,7 +698,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=36;
+const APPV=37;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -2916,7 +2916,9 @@ function vX01(){const L=S.live;const f=L.fmt;
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>n<=3&&canCheck(cur,n)?`<button class="cok" onpointerdown="lpStart(${n})" onpointerup="lpEnd()" onpointerleave="lpEnd()" oncontextmenu="return false" onclick="if(lpFired){lpFired=false;return;}key('${n}')">${n}</button>`:`<button onclick="key('${n}')">${n}</button>`).join('')}
  <button onclick="undo()" class="undo" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div></div></div></div>`;}
 /* Großanzeige fürs Tablet: automatisch ab Tablet-Größe, per Knopf umschaltbar (wird pro Gerät gemerkt) */
-const BIGQ='(min-width:700px) and (min-height:560px)';
+const BIGQ='(min-width:600px) and (min-height:480px)';
+/* einmalig: frühere „Normale Anzeige“-Einstellung zurücksetzen, damit Tablets standardmäßig groß anzeigen */
+try{if(!localStorage.getItem('dc_big_v2')){if(localStorage.getItem('dc_big')==='off')localStorage.removeItem('dc_big');localStorage.setItem('dc_big_v2','1');}}catch(e){}
 function bigOn(){if(WATCH)return true;let m=null;try{m=localStorage.getItem('dc_big');}catch(e){}return m==='on'||(m!=='off'&&matchMedia(BIGQ).matches);}
 function togBig(){const n=bigOn()?'off':'on';try{localStorage.setItem('dc_big',n);}catch(e){}render();}
 try{matchMedia(BIGQ).addEventListener('change',()=>{if(view==='live')render();});}catch(e){}
