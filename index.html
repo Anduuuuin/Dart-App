@@ -458,7 +458,7 @@ header .top>*:first-child{flex:none}
 header .me{min-width:0;width:auto!important;flex:0 1 auto;flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
 header .me .mnm{overflow:hidden;text-overflow:ellipsis;max-width:34vw;min-width:0}
 header .me button{flex:none;white-space:nowrap}
-html,body{overflow-x:hidden;max-width:100%}
+html{overflow-x:clip}
 @media (max-width:520px){header .me .lbl{display:none}header .me .mnm{max-width:30vw}header .me button{padding:6px 10px!important;font-size:16px}header .me{gap:6px}}
 @media (max-width:360px){header .me .mnm{display:none}}
 .gdt{width:100%;border-collapse:collapse}.gdt td,.gdt th{padding:6px 8px;border-top:1px solid var(--line)}
@@ -777,7 +777,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=60;
+const APPV=61;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
