@@ -443,6 +443,15 @@ body.watchall header{display:none}body.watchall .wrap{padding-top:12px!important
 .x01.big .quick button{padding:0!important;height:9vh;font-size:min(3.8vh,2.6vw)!important}
 .xset{min-width:40px;font-size:18px!important;padding:4px 10px!important}
 .x01.big .xset{font-size:min(2.6vh,2vw)!important}
+/* Schnelltasten in 2 Spalten neben dem Zahlenfeld */
+.xin{display:grid;grid-template-columns:2fr 3fr;gap:8px;margin-top:8px;align-items:stretch}
+.xin .quick{grid-template-columns:repeat(2,1fr)!important;grid-auto-rows:1fr;margin-top:0;gap:6px}
+.xin .quick button{padding:0!important;height:auto!important;min-height:0;font-size:17px}
+.xin .pad{margin-top:0;grid-template-columns:repeat(3,minmax(0,1fr))!important}.xin{grid-template-columns:minmax(0,2fr) minmax(0,3fr)!important}.xin .pad button.undo{font-size:14px!important;overflow:hidden;padding:0 2px!important}@media (max-width:560px){.xin .pad button.undo .ul{display:none}.xin .pad button.undo{font-size:28px!important}}
+.x01.big .xin{flex:1 1 0;min-height:0;gap:1vh}
+.x01.big .xin .quick{gap:.8vh;min-height:0}
+.x01.big .xin .quick button{font-size:min(3vh,3.2vw)!important}
+.x01.big .xin .pad{height:100%}
 .gdt{width:100%;border-collapse:collapse}.gdt td,.gdt th{padding:6px 8px;border-top:1px solid var(--line)}
 #mbox.wide{max-width:720px;width:calc(100vw - 24px)}
 .wt-all{height:calc(100dvh - 24px);display:flex;flex-direction:column;gap:10px}
@@ -759,7 +768,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=53;
+const APPV=54;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -814,14 +823,14 @@ function quickSave(reset){const m=me();if(!m)return closeModal();
 
 /* ===================== Eigene Einstellungen ===================== */
 function togCo(){const L=S.live;if(!L)return;L.coOff=!L.coOff;save();render();toast(L.coOff?'Checkout-Wege ausgeblendet':'Checkout-Wege werden angezeigt');}
-function setCoHide(v){const m=me();if(!m)return;m.coHide=v;save();render();}
+function setCoHide(v){const m=me();if(!m)return;m.coShow=!v;save();render();}
 function bigMode(){try{return localStorage.getItem('dc_big')||'auto';}catch(e){return 'auto';}}
 function setBigMode(v){try{if(v==='auto')localStorage.removeItem('dc_big');else localStorage.setItem('dc_big',v);}catch(e){}render();}
 function vMySettings(){const m=me();const q=getQuick();const bm=bigMode();
  const sec=(t,sub,body)=>`<div class="card"><h3 style="margin:0 0 4px">${t}</h3>${sub?`<p class="muted small" style="margin:0 0 10px">${sub}</p>`:''}${body}</div>`;
  return `<div class="ph"><div class="row"><h1 class="sp">⚙️ Einstellungen</h1><button class="ghost" onclick="go(me().role==='player'?'home':'tour')">← Zurück</button></div><p>Gilt für ${esc(m.nick)}${m.role==='player'?'':' (dieses Konto)'}.</p></div>
  ${sec('🧮 Checkout-Wege','Bei X01 unter deinem Rest anzeigen, wie du checken kannst (z. B. T20 · T19 · D12). Im Spiel jederzeit oben über „🧮 Wege“ umschaltbar.',
-  `<div class="chips"><button class="${m.coHide?'':'on'}" onclick="setCoHide(false)">Anzeigen</button><button class="${m.coHide?'on':''}" onclick="setCoHide(true)">Ausblenden</button></div>`)}
+  `<div class="chips"><button class="${m.coShow?'on':''}" onclick="setCoHide(false)">Anzeigen</button><button class="${m.coShow?'':'on'}" onclick="setCoHide(true)">Ausblenden (Standard)</button></div>`)}
  ${sec('⚡ Schnellwahl-Tasten','Deine 10 Punktzahlen für die Schnelltasten bei X01 und bei Minispielen mit Aufnahme-Eingabe (0–180). Felder leer lassen = weniger Tasten.',
   `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">${q.concat(Array(10).fill('')).slice(0,10).map(v=>`<input class="qk" inputmode="numeric" maxlength="3" value="${v}" style="text-align:center;font-size:18px;padding:10px 0">`).join('')}</div>
   <div class="row" style="margin-top:10px"><button class="ghost sp" onclick="quickSave(true)">Standard</button><button class="pri sp" onclick="quickSave()">Speichern</button></div>`)}
@@ -876,7 +885,7 @@ function onlStartNow(id){const g=onlG(id);if(!g)return;g.players=g.players.filte
 function onlStart(g){const n=g.players.length,r=Math.floor(Math.random()*n);const ps=[...g.players.slice(r),...g.players.slice(0,r)];const c=g.cfg;
  const L=g.kind==='x01'?buildX01(ps,c.start,{sets:false,bo:c.bo,setLegs:3},c.out==='double',null,{out:c.out,din:false}):newMG(c.mg,ps,{n:c.sets,no:1,wins:{},need:Math.floor(c.sets/2)+1},c.lives);
  L.online=g.id;L.seq=1;delete L.coOff;g.live=L;g.status='live';g.at=Date.now();}
-function onlResume(id){const g=onlG(id);if(!g||!g.live)return;S.live={...JSON.parse(JSON.stringify(g.live)),input:'',coOff:!!(me()&&me().coHide)};saveLocal();go('live');
+function onlResume(id){const g=onlG(id);if(!g||!g.live)return;S.live={...JSON.parse(JSON.stringify(g.live)),input:'',coOff:!(me()&&me().coShow)};saveLocal();go('live');
  if(onlMine())toast('🎯 Du bist dran!');}
 function onlLeave(){const L=S.live;modal(`<h2>Online-Spiel verlassen?</h2><p class="muted">Du kannst später unter „🌐 Online spielen“ einfach weiterspielen.</p>
  <div style="display:grid;gap:8px"><button class="pri" onclick="closeModal();S.live=null;saveLocal();go('online')">⏸️ Pause – später weiterspielen</button>
@@ -3047,7 +3056,7 @@ function hcHTML(){if(setup.slots.length<2)return '';const on=!!setup.hcOn;const 
 /* ===================== X01-Scorer ===================== */
 function startX01(ps,start,fmt,dOut,tref,mode){S.live=buildX01(ps,start,fmt,dOut,tref,mode);save();go('live');}
 function buildX01(ps,start,fmt,dOut,tref,mode){if(typeof fmt==='number')fmt={sets:false,bo:fmt,setLegs:3};const out=(mode&&mode.out)||(dOut?'double':'single'),din=!!(mode&&mode.din);
- return {kind:'x01',team:(mode&&mode.team)||null,players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,coOff:!!(me()&&me().coHide),legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
+ return {kind:'x01',team:(mode&&mode.team)||null,players:ps,start,fmt,dOut:out==='double',out,din,inn:ps.map(()=>!din),tref,coOff:!(me()&&me().coShow),legs:ps.map(()=>0),sets:ps.map(()=>0),legsTotal:ps.map(()=>0),hc:(mode&&mode.hc)||null,scores:ps.map((_,i)=>(mode&&mode.hc&&mode.hc[i]&&mode.hc[i].start)||start),cur:(mode&&mode.first)||0,legStarter:(mode&&mode.first)||0,hist:[],input:'',
   st:ps.map(()=>({darts:0,pts:0,s180:0,s140:0,s100:0,hiCo:0,ch:0,co:0,hf:[],f9:0,f9n:0,f12:0,f12n:0,f15:0,f15n:0,f18:0,f18n:0,ld:0,lp:0,last:null}))};}
 function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=botCur()?`🤖 ${BOT.show.length?BOT.show.join(' · '):'zielt …'}`:notIn?'Double In: erst ein Doppel treffen':L.coOff?'':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
@@ -3059,10 +3068,10 @@ function vX01(){const L=S.live;const f=L.fmt;
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
   ${i===L.cur?`<div class="co">${co}</div>`:''}${i===L.cur&&AD.on&&AD.ok?`<div class="adw">${adDarts()}</div>`:''}</div>`;}).join('')}</div></div>
  <div class="xr"><div class="card"><div class="inbox">${L.input||'<span class="muted" style="font-size:22px">Punkte der Aufnahme</span>'}<button class="bksp" title="Letzte Ziffer löschen" onclick="key('del')">⌫</button></div>
- <div class="quick" style="grid-template-columns:repeat(7,1fr)">${[...getQuick(),0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="restIn()" title="Eingetippte Zahl ist dein Rest">Rest</button><button onclick="quickEdit()" title="Schnellwahl-Tasten festlegen">⚙️</button></div>
- ${[1,2,3].some(d=>canCheck(cur,d))?`<p class="muted small" style="text-align:center;margin:2px 0 8px">🟢 Gecheckt? Grüne <b>1</b>, <b>2</b> oder <b>3</b> lange drücken = mit so vielen Darts</p>`:''}
+ ${[1,2,3].some(d=>canCheck(cur,d))?`<p class="muted small" style="text-align:center;margin:6px 0 0">🟢 Gecheckt? Grüne <b>1</b>, <b>2</b> oder <b>3</b> lange drücken = mit so vielen Darts</p>`:''}
+ <div class="xin"><div class="quick">${[...getQuick(),0].map(v=>`<button onclick="visit(${v})">${v}</button>`).join('')}<button onclick="restIn()" title="Eingetippte Zahl ist dein Rest">Rest</button><button onclick="quickEdit()" title="Schnellwahl-Tasten festlegen">⚙️</button></div>
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>n<=3&&canCheck(cur,n)?`<button class="cok" onpointerdown="lpStart(${n})" onpointerup="lpEnd()" onpointerleave="lpEnd()" oncontextmenu="return false" onclick="if(lpFired){lpFired=false;return;}key('${n}')">${n}</button>`:`<button onclick="key('${n}')">${n}</button>`).join('')}
- <button onclick="undo()" class="undo" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div></div></div></div>`;}
+ <button onclick="undo()" class="undo" style="font-size:16px" title="Rückgängig">↶<span class="ul"> Rückgängig</span></button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div></div></div></div></div>`;}
 
 function x01Menu(){const L=S.live;if(!L)return;const big=bigOn();const m=me();const row=(ic,l,v,on,fn)=>`<button class="ghost" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:14px;font-size:17px" onclick="${fn}"><span style="font-size:22px">${ic}</span><span class="sp">${l}</span>${v!=null?`<span class="badge ${on?'g':''}">${v}</span>`:''}</button>`;
  modal(`<div class="row" style="margin-bottom:10px"><h3 class="sp" style="margin:0">⚙️ Einstellungen</h3><button class="sm ghost" onclick="closeModal()">✕</button></div><div style="display:grid;gap:8px">
