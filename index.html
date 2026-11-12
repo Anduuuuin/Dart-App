@@ -768,7 +768,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=57;
+const APPV=58;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -2932,23 +2932,36 @@ function gdShow(gid,focus){const g=S.games.find(x=>x.id===gid);if(!g)return toas
  const tour=g.tid&&S.tournaments.find(t=>t.id===g.tid);
  const res=P.length>1?P.map(p=>f.sets?p.sets:p.legs).join(' : '):'';
  const rows=[['Average',p=>avg(p)],['First 9',p=>fn(p,9)],['Legs',p=>p.legs],...(f.sets?[['Sets',p=>p.sets]]:[]),['Darts',p=>p.darts],['180er',p=>p.s180||0],['140+',p=>p.s140||0],['100+',p=>p.s100||0],
-  ['Höchstes Checkout',p=>p.hiCo||'–'],['Checkouts',p=>p.co||0],['Bestes Leg',p=>{const b=(g.lg||[]).filter(l=>P[l.w]===p).map(l=>l.v.filter(x=>x[0]===P.indexOf(p)).reduce((a,x)=>a+x[2],0));return b.length?Math.min(...b)+' Darts':'–';}]];
+  ['Höchstes Checkout',p=>p.hiCo||'–'],['Checkouts',p=>p.co||0],['Bestes Leg',p=>{const b=(g.lg||[]).filter(l=>P[l.w]===p&&!l.x).map(l=>l.v.filter(x=>x[0]===P.indexOf(p)).reduce((a,x)=>a+x[2],0));return b.length?Math.min(...b)+' Darts':'–';}]];
  const head=`<tr><th></th>${P.map((p,i)=>`<th style="text-align:center">${g.team?`<span class="badge ${g.team[i]?'r':'g'}">${g.team[i]?'B':'A'}</span> `:''}${esc(U(p.id).nick)}${p.won&&P.length>1?' 🏆':''}</th>`).join('')}</tr>`;
  const tbl=`<table class="gdt">${head}${rows.map(([l,fnc])=>`<tr><td class="muted">${l}</td>${P.map(p=>`<td style="text-align:center;font-weight:700">${fnc(p)}</td>`).join('')}</tr>`).join('')}</table>`;
  let legs='';
- if(g.lg&&g.lg.length){legs=`<div class="sec">Legs</div><div class="chips" style="margin-bottom:8px">${g.lg.map((l,k)=>`<button class="${GD_LEG===k?'on':''}" onclick="GD_LEG=${GD_LEG===k?-1:k};gdShow('${gid}','${focus}')">Leg ${k+1} · ${esc(U(P[l.w].id).nick)}</button>`).join('')}</div>`;
+ if(g.lg&&g.lg.length){legs=`<div class="sec">Legs</div><div class="chips" style="margin-bottom:8px">${g.lg.map((l,k)=>`<button class="${GD_LEG===k?'on':''}" onclick="GD_LEG=${GD_LEG===k?-1:k};gdShow('${gid}','${focus}')">Leg ${k+1} · ${esc(U(P[l.w].id).nick)}${l.x?' · ohne Statistik':''}</button>`).join('')}</div>`;
   if(GD_LEG>=0&&g.lg[GD_LEG]){const l=g.lg[GD_LEG];const n=P.length;const byP=P.map((_,i)=>l.v.filter(x=>x[0]===i));const R=Math.max(...byP.map(a=>a.length));
    const ld=byP.map(a=>a.reduce((s,x)=>s+x[2],0)),lp=byP.map(a=>a.reduce((s,x)=>s+x[1],0));
    legs+=`<div class="card" style="margin:0;overflow-x:auto"><div class="muted small" style="margin-bottom:6px">Angefangen hat ${esc(U(P[l.b]?.id).nick)} · gewonnen von <b style="color:var(--text)">${esc(U(P[l.w].id).nick)}</b> mit ${ld[l.w]} Darts</div>
    <table class="gdt"><tr><th>#</th>${P.map(p=>`<th colspan="2" style="text-align:center">${esc(U(p.id).nick)}</th>`).join('')}</tr><tr class="muted small"><td></td>${P.map(()=>'<td style="text-align:center">Wurf</td><td style="text-align:center">Rest</td>').join('')}</tr>
    ${[...Array(R)].map((_,r)=>`<tr><td class="muted">${(r+1)*3}</td>${byP.map(a=>{const x=a[r];if(!x)return '<td></td><td></td>';const co=x[0]===l.w&&r===a.length-1&&x[4]===0&&!x[3];
      return `<td style="text-align:center;font-weight:700;${x[3]?'color:#ff6b6b':co?'color:var(--gold)':x[1]>=100?'color:var(--accent)':''}">${x[3]?'Bust':x[1]}${co?` <span class="small">✓ ${x[2]}D</span>`:''}</td><td style="text-align:center" class="muted">${co?'–':x[4]}</td>`;}).join('')}</tr>`).join('')}
-   <tr><td class="muted small">Ø</td>${byP.map((a,i)=>`<td colspan="2" style="text-align:center"><b>${ld[i]?f1(lp[i]/ld[i]*3):'–'}</b> <span class="muted small">(${ld[i]} Darts)</span></td>`).join('')}</tr></table></div>`;}
+   <tr><td class="muted small">Ø</td>${byP.map((a,i)=>`<td colspan="2" style="text-align:center"><b>${ld[i]?f1(lp[i]/ld[i]*3):'–'}</b> <span class="muted small">(${ld[i]} Darts)</span></td>`).join('')}</tr></table>
+   ${l.x?`<p class="small" style="margin:8px 0 0;color:var(--gold)">⚠️ Dieses Leg zählt nur fürs Ergebnis – die Würfe sind aus allen Statistiken herausgenommen.</p>`:isStaff()?`<button class="ghost sm" style="margin-top:10px;width:100%" onclick="legStrip('${gid}',${GD_LEG},'${focus}')">🛠️ Vertippt? Leg nur werten – ohne Statistik</button>`:''}</div>`;}
   else legs+=`<p class="muted small" style="margin:0">Leg antippen, um jede Aufnahme zu sehen.</p>`;}
  else legs=`<p class="muted small" style="margin-top:12px">Für dieses Spiel gibt es keine Aufteilung nach Legs – die wird erst bei Spielen gespeichert, die ab jetzt gespielt werden.</p>`;
  modal(`<div class="row" style="flex-wrap:nowrap;margin-bottom:4px"><h2 class="sp" style="margin:0">🎯 ${g.start}${res?` · <span style="color:var(--accent)">${res}</span>`:''}</h2><button class="sm ghost" onclick="closeModal()">✕</button></div>
  <div class="muted small" style="margin-bottom:10px">${dstr(g.date)} · ${new Date(g.date).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} · ${f.sets?`Best of ${f.bo} Sets`:`Best of ${f.bo} Legs`} · ${({double:'Double Out',single:'Single Out',master:'Master Out'})[g.out]||''}${tour?` · <span class="badge">${esc(tour.name)}</span>`:''}${g.online?' · 🌐 Online':''}${g.draw?' · 🤝 Unentschieden':''}</div>
  <div style="overflow-x:auto">${tbl}</div>${legs}`);document.getElementById('mbox').classList.add('wide');}
+
+/* Admin/Verein: ein falsch getipptes Leg nur fürs Ergebnis werten und alle Würfe daraus aus der Statistik nehmen */
+function legStrip(gid,k,focus){const g=S.games.find(x=>x.id===gid);const l=g&&g.lg&&g.lg[k];if(!l||l.x)return;
+ ask(`Leg ${k+1} nur fürs Ergebnis werten? Der Leg-Gewinn bleibt (${U(g.players[l.w].id).nick}), aber alle Würfe aus diesem Leg – Average, 180er, Checkout, First 9, bestes Leg – werden aus der Statistik genommen. Das lässt sich nicht rückgängig machen.`,'Ohne Statistik werten',()=>{
+  g.players.forEach((p,pi)=>{const vs=l.v.filter(x=>x[0]===pi);let a=0,lp=0;
+   vs.forEach((x,j)=>{const [,v,d,bust,rest]=x;const co=pi===l.w&&j===vs.length-1&&rest===0&&!bust;
+    [9,12,15,18].forEach(N=>{if(a<N&&a+d>=N){p['f'+N]=Math.max(0,(p['f'+N]||0)-(lp+v));p['f'+N+'n']=Math.max(0,(p['f'+N+'n']||0)-1);}});a+=d;lp+=v;
+    p.darts=Math.max(0,(p.darts||0)-d);p.pts=Math.max(0,(p.pts||0)-v);
+    if(co){p.co=Math.max(0,(p.co||0)-1);p.ch=Math.max(0,(p.ch||0)-1);if(v>=100&&p.hf){const ix=p.hf.indexOf(v);if(ix>=0)p.hf.splice(ix,1);}if(v>=140)p.s140=Math.max(0,(p.s140||0)-1);else if(v>=100)p.s100=Math.max(0,(p.s100||0)-1);}
+    else if(!bust){if(v===180)p.s180=Math.max(0,(p.s180||0)-1);else if(v>=140)p.s140=Math.max(0,(p.s140||0)-1);else if(v>=100)p.s100=Math.max(0,(p.s100||0)-1);}});
+   const cos=g.lg.filter((L2,k2)=>k2!==k&&!L2.x&&L2.w===pi).map(L2=>{const last=L2.v.filter(x=>x[0]===pi).slice(-1)[0];return last?last[1]:0;});p.hiCo=cos.length?Math.max(...cos):0;});
+  l.x=1;save();GD_LEG=k;gdShow(gid,focus);toast('✓ Leg zählt nur noch fürs Ergebnis');});}
 let statTab='over';
 function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
  const recent=[...gamesOf(id).map(g=>({d:g.date,t:'game',g})),...trainsOf(id).map(t=>({d:t.date,t:'tr',x:t}))].sort((a,b)=>b.d-a.d).slice(0,30);
@@ -4100,7 +4113,7 @@ function tourStatsHTML(t){const fam=[t.id,...S.tournaments.filter(x=>x.parent===
  const R={};const row=id=>R[id]=R[id]||{id,sp:0,s:0,lw:0,ll:0,darts:0,pts:0,best:0,f9:0,f9n:0,s180:0,s140:0,s100:0,hiCo:0,bl:null,co:0};
  gs.forEach(g=>g.players.forEach((p,pi)=>{const r=row(p.id);r.sp++;if(p.won)r.s++;r.lw+=p.legs||0;g.players.forEach((q,qi)=>{if(qi!==pi)r.ll+=q.legs||0;});r.darts+=p.darts;r.pts+=p.pts;const a=p.darts?p.pts/p.darts*3:0;if(a>r.best)r.best=a;
   r.f9+=p.f9||0;r.f9n+=p.f9n||0;r.s180+=p.s180||0;r.s140+=p.s140||0;r.s100+=p.s100||0;r.hiCo=Math.max(r.hiCo,p.hiCo||0);r.co+=p.co||0;
-  (g.lg||[]).forEach(l=>{if(l.w!==pi)return;const d=l.v.filter(x=>x[0]===pi).reduce((s,x)=>s+x[2],0);if(d&&(r.bl==null||d<r.bl))r.bl=d;});}));
+  (g.lg||[]).forEach(l=>{if(l.w!==pi||l.x)return;const d=l.v.filter(x=>x[0]===pi).reduce((s,x)=>s+x[2],0);if(d&&(r.bl==null||d<r.bl))r.bl=d;});}));
  const rows=Object.values(R).sort((a,b)=>(b.darts?b.pts/b.darts:0)-(a.darts?a.pts/a.darts:0));
  if(!rows.length)return `<div class="card muted">Noch keine durchgetippten Spiele in diesem Turnier. Statistiken gibt es für Spiele, die am Tablet gespielt wurden (nicht für von Hand eingetragene Ergebnisse).</div>`;
  const top=(fn,fmt,lbl,ic,low)=>{const c=rows.filter(r=>fn(r)!=null&&fn(r)>0);if(!c.length)return '';const b=c.reduce((x,y)=>(low?fn(y)<fn(x):fn(y)>fn(x))?y:x);return `<div class="stat"><div class="v">${fmt(fn(b))}</div><div class="k">${ic} ${lbl}</div><div class="muted small" style="margin-top:2px">${esc(U(b.id).nick)}</div></div>`;};
