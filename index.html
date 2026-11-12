@@ -452,6 +452,15 @@ body.watchall header{display:none}body.watchall .wrap{padding-top:12px!important
 .x01.big .xin .quick{gap:.8vh;min-height:0}
 .x01.big .xin .quick button{font-size:min(3vh,3.2vw)!important}
 .x01.big .xin .pad{height:100%}
+/* Kopfzeile passt immer auf den Bildschirm – kein seitliches Scrollen */
+header .top{min-width:0;max-width:100%;box-sizing:border-box}
+header .top>*:first-child{flex:none}
+header .me{min-width:0;width:auto!important;flex:0 1 auto;flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+header .me .mnm{overflow:hidden;text-overflow:ellipsis;max-width:34vw;min-width:0}
+header .me button{flex:none;white-space:nowrap}
+html,body{overflow-x:hidden;max-width:100%}
+@media (max-width:520px){header .me .lbl{display:none}header .me .mnm{max-width:30vw}header .me button{padding:6px 10px!important;font-size:16px}header .me{gap:6px}}
+@media (max-width:360px){header .me .mnm{display:none}}
 .gdt{width:100%;border-collapse:collapse}.gdt td,.gdt th{padding:6px 8px;border-top:1px solid var(--line)}
 #mbox.wide{max-width:720px;width:calc(100vw - 24px)}
 .wt-all{height:calc(100dvh - 24px);display:flex;flex-direction:column;gap:10px}
@@ -569,7 +578,7 @@ function scrUpdate(){if(typeof SY==='undefined'||!SY.on||!SY.key||S.demo)return;
 // Auf GitHub Pages oder als Datei bleibt alles wie bisher nur auf diesem Gerät (Testversion).
 const SY={on:/(^|\.)anduuuuin\.de$/i.test(location.hostname)||!!window.DC_API,api:(window.DC_API||'')+'/api/dc/',key:'',rev:0,base:{},busy:false,again:false,t:null,ok:null,err:'',pend:false,force:false,last:0,ready:false};
 const SY_ARR=['users','tournaments','games','trainings','teams'],SY_MAP=['myPlans','planCfg','screens','online','chal','club'];
-try{const h=location.hash.match(/[#&]k=([A-Za-z0-9_-]+)/);if(h){localStorage.setItem('dc_clubkey',h[1]);history.replaceState(null,'',location.pathname+location.search);}}catch(e){}
+try{const h=location.hash.match(/[#&]k=([A-Za-z0-9_-]+)/)||location.search.match(/[?&]k=([A-Za-z0-9_-]+)/);if(h){localStorage.setItem('dc_clubkey',h[1]);history.replaceState(null,'',location.pathname);}}catch(e){}
 try{SY.key=localStorage.getItem('dc_clubkey')||'';const b=JSON.parse(localStorage.getItem(KEY+'_sync')||'null');if(b&&b.key===SY.key){SY.rev=b.rev||0;SY.base=b.base||{};SY.ready=!!b.ready;}}catch(e){}
 // Inhalt als Text mit sortierten Schlüsseln (damit gleiche Daten immer gleich aussehen)
 function cs(x){if(x===undefined)return null;return JSON.stringify(x,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((o,kk)=>(o[kk]=v[kk],o),{}):v);}
@@ -763,12 +772,12 @@ function watchExit(){const m=me();go(!m?'login':isStaff()?'boards':m.role==='pla
 
 function watchBtn(wide){const m=me();if(!m)return '';const on=!!m.watchOk;
  return wide?`<button class="ghost" style="width:100%;${on?'border-color:var(--accent);color:var(--accent)':''}" onclick="togWatch()">${on?'📺 Zuschauen erlaubt – antippen zum Ausschalten':'📺 Zuschauen erlauben (ist aus)'}</button>`
-  :`<button class="sm ghost" style="${on?'border-color:var(--accent);color:var(--accent)':''}" onclick="togWatch()" title="Darf ein anderes Gerät dieses Spiel live anzeigen?">${on?'📺 Zuschauer: an':'📺 Zuschauer: aus'}</button>`;}
+  :`<button class="sm ghost" style="${on?'border-color:var(--accent);color:var(--accent)':''}" onclick="togWatch()" title="Darf ein anderes Gerät dieses Spiel live anzeigen?">📺<span class="lbl"> Zuschauer:</span> ${on?'an':'aus'}</button>`;}
 function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render();
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=58;
+const APPV=60;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -2777,9 +2786,9 @@ function renderNav(){const m=me();const n=document.getElementById('nav');const o
   if(!on){n.innerHTML='';return;}const k=navKey();
   n.innerHTML=`<div class="nlogo">${LOGO(38)}</div>${tabs().map(([v,i,l])=>`<button class="${k===v?'on':''}" onclick="${v==='train'?"trTab=trTab||'play';":''}go('${v}')"><span class="i">${i}</span><span>${l}</span></button>`).join('')}`;}
 function renderHeader(){const m=me();const h=document.getElementById('hdr');
-  if(!m||view==='live'){h.innerHTML=`<div class="top">${LOGO(30)}${view==='live'?`<div class="me">${S.live&&S.live.online&&S.live.kind!=='mg'&&!(S.live.kind==='x01'&&bigOn())?rtcBtn():''}${SY.on&&S.live&&S.live.kind!=='mg'?watchBtn():''}<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button></div>`:''}</div>`;return;}
+  if(!m||view==='live'){h.innerHTML=`<div class="top">${LOGO(30)}${view==='live'?`<div class="me">${S.live&&S.live.online&&S.live.kind!=='mg'&&!(S.live.kind==='x01'&&bigOn())?rtcBtn():''}${SY.on&&S.live&&S.live.kind!=='mg'?watchBtn():''}<button class="sm ghost" onclick="leaveLive()" title="Spiel verlassen">✕<span class="lbl"> Spiel verlassen</span></button></div>`:''}</div>`;return;}
   const roleL=m.captain?'Kapitän':{admin:'Admin',club:'Verein',player:'Spieler'}[m.role];
-  h.innerHTML=`<div class="top">${LOGO(30)}<div class="me">${AV(m)} ${esc(m.nick)} <span class="badge">${roleL}</span><button class="sm ghost" onclick="go('mysettings')" title="Einstellungen">⚙️</button><button class="sm ghost" onclick="logout()" title="Abmelden">Abmelden</button></div></div>
+  h.innerHTML=`<div class="top">${LOGO(30)}<div class="me">${AV(m)} <span class="mnm">${esc(m.nick)}</span> <span class="badge">${roleL}</span><button class="sm ghost" onclick="go('mysettings')" title="Einstellungen">⚙️</button><button class="sm ghost" onclick="logout()" title="Abmelden">🚪<span class="lbl"> Abmelden</span></button></div></div>
   ${demoBar()}`;}
 function logout(){setMe(null);go('login');}
 
@@ -2793,15 +2802,19 @@ window.addEventListener('appinstalled',()=>{instPrompt=null;toast('📲 App inst
 if('serviceWorker' in navigator&&location.protocol==='https:'){try{navigator.serviceWorker.register('sw.js').catch(()=>{});}catch(e){}}
 function installBtn(full){if(isStandalone())return'';
  return `<button class="pri" style="${full?'width:100%;':''}padding:14px 18px;font-size:17px;display:inline-flex;align-items:center;justify-content:center;gap:10px" onclick="installApp()">📲 Als App installieren</button>`;}
+function andBrowser(){const ua=navigator.userAgent;if(!/Android/.test(ua))return null;if(/SamsungBrowser/.test(ua))return 'Samsung Internet';if(/Firefox/.test(ua))return 'Firefox';if(/OPR|Opera/.test(ua))return 'Opera';if(/EdgA/.test(ua))return 'Edge';if(/MiuiBrowser|XiaoMi/.test(ua))return 'Mi-Browser';if(/HuaweiBrowser/.test(ua))return 'Huawei-Browser';if(/; wv\)/.test(ua)||/FBAN|FBAV|Instagram|WhatsApp/.test(ua))return 'App-Browser';return null;}
+function chromeIntent(){const k=(SY&&SY.key)||localStorage.getItem('dc_clubkey')||'';return 'intent://'+location.host+location.pathname+(k?'?k='+encodeURIComponent(k):'')+'#Intent;scheme=https;package=com.android.chrome;end';}
+function chromeHint(){const b=andBrowser();if(!b||isStandalone())return '';return `<div class="banner" style="border-color:#f2c14e88"><b>⚠️ Bitte mit Chrome installieren</b><div class="muted small" style="margin:4px 0 10px">Du bist gerade in <b>${b}</b>. Wenn du DartClub von hier installierst, meldet Android oft „Diese App wurde für eine ältere Android-Version entwickelt“. Mit Chrome passiert das nicht.</div><a class="pri" href="${chromeIntent()}" style="display:block;text-align:center;padding:12px;border-radius:12px;text-decoration:none;font-weight:800">🌐 In Chrome öffnen</a></div>`;}
 async function installApp(){
  if(instPrompt){instPrompt.prompt();try{const r=await instPrompt.userChoice;if(r.outcome==='accepted')toast('📲 Wird installiert …');}catch(e){}instPrompt=null;render();return;}
  const ua=navigator.userAgent;const ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&'ontouchend' in document);const android=/Android/.test(ua);
  const step=(n,t)=>`<div class="row" style="flex-wrap:nowrap;align-items:flex-start;margin:10px 0"><span style="flex:none;width:28px;height:28px;border-radius:50%;background:#2fbf7122;color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800">${n}</span><span style="padding-top:3px">${t}</span></div>`;
  const web=location.protocol==='https:'||location.protocol==='http:';
+ if(android&&andBrowser()&&web){return modal(`<h2>📲 Als App installieren</h2>${chromeHint()}<p class="muted small">Chrome nicht auf dem Handy? Im Play Store „Google Chrome“ installieren und dann den Vereins-Link damit öffnen.</p><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal()">Schließen</button>`);}
  modal(`<h2>📲 Als App installieren</h2>${!web?`<p class="muted">Öffne die App über den Vereins-Link im Browser – aus einer heruntergeladenen Datei heraus lässt sie sich nicht installieren.</p>`:ios?`<p class="muted">So geht's auf dem iPhone/iPad (in <b>Safari</b>):</p>${step(1,'Unten auf das <b>Teilen</b>-Symbol tippen (Viereck mit Pfeil nach oben).')}${step(2,'Nach unten scrollen und <b>„Zum Home-Bildschirm“</b> wählen.')}${step(3,'Oben rechts auf <b>„Hinzufügen“</b> tippen – fertig, DartClub liegt jetzt als App auf dem Homescreen.')}`:android?`<p class="muted">So geht's auf Android (in <b>Chrome</b>):</p>${step(1,'Oben rechts auf die <b>drei Punkte ⋮</b> tippen.')}${step(2,'<b>„App installieren“</b> oder <b>„Zum Startbildschirm hinzufügen“</b> wählen.')}${step(3,'Bestätigen – DartClub liegt jetzt als App auf dem Startbildschirm.')}`:`<p class="muted">So geht's am PC/Laptop (in <b>Chrome</b> oder <b>Edge</b>):</p>${step(1,'Rechts in der Adresszeile auf das <b>Installieren-Symbol</b> (Bildschirm mit Pfeil) klicken.')}${step(2,'Alternativ: Menü <b>⋮</b> → <b>„Streamen, speichern und teilen“</b> → <b>„Seite als App installieren“</b>.')}${step(3,'Bestätigen – DartClub öffnet sich danach im eigenen Fenster wie ein Programm.')}`}
  <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal()">Alles klar</button>`);}
 function vLogin(){if(SY.on&&!SY.key)return vKey();const ps=allPlayers();
- return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p>${installBtn(false)?`<div style="margin-top:16px">${installBtn(false)}</div>`:''}<div style="margin-top:12px">${helpBtn(false)}</div></div>${SY.on?'':`<div class="banner"><div class="row"><div class="sp"><h3 style="margin:0 0 4px">🧪 Demo-Modus</h3><span class="muted small">Alles mit Beispiel-Spielern, Kids-Team und laufenden Turnieren ausprobieren. Oben kannst du jederzeit zwischen Admin, Verein und Spieler wechseln.</span></div><button class="pri" onclick="startDemo()">Demo starten</button></div></div>`}
+ return `<div class="login-hero">${logoSVG(150)}<h1>${appName()?esc(appName()):'Dart<span style="color:var(--accent)">Club</span>'}</h1><p>Training · Turniere · Statistiken – für unseren Verein</p>${chromeHint()}${installBtn(false)?`<div style="margin-top:16px">${installBtn(false)}</div>`:''}<div style="margin-top:12px">${helpBtn(false)}</div></div>${SY.on?'':`<div class="banner"><div class="row"><div class="sp"><h3 style="margin:0 0 4px">🧪 Demo-Modus</h3><span class="muted small">Alles mit Beispiel-Spielern, Kids-Team und laufenden Turnieren ausprobieren. Oben kannst du jederzeit zwischen Admin, Verein und Spieler wechseln.</span></div><button class="pri" onclick="startDemo()">Demo starten</button></div></div>`}
  <div class="grid2">
  <div class="card" style="margin:0"><h3>🏠 Spieler-Login</h3><p class="muted small">Für zu Hause: Training, Spielen und deine Statistik.</p>
  ${ps.length?`<label>Spitzname</label><input id="lpl" value="${(()=>{const mine=myDevicePlayer();const u=mine&&S.users.find(x=>x.id===mine);return u?esc(u.nick):'';})()}" placeholder="Deinen Spitznamen eintippen" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other" maxlength="30" oninput="loginSug(this.value)" onkeydown="if(event.key==='Enter')document.getElementById('lppin').focus()"><div id="lsug" class="lsug"></div>
@@ -2891,7 +2904,7 @@ function heatHTML(id,days=28){const acts=[...gamesOf(id).map(g=>g.date),...train
  return `<div class="heat">${cells.join('')}</div><div class="row muted small" style="margin-top:6px"><span>vor 4 Wochen</span><span class="sp"></span><span>heute</span></div>`;}
 function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  return `<div class="ph"><h1>${h<11?'Guten Morgen':h<18?'Hi':'Guten Abend'}, ${esc(m.nick)} ${AV(m)}</h1><p>${c.week?`Diese Woche schon ${c.week}× trainiert – stark!`:'Diese Woche noch nicht trainiert – Zeit für eine Runde!'}</p></div>
- ${isStandalone()?'':`<div class="banner"><b>📲 DartClub aufs Handy</b> <span class="muted small">– als App auf dem Startbildschirm, ohne Play Store, startet im Vollbild.</span><div style="margin-top:10px">${installBtn(true)}</div></div>`}
+ ${chromeHint()}${isStandalone()?'':`<div class="banner"><b>📲 DartClub aufs Handy</b> <span class="muted small">– als App auf dem Startbildschirm, ohne Play Store, startet im Vollbild.</span><div style="margin-top:10px">${installBtn(true)}</div></div>`}
  ${onlHomeBanner()}${tourHome()}
  <div class="quickrow">
   <button class="qbtn hero" onclick="trTab='ex';go('train')"><span class="i">📋</span><b>Übung starten</b><small>${Object.keys(EX).length} Übungen mit Anleitung</small></button>
