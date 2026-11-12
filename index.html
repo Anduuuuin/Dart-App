@@ -434,6 +434,27 @@ body.watching #nav{display:none!important}
 body.watching.hasnav{padding-left:0!important;padding-bottom:0!important}
 body.watching.livebig header,body.watching.livetab header{display:none}
 body.watching .wrap{max-width:none}
+body.watchall header{display:none}body.watchall .wrap{padding-top:12px!important;padding-bottom:0!important}
+.wt-all{height:calc(100dvh - 24px);display:flex;flex-direction:column;gap:10px}
+.wt-grid{flex:1 1 0;min-height:0;display:grid;gap:12px}
+.wt-tile{background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:1.4vh 1.4vw;display:flex;flex-direction:column;min-height:0;overflow:hidden;cursor:pointer}
+.wt-wait{opacity:.75;border-style:dashed}
+.wt-hd{display:flex;align-items:center;gap:10px;font-size:min(2.6vh,1.6vw);color:var(--muted)}
+.wt-b{background:var(--accent);color:#06140c;font-weight:800;border-radius:10px;padding:2px 12px}
+.wt-live{color:#ff5a5a;font-weight:800}
+.wt-ps{flex:1 1 0;min-height:0;display:flex;gap:10px;margin-top:1vh}
+.wt-p{flex:1 1 0;min-width:0;border-radius:14px;background:var(--panel2);padding:1vh 1vw;display:flex;flex-direction:column;justify-content:center;text-align:center;border:3px solid transparent;opacity:.7;transition:all .25s}
+.wt-p.cur{border-color:var(--accent);opacity:1;box-shadow:0 0 0 2px #2fbf7133}
+.wt-nm{font-weight:800;font-size:min(3.4vh,2.2vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wt-lg{font-size:min(3vh,1.9vw);font-weight:700;color:var(--muted)}.wt-lg small{font-size:.65em;margin:0 2px 0 6px}
+.wt-rem{font-size:min(11vh,7vw);font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums}
+.wt-p.cur .wt-rem{color:var(--accent)}
+.wt-meta{font-size:min(2.2vh,1.4vw);color:var(--muted)}
+.wt-co{text-align:center;font-size:min(2.6vh,1.7vw);margin-top:.8vh;color:#f2c14e;min-height:1.3em}
+.wt-other{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.wt-g{font-size:min(5vh,3vw);font-weight:800}
+.wt-foot{display:flex;gap:24px;flex-wrap:wrap;font-size:min(2.4vh,1.5vw);background:var(--panel);border-radius:14px;padding:1vh 1.4vw}
+.wt-foot span{margin-left:14px;color:var(--muted)}.wt-foot span b{color:var(--text,#fff)}
 .watchx{position:fixed;top:10px;right:12px;z-index:40;width:44px;height:44px;border-radius:50%;padding:0;font-size:20px;opacity:.55}
 .watchx:hover{opacity:1}
 .watchmode{display:flex;flex-direction:column;flex:1 1 0;min-height:0}
@@ -523,7 +544,7 @@ function save(){CALC_V++;try{scrUpdate();}catch(e){}try{onlPush();}catch(e){}sav
 /* Zuschauer-Anzeige: Läuft auf diesem Gerät ein Spiel, wird der Stand als „Bildschirm“ an den Server geschickt */
 function DEV(){let d=null;try{d=localStorage.getItem('dc_dev');if(!d){d=uid();localStorage.setItem('dc_dev',d);}}catch(e){d=d||'x';}return d;}
 function scrUpdate(){if(typeof SY==='undefined'||!SY.on||!SY.key||S.demo)return;S.screens=S.screens||{};const d=DEV();
- const m=me();if(S.live&&m&&m.watchOk&&!S.live.online){S.screens[d]={by:m.nick,live:JSON.parse(JSON.stringify(S.live)),at:Date.now()};}else if(S.screens[d])delete S.screens[d];}
+ const m=me();if(S.live&&m&&(m.watchOk||S.live.tref)&&!S.live.online){S.screens[d]={by:m.nick,live:JSON.parse(JSON.stringify(S.live)),at:Date.now()};}else if(S.screens[d])delete S.screens[d];}
 /* ===================== Server-Abgleich (eigener Vereinsserver) ===================== */
 // Läuft die App unter *.anduuuuin.de, werden alle Vereinsdaten mit dem Server abgeglichen.
 // Auf GitHub Pages oder als Datei bleibt alles wie bisher nur auf diesem Gerät (Testversion).
@@ -685,9 +706,10 @@ function liveScreens(){const now=Date.now();
 function scrTitle(x){const L=x.live||{};const g=L.kind==='mg'?(MG[L.id]?.name||'Minispiel'):L.kind==='x01'?L.start+' · '+outLabel(L):L.kind==='ex'?(EX[L.ex]?.name||'Übung'):({atc:'Around the Clock',bob:"Bob's 27",score:'Scoring-Training'})[L.kind]||'Spiel';
  const ps=(L.players||L.ps||(L.uid?[L.uid]:[])).map(id=>U(id).nick);return{g,ps};}
 function vWatch(id){
- if(!id){const list=liveScreens();return `<div class="ph"><div class="row"><h1 class="sp">📺 Zuschauer-Anzeige</h1><button class="ghost" onclick="go(isStaff()?'boards':'home')">← Zurück</button></div><p>Zeigt live und groß, was gerade auf einem anderen Gerät gespielt wird – z. B. hier am PC, während der Caller am Tablet eintippt.</p></div>
+ if(!id){const list=liveScreens();return `<div class="ph"><div class="row"><h1 class="sp">📺 Zuschauer-Anzeige</h1><button class="ghost" onclick="go(isStaff()?'boards':'home')">← Zurück</button></div><p>Zeigt live und groß, was gerade auf einem anderen Gerät gespielt wird – z. B. hier am PC, während der Caller am Tablet eintippt.</p><button class="pri" style="margin-top:10px;font-size:17px;padding:14px 20px" onclick="go('watch','all')">📺 Alle Boards gleichzeitig (Fernseher)</button></div>
   ${list.length?list.map(([d,x])=>{const t=scrTitle(x);return `<button class="card" style="width:100%;text-align:left;display:block" onclick="go('watch','${d}')"><div class="row"><b class="sp" style="font-size:18px">${esc(t.g)}</b><span class="badge g">● live</span></div><div class="muted" style="margin-top:6px">${t.ps.map(esc).join(' · ')}</div><div class="muted small" style="margin-top:4px">eingetippt von ${esc(x.by||'?')}</div></button>`;}).join('')
   :'<div class="card"><p class="muted" style="margin:0">Gerade läuft auf keinem anderen Gerät ein Spiel, das man anschauen darf. Sobald jemand am Tablet ein Spiel startet, erscheint es hier von selbst.</p><p class="muted small" style="margin:10px 0 0">Wichtig: Der Spieler, der am Tablet eingeloggt ist, muss <b>📺 Zuschauen erlauben</b> eingeschaltet haben – auf seiner Startseite oder während des Spiels oben.</p></div>'}`;}
+ if(id==='all')return vWatchAll();
  const x=scrGet(id);
  if(x&&x.onl&&x.status!=='live'){const g=(S.online||{})[x.onl];return `<button class="watchx" onclick="watchExit()" title="Anzeige beenden">✕</button><div class="watchwait"><div class="big">🏁</div><h1>${esc(g&&g.status==='abandoned'?U(g.by).nick+' hat aufgegeben':x.result||'Spiel beendet')}</h1><p class="muted">${esc(scrTitle(x).ps.join(' · '))}</p><button class="pri" style="display:inline-block!important;margin-top:16px" onclick="go('watch')">Andere Spiele anzeigen</button></div>`;}
  const exit=`<button class="watchx" onclick="watchExit()" title="Anzeige beenden">✕</button>`;
@@ -697,6 +719,27 @@ function vWatch(id){
  finally{S.live=keep;WATCH=false;}
  return `${exit}<div class="watchmode"><div class="watchlive">● LIVE · ${esc(scrTitle(x).g)}</div>${h}</div>`;}
 setInterval(()=>{if(view==='watch'&&!document.hidden&&SY.on&&SY.key)syRun();},1000);
+
+/* ===================== TV: alle Boards gleichzeitig ===================== */
+function wtBoard(x){const L=x.live;if(L.tref){if(L.tref.board)return L.tref.board;const t=S.tournaments.find(t=>t.id===L.tref.tid),m=t&&t.matches.find(m=>m.id===L.tref.mid);if(m&&m.board)return m.board;}return null;}
+function wtX01(L){const f=L.fmt,showL=f.sets||f.bo>1;const T=coTable(L);const cs=L.scores[L.cur];const co=L.players.length>1&&T&&T[cs]?T[cs].join(' · '):'';
+ return `<div class="wt-ps">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="wt-p ${i===L.cur?'cur':''}"><div class="wt-nm">${i===L.cur?'🎯 ':''}${L.team?`<span class="badge ${L.team[i]?'r':'g'}">${L.team[i]?'B':'A'}</span> `:''}${esc(U(id).nick)}</div>
+  ${showL?`<div class="wt-lg">${f.sets?`<small>Sets</small>${L.sets[i]} `:''}<small>Legs</small>${L.legs[i]}</div>`:''}<div class="wt-rem">${L.scores[i]}</div>
+  <div class="wt-meta">Ø ${f1(s.darts?s.pts/s.darts*3:0)} · Letzte: <b>${s.last??'–'}</b></div></div>`;}).join('')}</div>
+ <div class="wt-co">${co?`Checkout: <b>${co}</b>`:'&nbsp;'}</div>`;}
+function wtTile(key,x){const L=x.live,b=wtBoard(x),t=L.tref&&S.tournaments.find(t=>t.id===L.tref.tid);const ti=scrTitle(x);
+ let body;try{body=L.kind==='x01'?wtX01(L):`<div class="wt-other"><div class="wt-g">${esc(ti.g)}</div><div class="muted">${ti.ps.map(esc).join(' · ')}</div>${L.kind==='mg'&&L.ps?`<div class="wt-ps" style="margin-top:10px">${L.ps.map((id,i)=>`<div class="wt-p ${i===L.cur?'cur':''}"><div class="wt-nm">${i===L.cur?'🎯 ':''}${esc(U(id).nick)}</div></div>`).join('')}</div>`:''}</div>`;}catch(e){body='<p class="muted">läuft …</p>';}
+ return `<div class="wt-tile" onclick="go('watch','${key}')"><div class="wt-hd"><span class="wt-b">${b?'Board '+b:x.onl?'🌐 Online':'Spiel'}</span><span class="sp">${esc(t?t.name:ti.g)}</span><span class="wt-live">● LIVE</span></div>${body}</div>`;}
+function vWatchAll(){const live=liveScreens();const used=new Set(live.map(([,x])=>wtBoard(x)).filter(Boolean));
+ const tiles=live.map(([k,x])=>[wtBoard(x)||99,wtTile(k,x)]);
+ if(activeTours().length)rng(boardsN()).map(i=>i+1).forEach(b=>{if(used.has(b))return;const m=boardMatch(b);if(m)tiles.push([b,`<div class="wt-tile wt-wait"><div class="wt-hd"><span class="wt-b">Board ${b}</span><span class="sp">${esc(m.t.name)}</span><span class="badge y">gleich</span></div><div class="wt-other"><div class="wt-g">${esc(U(m.m.a).nick)}<div class="muted" style="font-size:.5em;margin:6px 0">gegen</div>${esc(U(m.m.b).nick)}</div><div class="muted">wartet auf Start</div></div></div>`]);});
+ tiles.sort((a,b)=>a[0]-b[0]);const n=tiles.length;const cols=n<=1?1:n<=4?2:3;
+ const queue=activeTours().flatMap(t=>t.matches.filter(m=>playable(m)&&!m.board).map(m=>({t,m}))).slice(0,4);
+ const res=S.tournaments.flatMap(t=>t.matches.filter(m=>m.winner&&m.at&&real(m.a)&&real(m.b)).map(m=>({t,m}))).sort((a,b)=>b.m.at-a.m.at).slice(0,4);
+ const foot=(queue.length||res.length)?`<div class="wt-foot">${res.length?`<div><b>Letzte Ergebnisse</b> ${res.map(({m})=>`<span>${esc(U(m.a).nick)} <b>${m.la??''}:${m.lb??''}</b> ${esc(U(m.b).nick)}</span>`).join('')}</div>`:''}${queue.length?`<div><b>Als Nächstes</b> ${queue.map(({m})=>`<span>${esc(U(m.a).nick)} – ${esc(U(m.b).nick)}</span>`).join('')}</div>`:''}</div>`:'';
+ return `<button class="watchx" onclick="watchExit()" title="Anzeige beenden">✕</button><div class="wt-all">
+ ${n?`<div class="wt-grid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${Math.ceil(n/cols)},minmax(0,1fr))">${tiles.map(t=>t[1]).join('')}</div>`
+ :`<div class="watchwait"><div class="big">📺</div><h1>Gerade läuft kein Spiel</h1><p class="muted">Sobald an einem Board ein Spiel startet, erscheint es hier von selbst.</p></div>`}${foot}</div>`;}
 function watchExit(){const m=me();go(!m?'login':isStaff()?'boards':m.role==='player'?'home':'tour');}
 
 function watchBtn(wide){const m=me();if(!m)return '';const on=!!m.watchOk;
@@ -706,7 +749,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=46;
+const APPV=47;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -3851,7 +3894,7 @@ function checkPhase(t){
  if(t.mode==='swiss'){const cur=t.matches.filter(m=>m.br==='S'&&m.r===t.curRound);if(cur.every(m=>m.winner)){if(t.curRound<t.swissRounds){pairSwiss(t,t.curRound+1);toast(`Runde ${t.curRound} ist ausgelost`);}else{t.status='done';t.winner=swissTable(t)[0].id;}}}
  if(t.mode==='groups'&&t.phase==='groups'&&t.matches.filter(m=>m.br==='G').every(m=>m.winner)){t.phase='ko';buildBracket(t,groupQualifiers(t),false);toast('Gruppenphase beendet – K.-o.-Runde ausgelost!');}}
 function applyResult(tid,mid,w,la,lb){const t=S.tournaments.find(x=>x.id===tid);if(!t)return;const m=t.matches.find(x=>x.id===mid);if(!m||m.winner)return;
- m.la=la;m.lb=lb;
+ m.la=la;m.lb=lb;m.at=Date.now();
  if(w==='DRAW'){m.winner='DRAW';}else{const l=w===m.a?m.b:m.a;if(['W','L','GF'].includes(m.br))finish(t,m,w,l);else m.winner=w;}
  checkPhase(t);assignAll();}
 function tFmt(t){return t.fmt||{sets:false,bo:t.bestOf||3,setLegs:3};}
@@ -4128,7 +4171,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&view==='home'&&m.role!=='player')view='tour';
  if(m&&view==='admin'&&!isStaff())view='home';
  if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&scrGet(param)?scrGet(param).live:null;
- renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{rtcTick();}catch(e){}},0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&scrGet(param)?scrGet(param).live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
+ renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{rtcTick();}catch(e){}},0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&scrGet(param)?scrGet(param).live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');document.body.classList.toggle('watchall',view==='watch'&&param==='all');const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'club':h=vClub();break;case'coach':h=me().role==='player'?vCoach():vClub();break;case'player':h=pubLimited()&&param!==meId?pubStatsCard(param):canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
