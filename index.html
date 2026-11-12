@@ -749,7 +749,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=47;
+const APPV=48;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1098,7 +1098,7 @@ function badgesHTML(id){const b=badgesOf(id);const ok=b.filter(x=>x.ok).length;
 /* ---- Ehrentafel ---- */
 function honors(all){const ps=visPlayers();const best=(f,low)=>{let r=null;ps.forEach(u=>{const v=f(u);if(v==null||v===0||!isFinite(v))return;if(!r||(low?v<r.v:v>r.v))r={u,v};});return r;};
  const cs={};ps.forEach(u=>cs[u.id]=calc(u.id));const mon=new Date();mon.setDate(1);mon.setHours(0,0,0,0);
- const H=[['📈','Bester Spiel-Average',best(u=>cs[u.id].games?cs[u.id].best:null),v=>f1(v)],['🎯','Höchstes Finish',best(u=>cs[u.id].hiCo||null),v=>v],
+ const H=[['📈','Bester Spiel-Average',best(u=>cs[u.id].games?cs[u.id].best:null),v=>f1(v)],['🎯','Höchstes Checkout',best(u=>cs[u.id].hiCo||null),v=>v],
   ['🔥','Meiste 180er',best(u=>cs[u.id].s180||null),v=>v+'×'],['📊','Bester Gesamt-Average (ab 10 Spielen)',best(u=>cs[u.id].games>=10?cs[u.id].avg:null),v=>f1(v)],
 ['🕐','Around the Clock (Darts)',best(u=>cs[u.id].atcBest,true),v=>v],
   ["🎲","Bob's 27",best(u=>cs[u.id].bobBest),v=>v],['📅','Längste Trainingsserie (Wochen)',best(u=>weekStreak(u.id).best||null),v=>v],
@@ -1247,7 +1247,7 @@ function playerCard(id){const u=U(id),c=calc(id),b=badgesOf(id).filter(x=>x.ok);
   x.restore();x.strokeStyle='#2fbf71';x.lineWidth=8;x.beginPath();x.arc(W/2,300,174,0,Math.PI*2);x.stroke();
   x.fillStyle='#ffffff';x.font=`900 92px ${F}`;x.fillText(u.nick,W/2,575);
   x.fillStyle='#f2c14e';x.font=`800 40px ${F}`;x.fillText('DartClub-Spieler',W/2,640);
-  const st=[['3-Dart-Average',c.games?f1(c.avg):'–'],['Bester Average',c.games?f1(c.best):'–'],['Höchstes Finish',c.hiCo||'–'],['180er',c.s180],['Checkout-Quote',c.coPct!=null?f1(c.coPct)+'%':'–'],['Spiele',c.games]];
+  const st=[['3-Dart-Average',c.games?f1(c.avg):'–'],['Bester Average',c.games?f1(c.best):'–'],['Höchstes Checkout',c.hiCo||'–'],['180er',c.s180],['Checkout-Quote',c.coPct!=null?f1(c.coPct)+'%':'–'],['Spiele',c.games]];
   st.forEach(([k,v],i)=>{const cx=W/2+((i%3)-1)*320,cy=760+Math.floor(i/3)*190;x.fillStyle='#ffffff10';rr(cx-145,cy-70,290,160,26);x.fill();
    x.fillStyle='#ffffff';x.font=`900 66px ${F}`;x.fillText(String(v),cx,cy+20);x.fillStyle='#9fb3aa';x.font=`600 28px ${F}`;x.fillText(k,cx,cy+66);});
   x.font=`64px ${F}`;const bs=b.slice(-8);bs.forEach((y,i)=>x.fillText(y.i,W/2+(i-(bs.length-1)/2)*96,1150));
@@ -2892,9 +2892,9 @@ function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
   ${st(c.avg30!=null?f1(c.avg30):'–','Ø letzte 30 Tage',`aus ${c.games30} ${c.games30===1?'Spiel':'Spielen'}`)}
   ${st(c.games?f1(c.best):'–','Bester Average','in einem Spiel')}</div>
   <div class="sec">First Darts (Ø der ersten Darts je Leg)</div><div class="stats">${[9,12,15,18].map(N=>st(fa(N),'First '+N,lg(N))).join('')}</div>
-  <div class="sec">Checkout</div><div class="stats">${st(c.coPct!=null?f1(c.coPct)+' %':'–','Checkout-Quote',c.dd?`${c.cos} von ${c.dd} Chancen gecheckt`:'noch keine Checkout-Chancen')}${st(c.hiCo||'–','Höchstes Finish')}</div>
+  <div class="sec">Checkout</div><div class="stats">${st(c.coPct!=null?f1(c.coPct)+' %':'–','Checkout-Quote',c.dd?`${c.cos} von ${c.dd} Chancen gecheckt`:'noch keine Checkout-Chancen')}${st(c.hiCo||'–','Höchstes Checkout')}</div>
   <div class="sec">Scores</div><div class="stats">${st(c.s100,'100+')}${st(c.s140,'140+')}${st(c.s180,'180er')}${st(c.hf.length,'High Finishes')}</div>
-  <div class="card" style="margin-top:12px"><h3>High Finishes (100+)</h3>${c.hf.length?`<div class="chips">${c.hf.slice(0,30).map(v=>`<span class="badge y" style="font-size:16px;padding:6px 12px">${v}</span>`).join('')}</div><p class="muted small" style="margin-top:8px">${c.hf.length} High Finish${c.hf.length===1?'':'es'} insgesamt</p>`:'<p class="muted">Noch kein Finish über 100 – das kommt! 🎯</p>'}</div>
+  <div class="card" style="margin-top:12px"><h3>Checkouts ab 100 (High Finishes)</h3>${c.hf.length?`<div class="chips">${c.hf.slice(0,30).map(v=>`<span class="badge y" style="font-size:16px;padding:6px 12px">${v}</span>`).join('')}</div><p class="muted small" style="margin-top:8px">${c.hf.length} High Finish${c.hf.length===1?'':'es'} insgesamt</p>`:'<p class="muted">Noch kein Finish über 100 – das kommt! 🎯</p>'}</div>
   <p class="muted small" style="margin-top:10px">Alle Werte aus X01-Spielen (Training, Liga und Turniere).</p>`;}
  if(statTab==='badges')body=badgesHTML(id);
  if(statTab==='train')body=`<div class="sec" style="margin-top:0">Trainingsspiele</div><div class="stats">
@@ -2908,7 +2908,7 @@ function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
  if(statTab==='games')body=`<div class="stats">
   <div class="stat"><div class="v">${c.games}</div><div class="k">Spiele</div></div><div class="stat"><div class="v">${c.wins}</div><div class="k">Siege</div></div>
   <div class="stat"><div class="v">${c.games?f1(c.avg):'–'}</div><div class="k">Average</div></div><div class="stat"><div class="v">${c.games?f1(c.best):'–'}</div><div class="k">Bester Average</div></div>
-  <div class="stat"><div class="v">${c.hiCo||'–'}</div><div class="k">Höchstes Finish</div></div><div class="stat"><div class="v">${c.coPct!=null?f1(c.coPct)+' %':'–'}</div><div class="k">Checkout-Quote</div></div><div class="stat"><div class="v">${c.s180}</div><div class="k">180er</div></div>
+  <div class="stat"><div class="v">${c.hiCo||'–'}</div><div class="k">Höchstes Checkout</div></div><div class="stat"><div class="v">${c.coPct!=null?f1(c.coPct)+' %':'–'}</div><div class="k">Checkout-Quote</div></div><div class="stat"><div class="v">${c.s180}</div><div class="k">180er</div></div>
   <div class="stat"><div class="v">${c.s140}</div><div class="k">140+</div></div><div class="stat"><div class="v">${c.s100}</div><div class="k">100+</div></div></div>
   <div style="margin-top:12px">${chart(c.avgs.slice(-20),{title:'Average pro Spiel'})}</div>`;
  if(statTab==='log')body=`<div class="card">${recent.length?`<table>${recent.map(r=>r.t==='game'?(()=>{const p=r.g.players.find(x=>x.id===id);const opp=r.g.players.filter(x=>x.id!==id).map(x=>esc(U(x.id).nick)).join(', ');
@@ -4067,7 +4067,7 @@ function joinCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r;do{r=[...Ar
 const TSTAT={week:['Einh. 7 T.',c=>c.week],days:['Tage 30 T.',c=>c.days],avg:['Ø gesamt',c=>c.games?f1(c.avg):'–'],avg10:['Ø letzte 10',c=>c.games?f1(c.recentAvg):'–'],avg30:['Ø 30 Tage',c=>c.avg30!=null?f1(c.avg30):'–'],
  trend:['Trend',c=>c.trend===null?'<span class="muted">–</span>':c.trend>=0?`<span class="badge g">▲ ${f1(c.trend)}</span>`:`<span class="badge r">▼ ${f1(-c.trend)}</span>`],
  f9:['First 9',c=>c.fAvg(9)!=null?f1(c.fAvg(9)):'–'],f12:['First 12',c=>c.fAvg(12)!=null?f1(c.fAvg(12)):'–'],f15:['First 15',c=>c.fAvg(15)!=null?f1(c.fAvg(15)):'–'],f18:['First 18',c=>c.fAvg(18)!=null?f1(c.fAvg(18)):'–'],
- s100:['100+',c=>c.s100],s140:['140+',c=>c.s140],s180:['180er',c=>c.s180],hiCo:['High Finish',c=>c.hiCo||'–'],co:['Checkout-%',c=>c.coPct!=null?f1(c.coPct)+' %':'–'],games:['Spiele',c=>c.games],
+ s100:['100+',c=>c.s100],s140:['140+',c=>c.s140],s180:['180er',c=>c.s180],hiCo:['Höchstes Checkout',c=>c.hiCo||'–'],hf100:['Checkouts 100+',c=>c.hf.length],co:['Checkout-%',c=>c.coPct!=null?f1(c.coPct)+' %':'–'],games:['Spiele',c=>c.games],
  atc:['ATC-Rekord',c=>c.atcBest??'–'],bob:["Bob's 27",c=>c.bobBest??'–'],ex:['Übungen 7 T.',(c,id)=>S.trainings.filter(t=>t.uid===id&&t.mode==='ex'&&t.date>Date.now()-7*DAY).length],last:['Zuletzt',c=>c.last?dstr(c.last):'nie']};
 const TSTAT_DEF=['week','days','avg10','trend','atc','last'];
 let ntStats=[];
