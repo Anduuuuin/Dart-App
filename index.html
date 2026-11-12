@@ -768,7 +768,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=55;
+const APPV=56;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1195,8 +1195,22 @@ function teamMateStats(t){if(!t.members.includes(meId))return '';const cols=(t.s
  ${rows.map(({id,c})=>{const ok=canSee(id);return `<tr${ok?` class="click" onclick="backTo=['team','${t.id}'];go('player','${id}')"`:''}${id===meId?' style="background:#2fbf7112"':''}><td style="white-space:nowrap">${AV(U(id))} <b>${esc(U(id).nick)}</b></td>${cols.map(k=>`<td>${ok?TSTAT[k][1](c,id):'<span class="muted">🔒</span>'}</td>`).join('')}</tr>`;}).join('')}</table></div>
  <p class="muted small" style="margin-top:-4px">Spieler antippen für die komplette Statistik. 🔒 = Spieler hat seine Statistik für niemanden freigegeben.</p>`;}
 /* ---- Vereins-Seite ---- */
+
+let TOUR_BACK='',TA_F='all';
+function tourArchiveHTML(){const all=[...S.tournaments].sort((a,b)=>b.created-a.created);const list=all.filter(t=>TA_F==='all'||(TA_F==='training'?t.kind==='training':t.kind!=='training'));
+ const titles={};all.filter(t=>t.status==='done'&&t.winner&&!t.parent).forEach(t=>titles[t.winner]=(titles[t.winner]||0)+1);all.filter(t=>t.status==='done'&&t.winner&&t.parent).forEach(t=>titles[t.winner]=(titles[t.winner]||0)+1);
+ const tt=Object.entries(titles).sort((a,b)=>b[1]-a[1]).slice(0,5);
+ const card=t=>{const done=t.status==='done';const gs=S.games.filter(g=>g.tid===t.id);let bd=0,bp=0,best=null;gs.forEach(g=>g.players.forEach(p=>{const a=p.darts?p.pts/p.darts*3:0;if(!best||a>best.a)best={id:p.id,a};}));
+  const all=t.matches.filter(m=>real(m.a)&&real(m.b)).length,fin=t.matches.filter(m=>m.winner&&!m.bye&&real(m.a)&&real(m.b)).length;
+  return `<div class="card tcard ${done?'done':'live'}" style="cursor:pointer" onclick="TV_TAB='games';TOUR_BACK='club';go('tourview','${t.id}')"><div class="row"><b class="sp" style="font-size:17px">${esc(t.name)}</b>${done?`<span class="badge g">🏆 ${esc(U(t.winner).nick)}</span>`:`<span class="badge y">läuft · ${fin}/${all}</span>`}</div>
+  <div class="row small muted" style="margin-top:8px;gap:8px"><span class="badge">${t.kind==='training'?'Training':'Turnier'}</span><span>${MODES[t.mode]} · ${t.players.length} Spieler · ${fin} Spiele</span><span class="sp"></span><span>${dstr(t.created)}</span></div>
+  ${best?`<div class="small" style="margin-top:6px"><span class="muted">Bester Match-Ø:</span> <b>${esc(U(best.id).nick)} ${f1(best.a)}</b></div>`:''}</div>`;};
+ return `${tt.length?`<div class="card"><h3 style="margin-top:0">🏆 Meiste Turniersiege</h3>${tt.map(([id,n],i)=>`<div class="row" style="padding:5px 0;border-top:1px solid var(--line)"><b style="width:28px">${['🥇','🥈','🥉'][i]||i+1+'.'}</b><span class="sp">${AV(U(id))} ${esc(U(id).nick)}</span><b>${n}×</b></div>`).join('')}</div>`:''}
+ <div class="chips" style="margin:10px 0">${[['all','Alle'],['training','Trainingsturniere'],['tour','Turniere']].map(([k,l])=>`<button class="${TA_F===k?'on':''}" onclick="TA_F='${k}';render()">${l}</button>`).join('')}</div>
+ ${list.length?list.map(card).join(''):'<div class="card muted">Keine Turniere in dieser Auswahl.</div>'}
+ <p class="muted small">Turnier antippen: Turnierbaum bzw. Tabelle, alle Spiele mit Ergebnis und der Reiter „📊 Statistiken“.</p>`;}
 let clubTab='week';
-function vClub(){const m=me();if(clubTab==='table'&&!pubSet().cols.length)clubTab='week';const seg=`<div class="seg">${[['week','🏅 Wochen-Challenge'],['honor','🎖️ Ehrentafel'],...(pubSet().cols.length?[['table','📊 Übersicht']]:[])].map(([k,l])=>`<button class="${clubTab===k?'on':''}" onclick="clubTab='${k}';render()">${l}</button>`).join('')}</div>`;
+function vClub(){const m=me();if(clubTab==='table'&&!pubSet().cols.length)clubTab='week';const seg=`<div class="seg">${[['week','🏅 Wochen-Challenge'],['honor','🎖️ Ehrentafel'],...(pubSet().cols.length?[['table','📊 Übersicht']]:[]),...(S.tournaments.length?[['tours','🏆 Turniere']]:[])].map(([k,l])=>`<button class="${clubTab===k?'on':''}" onclick="clubTab='${k}';render()">${l}</button>`).join('')}</div>`;
  let b='';
  if(clubTab==='rank')clubTab='week';
  if(false){const r=ranking();const myI=r.findIndex(x=>x.u.id===meId);const inc=m.role==='player'?chalOpenFor(meId):[];
@@ -1210,6 +1224,7 @@ function vClub(){const m=me();if(clubTab==='table'&&!pubSet().cols.length)clubTa
     <div style="text-align:right"><b style="font-size:19px">${x.elo}</b><div class="small" style="color:${x.d30>0?'var(--accent)':x.d30<0?'var(--accent2)':'var(--muted)'}">${x.d30>0?'▲ +'+x.d30:x.d30<0?'▼ '+x.d30:'±0'} <span class="muted">30 T.</span></div></div>
     ${can?`<button class="sm ${pend?'ghost':''}" ${pend?'disabled':''} onclick="chalCreate('${x.u.id}')" title="Herausfordern">${pend?'⏳':'⚔️'}</button>`:''}</div>`;}).join('')}</div>`:'<div class="card muted">Noch keine X01-Spiele zwischen Vereinsmitgliedern – sobald gespielt wird, erscheint hier die Rangliste.</div>'}
   ${m.role==='player'&&myI<0?'<p class="muted small">Du stehst noch nicht in der Rangliste – spiel ein X01-Spiel gegen ein Vereinsmitglied.</p>':''}`;}
+ if(clubTab==='tours')b=tourArchiveHTML();
  if(clubTab==='week'){const w=wchBoard(),e=EX[w.ex];const last=wchBoard(Date.now()-7*DAY);
   b=`<div class="card" style="border-color:#f2c14e55"><div class="muted small">Diese Woche (${new Date(weekStart()).toLocaleDateString('de-DE')} – ${new Date(weekStart()+6*DAY).toLocaleDateString('de-DE')})</div><h2 style="margin:4px 0">${esc(e.name)}</h2><p class="muted" style="margin:0 0 10px">${esc(e.desc)}</p>
    <p class="muted small" style="margin:0 0 10px">Es zählt dein bester Durchgang der Woche · ${e.better==='low'?'weniger ist besser':'mehr ist besser'} (${esc(e.unit||'')}).</p>
@@ -2905,8 +2920,8 @@ function tourHome(){if(isStaff())return '';const act=activeTours();const done=S.
   <div class="muted small" style="margin:4px 0 8px">${MODES[t.mode]} · ${t.players.length} Spieler · ${fin} von ${all} Spielen fertig</div>
   ${all?`<div style="height:6px;background:var(--panel2);border-radius:99px;overflow:hidden;margin-bottom:10px"><div style="height:100%;width:${fin/all*100}%;background:var(--accent)"></div></div>`:''}
   ${mine?`<p class="small" style="margin:0 0 10px">🎯 Dein nächstes Spiel: <b>${esc(U(mine.a===meId?mine.b:mine.a).nick)}</b>${mine.board?` · <span class="badge g">Board ${mine.board}</span>`:' · wartet auf ein freies Board'}</p>`:''}
-  <div class="row"><button class="pri sp" onclick="TV_TAB='games';go('tourview','${t.id}')">🏆 Turnier ansehen</button><button class="ghost sp" onclick="go('watch','all')">📺 Live zuschauen</button></div></div>`;}).join('')}
-  ${done?`<button class="ghost" style="width:100%;margin-bottom:6px" onclick="go('tour')">📜 Vergangene Turniere (${done})</button>`:''}`;}
+  <div class="row"><button class="pri sp" onclick="TV_TAB='games';TOUR_BACK='home';go('tourview','${t.id}')">🏆 Turnier ansehen</button><button class="ghost sp" onclick="go('watch','all')">📺 Live zuschauen</button></div></div>`;}).join('')}
+  ${done?`<button class="card" style="width:100%;text-align:left;display:block;cursor:pointer" onclick="clubTab='tours';go('club')"><div class="row"><b class="sp" style="font-size:17px">📜 Turnier-Archiv</b><span class="badge">${done} Turnier${done===1?'':'e'}</span></div><div class="muted small" style="margin-top:4px">Alle Turniere, die schon liefen – mit Siegern, allen Spielen und Statistiken${act.length?'':'. Gerade läuft kein Turnier.'}</div></button>`:''}`;}
 /* ===================== Statistik-Ansicht ===================== */
 
 /* ===================== Spiel-Details: Match-Statistik und jedes Leg ===================== */
@@ -4002,9 +4017,10 @@ function canPlay(m){return playable(m)&&m.board&&isStaff();}
 function matchHTML(t,m){if(!real(m.a)&&!real(m.b))return'';if(m.bye&&!real(m.a)&&m.br!=='W')return'';
  const nm=id=>id==='BYE'?'<span class="muted">Freilos</span>':id?`${AV(U(id))} ${(t.out||[]).includes(id)?`<s style="opacity:.6">${esc(U(id).nick)}</s>`:esc(U(id).nick)}`:'<span class="muted">—</span>';
  const cls=id=>m.winner==='DRAW'?'':m.winner&&!m.bye?(m.winner===id?'w':'l'):m.bye&&real(id)?'w':'';
- return `<div class="match">${playable(m)?`<div class="row small" style="margin-bottom:4px">${m.board?`<span class="badge g">Board ${m.board}</span>`:t.mode==='league'&&m.r!==curDay(t)?`<span class="badge">geplant</span>`:`<span class="badge">wartet auf Board</span>`}<span class="sp"></span><span class="muted">${fmtShort(fmtOf(t,m))}</span></div>`:m.winner==='DRAW'?`<div class="small" style="margin-bottom:4px"><span class="badge y">🤝 Unentschieden</span></div>`:m.wo?`<div class="small" style="margin-bottom:4px"><span class="badge">🏳️ kampflos</span></div>`:''}
+ const gm=m.winner&&!m.bye&&S.games.find(g=>g.mid===m.id);
+ return `<div class="match"${gm?` style="cursor:pointer" title="Spiel-Details ansehen" onclick="gameDetail('${gm.id}')"`:''}>${playable(m)?`<div class="row small" style="margin-bottom:4px">${m.board?`<span class="badge g">Board ${m.board}</span>`:t.mode==='league'&&m.r!==curDay(t)?`<span class="badge">geplant</span>`:`<span class="badge">wartet auf Board</span>`}<span class="sp"></span><span class="muted">${fmtShort(fmtOf(t,m))}</span></div>`:m.winner==='DRAW'?`<div class="small" style="margin-bottom:4px"><span class="badge y">🤝 Unentschieden</span></div>`:m.wo?`<div class="small" style="margin-bottom:4px"><span class="badge">🏳️ kampflos</span></div>`:''}
  <div class="pl ${cls(m.a)}"><span>${nm(m.a)}</span><b>${m.winner&&!m.bye?m.la:''}</b></div>
- <div class="pl ${cls(m.b)}"><span>${nm(m.b)}</span><b>${m.winner&&!m.bye?m.lb:''}</b></div>
+ <div class="pl ${cls(m.b)}"><span>${nm(m.b)}</span><b>${m.winner&&!m.bye?m.lb:''}</b></div>${gm?'<div class="muted small" style="text-align:right;margin-top:2px">📊 Details ›</div>':''}
  ${canPlay(m)||(isStaff()&&playable(m))?`<div class="row" style="margin-top:6px">${canPlay(m)?`<button class="pri sm sp" onclick="playMatch('${t.id}','${m.id}')">▶ Spielen</button>`:''}${isStaff()?`<button class="sm" onclick="manualRes('${t.id}','${m.id}')" title="Ergebnis von Hand eintragen">✎ Ergebnis</button>`:''}</div>`:''}</div>`;}
 function bracketHTML(t,br,rounds,nameFn){return `<div class="bracket">${rounds.map(r=>{const inner=t.matches.filter(m=>m.br===br&&m.r===r).sort((a,b)=>a.s-b.s).map(m=>matchHTML(t,m)).join('');
  return inner?`<div class="round"><div class="muted small" style="text-align:center">${nameFn(r)}</div>${inner}</div>`:'';}).join('')}</div>`;}
@@ -4030,7 +4046,7 @@ function vTourView(id){const t=S.tournaments.find(x=>x.id===id);if(!t){view='tou
  const ba=Object.entries(best).sort((a,b)=>b[1]-a[1])[0];
  if(TV_TAB==='stats')body=tourStatsHTML(t);
  const kids=S.tournaments.filter(x=>x.parent===t.id),par=t.parent&&S.tournaments.find(x=>x.id===t.parent);
- return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go(isStaff()?'tour':'home')">← Zurück</button><h2 class="sp" style="margin:0">${esc(t.name)}</h2>
+ return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="TOUR_BACK==='club'?(clubTab='tours',go('club')):go(isStaff()?'tour':'home')">← Zurück</button><h2 class="sp" style="margin:0">${esc(t.name)}</h2>
  ${isStaff()?`<button class="sm ghost" onclick="tourAdjust('${t.id}')">⚙️ Turnier anpassen</button>`:''}${isStaff()&&t.status!=='done'?`<button class="sm ghost" onclick="tourOutDlg('${t.id}')">👤 Spieler streichen</button>`:''}${me().role==='admin'?`<button class="sm red" onclick="delTour('${t.id}')">Löschen</button>`:''}</div>
  <div class="muted small" style="margin-bottom:12px">${t.kind==='training'?'Training':'Turnier'} · ${MODES[t.mode]} · ${t.start} · ${fmtStr(tFmt(t))}${t.bestOfFinal&&['ko','dko','groups'].includes(t.mode)?` (Finale Best of ${t.bestOfFinal})`:''} · ${t.dOut?'Double Out':'Single Out'} · Boards ${(t.boards||[]).join(', ')}</div>
  ${t.status==='done'?`<div class="banner"><h3 style="margin:0">🏆 Sieger: ${AV(U(t.winner))} ${esc(U(t.winner).nick)}</h3></div>`:''}
