@@ -700,7 +700,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=44;
+const APPV=45;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -714,8 +714,8 @@ function starterMode(){let m=null;try{m=localStorage.getItem('dc_starter');}catc
 function setStarter(m){try{localStorage.setItem('dc_starter',m);}catch(e){}render();}
 function starterHTML(){const m=starterMode();return `<label>Wer fängt an?</label><div class="chips">${[['bull','🎯 Ausbullen'],['random','🎲 Zufall'],['order','Wie eingetragen']].map(([k,l])=>`<button class="${m===k?'on':''}" onclick="setStarter('${k}')">${l}</button>`).join('')}</div>`;}
 let WS_CB=null;
-function whoStarts(ps,cb){const m=starterMode();if(ps.length<2||m==='order')return cb(0);
- if(m==='random'){const i=Math.floor(Math.random()*ps.length);cb(i);toast(`🎲 ${U(ps[i]).nick} fängt an`);return;}
+function whoStarts(ps,cb){const m=starterMode();const bot=ps.some(id=>String(id).startsWith('bot:'));if(ps.length<2||(m==='order'&&!bot))return cb(0);
+ if(m==='random'||bot){const i=Math.floor(Math.random()*ps.length);cb(i);toast(`🎲 ${U(ps[i]).nick} fängt an`);return;}
  WS_CB=i=>{closeModal();const f=WS_CB;WS_CB=null;cb(i);};window.__wsPs=ps;
  modal(`<h2 style="margin-bottom:4px">🎯 Ausbullen</h2><p class="muted" style="margin-top:0">Jeder wirft einen Dart aufs Bull. Wer am nächsten dran ist, fängt an – tippe ihn an:</p>
  <div style="display:grid;gap:8px">${ps.map((id,i)=>`<button class="ghost" style="padding:14px;font-size:18px;text-align:left" onclick="WS_CB&&WS_CB(${i})">${AV(U(id),30)} <b>${esc(U(id).nick)}</b></button>`).join('')}</div>
