@@ -523,7 +523,7 @@ function save(){CALC_V++;try{scrUpdate();}catch(e){}try{onlPush();}catch(e){}sav
 /* Zuschauer-Anzeige: Läuft auf diesem Gerät ein Spiel, wird der Stand als „Bildschirm“ an den Server geschickt */
 function DEV(){let d=null;try{d=localStorage.getItem('dc_dev');if(!d){d=uid();localStorage.setItem('dc_dev',d);}}catch(e){d=d||'x';}return d;}
 function scrUpdate(){if(typeof SY==='undefined'||!SY.on||!SY.key||S.demo)return;S.screens=S.screens||{};const d=DEV();
- const m=me();if(S.live&&m&&m.watchOk){S.screens[d]={by:m.nick,live:JSON.parse(JSON.stringify(S.live)),at:Date.now()};}else if(S.screens[d])delete S.screens[d];}
+ const m=me();if(S.live&&m&&m.watchOk&&!S.live.online){S.screens[d]={by:m.nick,live:JSON.parse(JSON.stringify(S.live)),at:Date.now()};}else if(S.screens[d])delete S.screens[d];}
 /* ===================== Server-Abgleich (eigener Vereinsserver) ===================== */
 // Läuft die App unter *.anduuuuin.de, werden alle Vereinsdaten mit dem Server abgeglichen.
 // Auf GitHub Pages oder als Datei bleibt alles wie bisher nur auf diesem Gerät (Testversion).
@@ -676,14 +676,20 @@ function closeModal(){document.querySelectorAll('#mbox video').forEach(v=>{try{v
 
 /* ===================== Zuschauer-Anzeige (z. B. PC neben dem Board, Caller tippt am Tablet) ===================== */
 let WATCH=false;
-function liveScreens(){const now=Date.now();return Object.entries(S.screens||{}).filter(([d,x])=>d!==DEV()&&x&&x.live&&now-(x.at||0)<30*60000).sort((a,b)=>b[1].at-a[1].at);}
+function onlScreen(g){return{by:'🌐 Online-Spiel',live:g.live,at:g.at||0,onl:g.id,status:g.status,result:g.result};}
+function scrGet(id){if(!id)return null;if(String(id).startsWith('onl:')){const g=(S.online||{})[id.slice(4)];return g&&g.live?onlScreen(g):null;}return (S.screens||{})[id]||null;}
+function liveScreens(){const now=Date.now();
+ const loc=Object.entries(S.screens||{}).filter(([d,x])=>d!==DEV()&&x&&x.live&&!x.live.online&&now-(x.at||0)<30*60000);
+ const onl=Object.values(S.online||{}).filter(g=>g&&g.status==='live'&&g.live&&!g.players.includes(meId)&&g.players.some(p=>U(p).watchOk)&&now-(g.at||0)<30*60000).map(g=>['onl:'+g.id,onlScreen(g)]);
+ return [...onl,...loc].sort((a,b)=>b[1].at-a[1].at);}
 function scrTitle(x){const L=x.live||{};const g=L.kind==='mg'?(MG[L.id]?.name||'Minispiel'):L.kind==='x01'?L.start+' · '+outLabel(L):L.kind==='ex'?(EX[L.ex]?.name||'Übung'):({atc:'Around the Clock',bob:"Bob's 27",score:'Scoring-Training'})[L.kind]||'Spiel';
  const ps=(L.players||L.ps||(L.uid?[L.uid]:[])).map(id=>U(id).nick);return{g,ps};}
 function vWatch(id){
  if(!id){const list=liveScreens();return `<div class="ph"><div class="row"><h1 class="sp">📺 Zuschauer-Anzeige</h1><button class="ghost" onclick="go(isStaff()?'boards':'home')">← Zurück</button></div><p>Zeigt live und groß, was gerade auf einem anderen Gerät gespielt wird – z. B. hier am PC, während der Caller am Tablet eintippt.</p></div>
   ${list.length?list.map(([d,x])=>{const t=scrTitle(x);return `<button class="card" style="width:100%;text-align:left;display:block" onclick="go('watch','${d}')"><div class="row"><b class="sp" style="font-size:18px">${esc(t.g)}</b><span class="badge g">● live</span></div><div class="muted" style="margin-top:6px">${t.ps.map(esc).join(' · ')}</div><div class="muted small" style="margin-top:4px">eingetippt von ${esc(x.by||'?')}</div></button>`;}).join('')
   :'<div class="card"><p class="muted" style="margin:0">Gerade läuft auf keinem anderen Gerät ein Spiel, das man anschauen darf. Sobald jemand am Tablet ein Spiel startet, erscheint es hier von selbst.</p><p class="muted small" style="margin:10px 0 0">Wichtig: Der Spieler, der am Tablet eingeloggt ist, muss <b>📺 Zuschauen erlauben</b> eingeschaltet haben – auf seiner Startseite oder während des Spiels oben.</p></div>'}`;}
- const x=(S.screens||{})[id];
+ const x=scrGet(id);
+ if(x&&x.onl&&x.status!=='live'){const g=(S.online||{})[x.onl];return `<button class="watchx" onclick="watchExit()" title="Anzeige beenden">✕</button><div class="watchwait"><div class="big">🏁</div><h1>${esc(g&&g.status==='abandoned'?U(g.by).nick+' hat aufgegeben':x.result||'Spiel beendet')}</h1><p class="muted">${esc(scrTitle(x).ps.join(' · '))}</p><button class="pri" style="display:inline-block!important;margin-top:16px" onclick="go('watch')">Andere Spiele anzeigen</button></div>`;}
  const exit=`<button class="watchx" onclick="watchExit()" title="Anzeige beenden">✕</button>`;
  if(!x||!x.live)return `${exit}<div class="watchwait"><div class="big">🎯</div><h1>Warte auf das nächste Spiel …</h1><p class="muted">Sobald am Tablet ein neues Spiel startet, erscheint es hier automatisch.</p></div>`;
  const keep=S.live;let h='';WATCH=true;S.live=x.live;
@@ -700,7 +706,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=45;
+const APPV=46;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -4121,8 +4127,8 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  if(m&&!S.live&&view==='live')view=m.role==='player'?'home':'tour';
  if(m&&view==='home'&&m.role!=='player')view='tour';
  if(m&&view==='admin'&&!isStaff())view='home';
- if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null;
- renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{rtcTick();}catch(e){}},0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&S.screens&&S.screens[param]?S.screens[param].live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
+ if(view==='watch'&&!param){const l=liveScreens();if(l.length===1)param=l[0][0];}const WL=view==='watch'&&param&&scrGet(param)?scrGet(param).live:null;
+ renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{rtcTick();}catch(e){}},0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&scrGet(param)?scrGet(param).live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'club':h=vClub();break;case'coach':h=me().role==='player'?vCoach():vClub();break;case'player':h=pubLimited()&&param!==meId?pubStatsCard(param):canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
   case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
