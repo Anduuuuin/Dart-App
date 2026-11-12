@@ -768,7 +768,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=54;
+const APPV=55;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -2877,7 +2877,7 @@ function heatHTML(id,days=28){const acts=[...gamesOf(id).map(g=>g.date),...train
 function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  return `<div class="ph"><h1>${h<11?'Guten Morgen':h<18?'Hi':'Guten Abend'}, ${esc(m.nick)} ${AV(m)}</h1><p>${c.week?`Diese Woche schon ${c.week}× trainiert – stark!`:'Diese Woche noch nicht trainiert – Zeit für eine Runde!'}</p></div>
  ${isStandalone()?'':`<div class="banner"><b>📲 DartClub aufs Handy</b> <span class="muted small">– als App auf dem Startbildschirm, ohne Play Store, startet im Vollbild.</span><div style="margin-top:10px">${installBtn(true)}</div></div>`}
- ${onlHomeBanner()}
+ ${onlHomeBanner()}${tourHome()}
  <div class="quickrow">
   <button class="qbtn hero" onclick="trTab='ex';go('train')"><span class="i">📋</span><b>Übung starten</b><small>${Object.keys(EX).length} Übungen mit Anleitung</small></button>
   <button class="qbtn" onclick="trTab='plans';go('train')"><span class="i">🗂️</span><b>Trainingsplan</b><small>Mehrere Übungen am Stück</small></button>
@@ -2895,6 +2895,18 @@ function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  <button class="ghost" style="width:100%" onclick="go('stats')">📈 Ganze Statistik ansehen</button>
  <div style="margin-top:10px">${helpBtn(true)}</div><div style="margin-top:8px"><button class="ghost" style="width:100%" onclick="go('mysettings')">⚙️ Einstellungen – Checkout-Wege, Schnellwahl & mehr</button></div>${SY.on?`<div style="margin-top:8px">${watchBtn(true)}</div>`:''}${SY.on?`<div style="margin-top:8px">${fbBtn(true)}</div>`:''}`;}
 
+
+/* Startseite: laufende Turniere zum Zuschauen (Spieler können hier nichts starten) */
+function tourHome(){if(isStaff())return '';const act=activeTours();const done=S.tournaments.filter(t=>t.status==='done').length;
+ if(!act.length&&!done)return '';
+ const liveN=t=>liveScreens().filter(([,x])=>x.live&&x.live.tref&&x.live.tref.tid===t.id).length;
+ return `<div class="sec">🏆 Turniere</div>${act.map(t=>{const all=t.matches.filter(m=>real(m.a)&&real(m.b)).length,fin=t.matches.filter(m=>m.winner&&!m.bye&&real(m.a)&&real(m.b)).length,ln=liveN(t);const mine=t.matches.find(m=>playable(m)&&(m.a===meId||m.b===meId));
+  return `<div class="card" style="border-color:#2fbf7166"><div class="row"><b class="sp" style="font-size:18px">${esc(t.name)}</b>${ln?`<span class="badge r">● ${ln} live</span>`:'<span class="badge y">läuft</span>'}</div>
+  <div class="muted small" style="margin:4px 0 8px">${MODES[t.mode]} · ${t.players.length} Spieler · ${fin} von ${all} Spielen fertig</div>
+  ${all?`<div style="height:6px;background:var(--panel2);border-radius:99px;overflow:hidden;margin-bottom:10px"><div style="height:100%;width:${fin/all*100}%;background:var(--accent)"></div></div>`:''}
+  ${mine?`<p class="small" style="margin:0 0 10px">🎯 Dein nächstes Spiel: <b>${esc(U(mine.a===meId?mine.b:mine.a).nick)}</b>${mine.board?` · <span class="badge g">Board ${mine.board}</span>`:' · wartet auf ein freies Board'}</p>`:''}
+  <div class="row"><button class="pri sp" onclick="TV_TAB='games';go('tourview','${t.id}')">🏆 Turnier ansehen</button><button class="ghost sp" onclick="go('watch','all')">📺 Live zuschauen</button></div></div>`;}).join('')}
+  ${done?`<button class="ghost" style="width:100%;margin-bottom:6px" onclick="go('tour')">📜 Vergangene Turniere (${done})</button>`:''}`;}
 /* ===================== Statistik-Ansicht ===================== */
 
 /* ===================== Spiel-Details: Match-Statistik und jedes Leg ===================== */
@@ -3986,7 +3998,7 @@ function assignAll(){const occ=new Set(),busy=new Set();
   m.board=b;occ.add(b);busy.add(m.a);busy.add(m.b);}));}
 
 /* --- Anzeige --- */
-function canPlay(m){return playable(m)&&m.board&&(isStaff()||m.a===meId||m.b===meId);}
+function canPlay(m){return playable(m)&&m.board&&isStaff();}
 function matchHTML(t,m){if(!real(m.a)&&!real(m.b))return'';if(m.bye&&!real(m.a)&&m.br!=='W')return'';
  const nm=id=>id==='BYE'?'<span class="muted">Freilos</span>':id?`${AV(U(id))} ${(t.out||[]).includes(id)?`<s style="opacity:.6">${esc(U(id).nick)}</s>`:esc(U(id).nick)}`:'<span class="muted">—</span>';
  const cls=id=>m.winner==='DRAW'?'':m.winner&&!m.bye?(m.winner===id?'w':'l'):m.bye&&real(id)?'w':'';
@@ -4018,7 +4030,7 @@ function vTourView(id){const t=S.tournaments.find(x=>x.id===id);if(!t){view='tou
  const ba=Object.entries(best).sort((a,b)=>b[1]-a[1])[0];
  if(TV_TAB==='stats')body=tourStatsHTML(t);
  const kids=S.tournaments.filter(x=>x.parent===t.id),par=t.parent&&S.tournaments.find(x=>x.id===t.parent);
- return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('tour')">← Zurück</button><h2 class="sp" style="margin:0">${esc(t.name)}</h2>
+ return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go(isStaff()?'tour':'home')">← Zurück</button><h2 class="sp" style="margin:0">${esc(t.name)}</h2>
  ${isStaff()?`<button class="sm ghost" onclick="tourAdjust('${t.id}')">⚙️ Turnier anpassen</button>`:''}${isStaff()&&t.status!=='done'?`<button class="sm ghost" onclick="tourOutDlg('${t.id}')">👤 Spieler streichen</button>`:''}${me().role==='admin'?`<button class="sm red" onclick="delTour('${t.id}')">Löschen</button>`:''}</div>
  <div class="muted small" style="margin-bottom:12px">${t.kind==='training'?'Training':'Turnier'} · ${MODES[t.mode]} · ${t.start} · ${fmtStr(tFmt(t))}${t.bestOfFinal&&['ko','dko','groups'].includes(t.mode)?` (Finale Best of ${t.bestOfFinal})`:''} · ${t.dOut?'Double Out':'Single Out'} · Boards ${(t.boards||[]).join(', ')}</div>
  ${t.status==='done'?`<div class="banner"><h3 style="margin:0">🏆 Sieger: ${AV(U(t.winner))} ${esc(U(t.winner).nick)}</h3></div>`:''}
@@ -4298,7 +4310,7 @@ function render(){if(!S.settings.defaults)S.settings.defaults={start:501,fmt:{se
  renderHeader();renderNav();setTimeout(onlBlock,0);setTimeout(botTick,0);setTimeout(mgBotTick,0);setTimeout(()=>{try{rtcTick();}catch(e){}},0);setTimeout(()=>{try{mgFxShow(view==='live'?S.live:(view==='watch'&&param&&scrGet(param)?scrGet(param).live:null));}catch(e){}},0);document.body.classList.toggle('livebig',(view==='live'&&S.live&&S.live.kind==='x01'&&bigOn())||(!!WL&&WL.kind==='x01'));document.body.classList.toggle('livetab',(view==='live'&&!!S.live&&S.live.kind!=='x01'&&bigOn())||(!!WL&&WL.kind!=='x01'));document.body.classList.toggle('watching',view==='watch');document.body.classList.toggle('watchall',view==='watch'&&param==='all');const app=document.getElementById('app');let h='';
  switch(view){case'login':h=vLogin();break;case'home':h=vHome();break;case'stats':h=vStats(meId);break;case'club':h=vClub();break;case'coach':h=me().role==='player'?vCoach():vClub();break;case'player':h=pubLimited()&&param!==meId?pubStatsCard(param):canSee(param)?vStats(param):vHome();break;case'teams':h=(isStaff()||me().captain)?vTeams():vHome();break;case'team':h=vTeam(param);break;
   case'people':h=isStaff()?vPeople():vHome();break;case'play':trTab='play';view='train';h=vTrain();break;case'train':h=vTrain();break;
-  case'tour':h=isStaff()?vTour():vHome();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=isStaff()?vTourView(param)||'':vHome();break;case'admin':h=vAdmin();break;
+  case'tour':h=vTour();break;case'boards':h=isStaff()?vBoards():vTour();break;case'board':h=isStaff()?vBoard(param):vTour();break;case'tournew':h=isStaff()?vTourNew():vTour();break;case'tourview':h=vTourView(param)||'';break;case'admin':h=vAdmin();break;
   case'online':h=vOnline(param);break;case'mysettings':h=vMySettings();break;case'watch':h=isStaff()||m.role==='player'?vWatch(param):'';break;case'ex':h=vExDetail(param);break;case'mg':h=vMGDetail(param);break;case'planrun':h=vPlanRun();break;
   case'live':h=S.live.kind==='mg'?vMG():S.live.kind==='ex'?vEx():S.live.kind==='x01'?vX01():S.live.kind==='atc'?vATC():S.live.kind==='bob'?vBob():vScore();break;}
  app.innerHTML=h+(view!=='live'&&!SY.on?`<div class="proto">Testversion · Daten werden nur auf diesem Gerät gespeichert</div>`:'');syBadge();try{document.querySelectorAll('#app .seg').forEach(g=>{const b=g.querySelector('button.on');if(b&&g.scrollWidth>g.clientWidth)g.scrollLeft=b.offsetLeft-g.clientWidth/2+b.offsetWidth/2;});}catch(e){}}
