@@ -749,7 +749,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=48;
+const APPV=49;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -3870,7 +3870,7 @@ function groupQualifiers(t){const tabs=t.groups.map((g,gi)=>table(g,t.matches.fi
 function swissTable(t){const ms=t.matches.filter(m=>m.br==='S');const tb=table(t.players,ms);const pts={};tb.forEach(r=>pts[r.id]=r.pts);
  ms.filter(m=>m.winner&&!m.bye).forEach(m=>{tb.find(r=>r.id===m.a).bh+=pts[m.b];tb.find(r=>r.id===m.b).bh+=pts[m.a];});
  return tb.sort((x,y)=>y.pts-x.pts||y.bh-x.bh||(y.lf-y.la)-(x.lf-x.la));}
-function pairSwiss(t,r){const order=r===1?shuffle(t.players.slice()):swissTable(t).map(x=>x.id);
+function pairSwiss(t,r){const order=(r===1?shuffle(t.players.slice()):swissTable(t).map(x=>x.id)).filter(id=>!(t.out||[]).includes(id));
  const ms=t.matches.filter(m=>m.br==='S');const met=new Set();ms.forEach(m=>{met.add(m.a+'|'+m.b);met.add(m.b+'|'+m.a);});
  const pool=order.slice();
  if(pool.length%2){const had=new Set(ms.filter(m=>m.bye).map(m=>m.a));let i=pool.length-1;while(i>0&&had.has(pool[i]))i--;const p=pool.splice(i,1)[0];mk(t,{br:'S',r,s:99,a:p,b:'BYE',winner:p,bye:true});}
@@ -3896,7 +3896,7 @@ function checkPhase(t){
 function applyResult(tid,mid,w,la,lb){const t=S.tournaments.find(x=>x.id===tid);if(!t)return;const m=t.matches.find(x=>x.id===mid);if(!m||m.winner)return;
  m.la=la;m.lb=lb;m.at=Date.now();
  if(w==='DRAW'){m.winner='DRAW';}else{const l=w===m.a?m.b:m.a;if(['W','L','GF'].includes(m.br))finish(t,m,w,l);else m.winner=w;}
- checkPhase(t);assignAll();}
+ checkPhase(t);if(!WO_IN)woSweep(t);assignAll();}
 function tFmt(t){return t.fmt||{sets:false,bo:t.bestOf||3,setLegs:3};}
 function isKO(m){return['W','L','GF'].includes(m.br);}
 function fmtOf(t,m){const f={...tFmt(t)};if(m.br==='GF'||(m.br==='W'&&!m.next?.w))f.bo=t.bestOfFinal||f.bo;if(isKO(m)&&f.bo%2===0)f.bo=Math.min(11,f.bo+1);return f;}
@@ -3915,7 +3915,7 @@ function leagueTable(t){const tb=table(t.players,t.matches);const av={};S.games.
  tb.forEach(r=>{r.n=r.sp-r.s-r.u;r.pkt=r.pts;r.avg=av[r.id]&&av[r.id].d?av[r.id].p/av[r.id].d*3:null;});return tb;}
 function leagueView(t){const tb=leagueTable(t);const cd=curDay(t);
  let h=`<div class="card" style="overflow-x:auto"><h3>Tabelle ${t.status!=='done'&&cd>=0?`<span class="muted small">· aktuell ${cd+1}. Spieltag von ${t.days}</span>`:''}</h3>
- <table><tr><th>#</th><th>Spieler</th><th>Sp.</th><th>S</th><th>U</th><th>N</th><th>${tFmt(t).sets?'Sets':'Legs'}</th><th>Diff</th><th>Ø</th><th>Pkt.</th></tr>${tb.map((r,i)=>`<tr ${i===0&&r.sp?'style="background:#f2c14e10"':''}><td>${i+1}</td><td>${AV(U(r.id))} ${esc(U(r.id).nick)}</td><td>${r.sp}</td><td>${r.s}</td><td>${r.u}</td><td>${r.n}</td><td>${r.lf}:${r.la}</td><td>${r.lf-r.la>0?'+':''}${r.lf-r.la}</td><td>${r.avg!=null?f1(r.avg):'–'}</td><td><b>${r.pkt}</b></td></tr>`).join('')}</table></div>`;
+ <table><tr><th>#</th><th>Spieler</th><th>Sp.</th><th>S</th><th>U</th><th>N</th><th>${tFmt(t).sets?'Sets':'Legs'}</th><th>Diff</th><th>Ø</th><th>Pkt.</th></tr>${tb.map((r,i)=>`<tr ${i===0&&r.sp?'style="background:#f2c14e10"':''}><td>${i+1}</td><td>${AV(U(r.id))} ${tnm(r.id)}</td><td>${r.sp}</td><td>${r.s}</td><td>${r.u}</td><td>${r.n}</td><td>${r.lf}:${r.la}</td><td>${r.lf-r.la>0?'+':''}${r.lf-r.la}</td><td>${r.avg!=null?f1(r.avg):'–'}</td><td><b>${r.pkt}</b></td></tr>`).join('')}</table></div>`;
  const order=[...Array(t.days).keys()];const sorted=cd>=0?[...order.filter(r=>r>=cd),...order.filter(r=>r<cd).reverse()]:order;
  sorted.forEach(r=>{const ms=t.matches.filter(m=>m.r===r);const inn=new Set(ms.flatMap(m=>[m.a,m.b]));const free=t.players.filter(p=>!inn.has(p));const done=ms.every(m=>m.winner);
   h+=`<div class="card" ${r!==cd&&done?'style="opacity:.85"':''}><div class="row" style="margin-bottom:10px"><h3 class="sp" style="margin:0">${r+1}. Spieltag ${dayDate(t,r)?`<span class="muted small">· ${dayDate(t,r)}</span>`:''}</h3>
@@ -3934,20 +3934,21 @@ function assignAll(){const occ=new Set(),busy=new Set();
 /* --- Anzeige --- */
 function canPlay(m){return playable(m)&&m.board&&(isStaff()||m.a===meId||m.b===meId);}
 function matchHTML(t,m){if(!real(m.a)&&!real(m.b))return'';if(m.bye&&!real(m.a)&&m.br!=='W')return'';
- const nm=id=>id==='BYE'?'<span class="muted">Freilos</span>':id?`${AV(U(id))} ${esc(U(id).nick)}`:'<span class="muted">—</span>';
+ const nm=id=>id==='BYE'?'<span class="muted">Freilos</span>':id?`${AV(U(id))} ${(t.out||[]).includes(id)?`<s style="opacity:.6">${esc(U(id).nick)}</s>`:esc(U(id).nick)}`:'<span class="muted">—</span>';
  const cls=id=>m.winner==='DRAW'?'':m.winner&&!m.bye?(m.winner===id?'w':'l'):m.bye&&real(id)?'w':'';
- return `<div class="match">${playable(m)?`<div class="row small" style="margin-bottom:4px">${m.board?`<span class="badge g">Board ${m.board}</span>`:t.mode==='league'&&m.r!==curDay(t)?`<span class="badge">geplant</span>`:`<span class="badge">wartet auf Board</span>`}<span class="sp"></span><span class="muted">${fmtShort(fmtOf(t,m))}</span></div>`:m.winner==='DRAW'?`<div class="small" style="margin-bottom:4px"><span class="badge y">🤝 Unentschieden</span></div>`:''}
+ return `<div class="match">${playable(m)?`<div class="row small" style="margin-bottom:4px">${m.board?`<span class="badge g">Board ${m.board}</span>`:t.mode==='league'&&m.r!==curDay(t)?`<span class="badge">geplant</span>`:`<span class="badge">wartet auf Board</span>`}<span class="sp"></span><span class="muted">${fmtShort(fmtOf(t,m))}</span></div>`:m.winner==='DRAW'?`<div class="small" style="margin-bottom:4px"><span class="badge y">🤝 Unentschieden</span></div>`:m.wo?`<div class="small" style="margin-bottom:4px"><span class="badge">🏳️ kampflos</span></div>`:''}
  <div class="pl ${cls(m.a)}"><span>${nm(m.a)}</span><b>${m.winner&&!m.bye?m.la:''}</b></div>
  <div class="pl ${cls(m.b)}"><span>${nm(m.b)}</span><b>${m.winner&&!m.bye?m.lb:''}</b></div>
- ${canPlay(m)||(isStaff()&&playable(m))?`<div class="row" style="margin-top:6px">${canPlay(m)?`<button class="pri sm sp" onclick="playMatch('${t.id}','${m.id}')">▶ Spielen</button>`:''}${isStaff()?`<button class="sm" onclick="manualRes('${t.id}','${m.id}')" title="Ergebnis von Hand eintragen">✎</button>`:''}</div>`:''}</div>`;}
+ ${canPlay(m)||(isStaff()&&playable(m))?`<div class="row" style="margin-top:6px">${canPlay(m)?`<button class="pri sm sp" onclick="playMatch('${t.id}','${m.id}')">▶ Spielen</button>`:''}${isStaff()?`<button class="sm" onclick="manualRes('${t.id}','${m.id}')" title="Ergebnis von Hand eintragen">✎ Ergebnis</button>`:''}</div>`:''}</div>`;}
 function bracketHTML(t,br,rounds,nameFn){return `<div class="bracket">${rounds.map(r=>{const inner=t.matches.filter(m=>m.br===br&&m.r===r).sort((a,b)=>a.s-b.s).map(m=>matchHTML(t,m)).join('');
  return inner?`<div class="round"><div class="muted small" style="text-align:center">${nameFn(r)}</div>${inner}</div>`:'';}).join('')}</div>`;}
 function rName(t,r){const left=t.rounds-r;return left===1?'Finale':left===2?'Halbfinale':left===3?'Viertelfinale':left===4?'Achtelfinale':'Runde '+(r+1);}
 const rng=n=>[...Array(n).keys()];
-const tblHTML=(rows,extra)=>`<table><tr><th>#</th><th>Spieler</th><th>Sp.</th><th>S</th><th>U</th><th>Ergebnis</th><th>Pkt.</th>${extra?'<th>Buchh.</th>':''}</tr>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${AV(U(r.id))} ${esc(U(r.id).nick)}</td><td>${r.sp}</td><td>${r.s}</td><td>${r.u}</td><td>${r.lf}:${r.la}</td><td><b>${r.pts}</b></td>${extra?`<td>${r.bh}</td>`:''}</tr>`).join('')}</table>`;
+let TOUT=[];const tnm=id=>TOUT.includes(id)?`<s style="opacity:.6">${esc(U(id).nick)}</s> <span class="badge r">gestrichen</span>`:esc(U(id).nick);
+const tblHTML=(rows,extra)=>`<table><tr><th>#</th><th>Spieler</th><th>Sp.</th><th>S</th><th>U</th><th>Ergebnis</th><th>Pkt.</th>${extra?'<th>Buchh.</th>':''}</tr>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${AV(U(r.id))} ${tnm(r.id)}</td><td>${r.sp}</td><td>${r.s}</td><td>${r.u}</td><td>${r.lf}:${r.la}</td><td><b>${r.pts}</b></td>${extra?`<td>${r.bh}</td>`:''}</tr>`).join('')}</table>`;
 const openFirst=ms=>ms.slice().sort((a,b)=>(!!a.winner)-(!!b.winner)||a.r-b.r);
 function vTourView(id){const t=S.tournaments.find(x=>x.id===id);if(!t){view='tour';return vTour();}
- let body='';
+ TOUT=t.out||[];let body='';
  if(t.mode==='ko'||(t.mode==='groups'&&t.phase==='ko'))body+=`<div class="card"><h3>${t.mode==='groups'?'K.-o.-Runde':'Turnierbaum'}</h3>${bracketHTML(t,'W',rng(t.rounds),r=>rName(t,r))}</div>`;
  if(t.mode==='dko'){body+=`<div class="card"><h3>Gewinnerrunde</h3>${bracketHTML(t,'W',rng(t.rounds),r=>r===t.rounds-1?'WB-Finale':'Runde '+(r+1))}</div>`;
   if(t.lrounds)body+=`<div class="card"><h3>Verliererrunde</h3>${bracketHTML(t,'L',rng(t.lrounds).map(i=>i+1),r=>r===t.lrounds?'LB-Finale':'V-Runde '+r)}</div>`;
@@ -3962,7 +3963,7 @@ function vTourView(id){const t=S.tournaments.find(x=>x.id===id);if(!t){view='tou
  const tg=S.games.filter(g=>g.tid===t.id);const best={};tg.forEach(g=>g.players.forEach(p=>{const a=p.pts/p.darts*3;if(!best[p.id]||a>best[p.id])best[p.id]=a;}));
  const ba=Object.entries(best).sort((a,b)=>b[1]-a[1])[0];
  return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('tour')">← Zurück</button><h2 class="sp" style="margin:0">${esc(t.name)}</h2>
- ${me().role==='admin'?`<button class="sm red" onclick="delTour('${t.id}')">Löschen</button>`:''}</div>
+ ${isStaff()&&t.status!=='done'?`<button class="sm ghost" onclick="tourOutDlg('${t.id}')">👤 Spieler streichen</button>`:''}${me().role==='admin'?`<button class="sm red" onclick="delTour('${t.id}')">Löschen</button>`:''}</div>
  <div class="muted small" style="margin-bottom:12px">${t.kind==='training'?'Training':'Turnier'} · ${MODES[t.mode]} · ${t.start} · ${fmtStr(tFmt(t))}${t.bestOfFinal&&['ko','dko','groups'].includes(t.mode)?` (Finale Best of ${t.bestOfFinal})`:''} · ${t.dOut?'Double Out':'Single Out'} · Boards ${(t.boards||[]).join(', ')}</div>
  ${t.status==='done'?`<div class="banner"><h3 style="margin:0">🏆 Sieger: ${AV(U(t.winner))} ${esc(U(t.winner).nick)}</h3></div>`:''}
  ${ba?`<div class="muted small" style="margin-bottom:12px">Bester Match-Average: <b style="color:var(--text)">${esc(U(ba[0]).nick)} – ${f1(ba[1])}</b></div>`:''}${body}`;}
@@ -3971,7 +3972,23 @@ function manualRes(tid,mid){const t=S.tournaments.find(x=>x.id===tid),m=t.matche
  modal(`<h3>Ergebnis eintragen</h3><p class="muted small">${fmtStr(f)} – Sieger braucht ${need} ${unit}${f.bo%2===0&&!isKO(m)?`, bei ${f.bo/2}:${f.bo/2} unentschieden`:''}.</p>
  <div class="row"><span class="sp">${AV(U(m.a))} ${esc(U(m.a).nick)}</span><input id="ra" type="number" min="0" max="${need}" style="max-width:80px" placeholder="${unit}"></div>
  <div class="row" style="margin-top:8px"><span class="sp">${AV(U(m.b))} ${esc(U(m.b).nick)}</span><input id="rb" type="number" min="0" max="${need}" style="max-width:80px" placeholder="${unit}"></div>
- <div class="row" style="margin-top:16px"><button class="ghost sp" onclick="closeModal()">Abbrechen</button><button class="pri sp" onclick="doManual('${tid}','${mid}')">Speichern</button></div>`);}
+ <div class="row" style="margin-top:16px"><button class="ghost sp" onclick="closeModal()">Abbrechen</button><button class="pri sp" onclick="doManual('${tid}','${mid}')">Speichern</button></div>
+ <div class="sec">Spieler ist gegangen / tritt nicht an</div><p class="muted small" style="margin-top:0">Der andere gewinnt kampflos ${need}:0.</p>
+ <div style="display:grid;gap:8px"><button class="ghost" onclick="doWO('${tid}','${mid}','a')">🏳️ ${esc(U(m.b).nick)} fehlt → <b>${esc(U(m.a).nick)}</b> gewinnt ${need}:0</button><button class="ghost" onclick="doWO('${tid}','${mid}','b')">🏳️ ${esc(U(m.a).nick)} fehlt → <b>${esc(U(m.b).nick)}</b> gewinnt ${need}:0</button></div>`);}
+function doWO(tid,mid,side){const t=S.tournaments.find(x=>x.id===tid),m=t&&t.matches.find(x=>x.id===mid);if(!m||m.winner)return;const need=fmtNeed(fmtOf(t,m).bo);
+ m.wo=true;applyResult(tid,mid,side==='a'?m.a:m.b,side==='a'?need:0,side==='a'?0:need);save();closeModal();render();toast('🏳️ Kampflos eingetragen');}
+/* --- Spieler aus dem Turnier streichen: alle weiteren Spiele gewinnt der Gegner kampflos --- */
+function woSweep(t){const out=t.out||[];if(!out.length||t.status==='done')return;let guard=0,again=true;
+ while(again&&guard++<500){again=false;const m=t.matches.find(m=>playable(m)&&(out.includes(m.a)||out.includes(m.b)));if(!m)break;
+  const need=fmtNeed(fmtOf(t,m).bo);const aOut=out.includes(m.a);m.wo=true;WO_IN=true;try{applyResult(t.id,m.id,aOut?m.b:m.a,aOut?0:need,aOut?need:0);}finally{WO_IN=false;}again=true;}}
+let WO_IN=false;
+function tourOutDlg(tid){const t=S.tournaments.find(x=>x.id===tid);if(!t)return;const out=t.out||[];
+ modal(`<h3>👤 Spieler streichen</h3><p class="muted small" style="margin-top:0">Wer gestrichen wird, spielt nicht mehr mit: Alle seine noch offenen und künftigen Spiele gewinnt der Gegner kampflos. Bereits gespielte Ergebnisse bleiben stehen.</p>
+ <div style="display:grid;gap:8px">${t.players.map(id=>{const o=out.includes(id);return `<div class="row" style="flex-wrap:nowrap"><span class="sp">${AV(U(id))} ${o?`<s>${esc(U(id).nick)}</s> <span class="badge r">gestrichen</span>`:esc(U(id).nick)}</span>${o?`<button class="sm ghost" onclick="tourOut('${tid}','${id}',false)">Zurückholen</button>`:`<button class="sm red" onclick="tourOut('${tid}','${id}',true)">Streichen</button>`}</div>`;}).join('')}</div>
+ <button class="ghost" style="width:100%;margin-top:14px" onclick="closeModal()">Fertig</button>`);}
+function tourOut(tid,id,on){const t=S.tournaments.find(x=>x.id===tid);if(!t)return;
+ const doIt=()=>{t.out=(t.out||[]).filter(x=>x!==id);if(on)t.out.push(id);if(on){t.matches.forEach(m=>{if(playable(m)&&(m.a===id||m.b===id))m.board=null;});woSweep(t);}assignAll();save();tourOutDlg(tid);render();toast(on?`${U(id).nick} ist gestrichen`:`${U(id).nick} spielt wieder mit (nur künftige Spiele)`);};
+ if(on)ask(`${U(id).nick} wirklich aus dem Turnier streichen? Alle offenen Spiele von ${U(id).nick} werden kampflos für den Gegner gewertet.`,'Streichen',doIt,true);else doIt();}
 function doManual(tid,mid){const t=S.tournaments.find(x=>x.id===tid),m=t.matches.find(x=>x.id===mid);const f=fmtOf(t,m);const need=fmtNeed(f.bo);
  const a=+document.getElementById('ra').value,b=+document.getElementById('rb').value;
  const win=Math.max(a,b)===need&&Math.min(a,b)<need&&a>=0&&b>=0;const draw=f.bo%2===0&&!isKO(m)&&a===b&&a===f.bo/2;
