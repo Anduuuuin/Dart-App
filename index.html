@@ -435,6 +435,8 @@ body.watching.hasnav{padding-left:0!important;padding-bottom:0!important}
 body.watching.livebig header,body.watching.livetab header{display:none}
 body.watching .wrap{max-width:none}
 body.watchall header{display:none}body.watchall .wrap{padding-top:12px!important;padding-bottom:0!important}
+.gdt{width:100%;border-collapse:collapse}.gdt td,.gdt th{padding:6px 8px;border-top:1px solid var(--line)}
+#mbox.wide{max-width:720px;width:calc(100vw - 24px)}
 .wt-all{height:calc(100dvh - 24px);display:flex;flex-direction:column;gap:10px}
 .wt-grid{flex:1 1 0;min-height:0;display:grid;gap:12px}
 .wt-tile{background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:1.4vh 1.4vw;display:flex;flex-direction:column;min-height:0;overflow:hidden;cursor:pointer}
@@ -691,7 +693,7 @@ window.addEventListener('popstate',()=>{navTrap=false;
  toast('Nochmal zurück zum Schließen');setTimeout(()=>{if(!navTrap)navArm();},2500);});
 document.addEventListener('pointerdown',()=>navArm(),{once:true});
 let toastT;function toast(m,ms=2200){const t=document.getElementById('toast');t.innerHTML=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms);}
-function modal(html){document.getElementById('mbox').innerHTML=html;document.getElementById('modal').classList.add('show');}
+function modal(html){const mb=document.getElementById('mbox');mb.classList.remove('wide');mb.innerHTML=html;document.getElementById('modal').classList.add('show');}
 function closeModal(){document.querySelectorAll('#mbox video').forEach(v=>{try{v.pause();}catch(e){}});document.getElementById('modal').classList.remove('show');}
 
 
@@ -749,7 +751,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=49;
+const APPV=50;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -2877,6 +2879,32 @@ function vHome(){const m=me();const c=calc(m.id);const h=new Date().getHours();
  <div style="margin-top:10px">${helpBtn(true)}</div><div style="margin-top:8px"><button class="ghost" style="width:100%" onclick="go('mysettings')">⚙️ Einstellungen – Checkout-Wege, Schnellwahl & mehr</button></div>${SY.on?`<div style="margin-top:8px">${watchBtn(true)}</div>`:''}${SY.on?`<div style="margin-top:8px">${fbBtn(true)}</div>`:''}`;}
 
 /* ===================== Statistik-Ansicht ===================== */
+
+/* ===================== Spiel-Details: Match-Statistik und jedes Leg ===================== */
+let GD_LEG=-1;
+function gameDetail(gid,focus){GD_LEG=-1;gdShow(gid,focus);}
+function gdShow(gid,focus){const g=S.games.find(x=>x.id===gid);if(!g)return toast('Spiel nicht gefunden');const P=g.players;const f=g.fmt||{bo:g.bestOf||1};
+ const avg=p=>p.darts?f1(p.pts/p.darts*3):'–';const fn=(p,N)=>p['f'+N+'n']?f1(p['f'+N]/p['f'+N+'n']/N*3):'–';
+ const tour=g.tid&&S.tournaments.find(t=>t.id===g.tid);
+ const res=P.length>1?P.map(p=>f.sets?p.sets:p.legs).join(' : '):'';
+ const rows=[['Average',p=>avg(p)],['First 9',p=>fn(p,9)],['Legs',p=>p.legs],...(f.sets?[['Sets',p=>p.sets]]:[]),['Darts',p=>p.darts],['180er',p=>p.s180||0],['140+',p=>p.s140||0],['100+',p=>p.s100||0],
+  ['Höchstes Checkout',p=>p.hiCo||'–'],['Checkouts',p=>p.co||0],['Bestes Leg',p=>{const b=(g.lg||[]).filter(l=>P[l.w]===p).map(l=>l.v.filter(x=>x[0]===P.indexOf(p)).reduce((a,x)=>a+x[2],0));return b.length?Math.min(...b)+' Darts':'–';}]];
+ const head=`<tr><th></th>${P.map((p,i)=>`<th style="text-align:center">${g.team?`<span class="badge ${g.team[i]?'r':'g'}">${g.team[i]?'B':'A'}</span> `:''}${esc(U(p.id).nick)}${p.won&&P.length>1?' 🏆':''}</th>`).join('')}</tr>`;
+ const tbl=`<table class="gdt">${head}${rows.map(([l,fnc])=>`<tr><td class="muted">${l}</td>${P.map(p=>`<td style="text-align:center;font-weight:700">${fnc(p)}</td>`).join('')}</tr>`).join('')}</table>`;
+ let legs='';
+ if(g.lg&&g.lg.length){legs=`<div class="sec">Legs</div><div class="chips" style="margin-bottom:8px">${g.lg.map((l,k)=>`<button class="${GD_LEG===k?'on':''}" onclick="GD_LEG=${GD_LEG===k?-1:k};gdShow('${gid}','${focus}')">Leg ${k+1} · ${esc(U(P[l.w].id).nick)}</button>`).join('')}</div>`;
+  if(GD_LEG>=0&&g.lg[GD_LEG]){const l=g.lg[GD_LEG];const n=P.length;const byP=P.map((_,i)=>l.v.filter(x=>x[0]===i));const R=Math.max(...byP.map(a=>a.length));
+   const ld=byP.map(a=>a.reduce((s,x)=>s+x[2],0)),lp=byP.map(a=>a.reduce((s,x)=>s+x[1],0));
+   legs+=`<div class="card" style="margin:0;overflow-x:auto"><div class="muted small" style="margin-bottom:6px">Angefangen hat ${esc(U(P[l.b]?.id).nick)} · gewonnen von <b style="color:var(--text)">${esc(U(P[l.w].id).nick)}</b> mit ${ld[l.w]} Darts</div>
+   <table class="gdt"><tr><th>#</th>${P.map(p=>`<th colspan="2" style="text-align:center">${esc(U(p.id).nick)}</th>`).join('')}</tr><tr class="muted small"><td></td>${P.map(()=>'<td style="text-align:center">Wurf</td><td style="text-align:center">Rest</td>').join('')}</tr>
+   ${[...Array(R)].map((_,r)=>`<tr><td class="muted">${(r+1)*3}</td>${byP.map(a=>{const x=a[r];if(!x)return '<td></td><td></td>';const co=x[0]===l.w&&r===a.length-1&&x[4]===0&&!x[3];
+     return `<td style="text-align:center;font-weight:700;${x[3]?'color:#ff6b6b':co?'color:var(--gold)':x[1]>=100?'color:var(--accent)':''}">${x[3]?'Bust':x[1]}${co?` <span class="small">✓ ${x[2]}D</span>`:''}</td><td style="text-align:center" class="muted">${co?'–':x[4]}</td>`;}).join('')}</tr>`).join('')}
+   <tr><td class="muted small">Ø</td>${byP.map((a,i)=>`<td colspan="2" style="text-align:center"><b>${ld[i]?f1(lp[i]/ld[i]*3):'–'}</b> <span class="muted small">(${ld[i]} Darts)</span></td>`).join('')}</tr></table></div>`;}
+  else legs+=`<p class="muted small" style="margin:0">Leg antippen, um jede Aufnahme zu sehen.</p>`;}
+ else legs=`<p class="muted small" style="margin-top:12px">Für dieses Spiel gibt es keine Aufteilung nach Legs – die wird erst bei Spielen gespeichert, die ab jetzt gespielt werden.</p>`;
+ modal(`<div class="row" style="flex-wrap:nowrap;margin-bottom:4px"><h2 class="sp" style="margin:0">🎯 ${g.start}${res?` · <span style="color:var(--accent)">${res}</span>`:''}</h2><button class="sm ghost" onclick="closeModal()">✕</button></div>
+ <div class="muted small" style="margin-bottom:10px">${dstr(g.date)} · ${new Date(g.date).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} · ${f.sets?`Best of ${f.bo} Sets`:`Best of ${f.bo} Legs`} · ${({double:'Double Out',single:'Single Out',master:'Master Out'})[g.out]||''}${tour?` · <span class="badge">${esc(tour.name)}</span>`:''}${g.online?' · 🌐 Online':''}${g.draw?' · 🤝 Unentschieden':''}</div>
+ <div style="overflow-x:auto">${tbl}</div>${legs}`);document.getElementById('mbox').classList.add('wide');}
 let statTab='over';
 function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
  const recent=[...gamesOf(id).map(g=>({d:g.date,t:'game',g})),...trainsOf(id).map(t=>({d:t.date,t:'tr',x:t}))].sort((a,b)=>b.d-a.d).slice(0,30);
@@ -2912,7 +2940,7 @@ function vStats(id){const u=U(id);const c=calc(id);const own=id===meId;
   <div class="stat"><div class="v">${c.s140}</div><div class="k">140+</div></div><div class="stat"><div class="v">${c.s100}</div><div class="k">100+</div></div></div>
   <div style="margin-top:12px">${chart(c.avgs.slice(-20),{title:'Average pro Spiel'})}</div>`;
  if(statTab==='log')body=`<div class="card">${recent.length?`<table>${recent.map(r=>r.t==='game'?(()=>{const p=r.g.players.find(x=>x.id===id);const opp=r.g.players.filter(x=>x.id!==id).map(x=>esc(U(x.id).nick)).join(', ');
-  return `<tr><td class="muted">${dstr(r.d)}</td><td>🎯 ${r.g.start}${opp?' vs '+opp:' (allein)'}${r.g.tid?' <span class="badge">Turnier</span>':''}</td><td>${r.g.draw?'<span class="badge y">Unentschieden</span>':p.won&&r.g.players.length>1?'<span class="badge g">Sieg</span>':''}</td><td style="text-align:right">Ø ${f1(p.pts/p.darts*3)}</td></tr>`;})()
+  return `<tr class="click" style="cursor:pointer" onclick="gameDetail('${r.g.id}','${id}')"><td class="muted">${dstr(r.d)}</td><td>🎯 ${r.g.start}${opp?' vs '+opp:' (allein)'}${r.g.tid?' <span class="badge">Turnier</span>':''}</td><td>${r.g.draw?'<span class="badge y">Unentschieden</span>':p.won&&r.g.players.length>1?'<span class="badge g">Sieg</span>':''}</td><td style="text-align:right;white-space:nowrap">Ø ${f1(p.pts/p.darts*3)} <span class="muted">›</span></td></tr>`;})()
   :`<tr><td class="muted">${dstr(r.d)}</td><td>${r.x.mode==='mg'?'🎲 '+(MG[r.x.mg]?.name||'Minispiel'):r.x.mode==='ex'?'📋 '+EX[r.x.ex].name:'💪 '+tl[r.x.mode]}</td><td></td><td style="text-align:right">${r.x.mode==='mg'?(r.x.rank===1&&r.x.n>1?'🏆 Sieg':r.x.n>1?r.x.rank+'. Platz':'gespielt'):r.x.mode==='ex'?exFmt(r.x.ex,r.x.val,r.x):r.x.mode==='atc'?r.x.darts+' Darts':r.x.mode==='bob'?r.x.score+' P.':'Ø '+f1(r.x.avg)}</td></tr>`).join('')}</table>`:'<p class="muted">Noch nichts gespielt – los geht\'s! 🎯</p>'}</div>`;
  return `${back}<div class="ph"><div class="row" style="flex-wrap:nowrap"><span ${own||isStaff()?`style="cursor:pointer" title="Profilbild ändern" onclick="changePhoto('${id}')"`:''}>${AV(u,56)}</span><h1 class="sp" style="margin:0">${esc(u.nick)}</h1>${own||isStaff()?`<button class="sm ghost" onclick="changePhoto('${id}')">📷 Bild</button>`:''}</div><p>${own?'Deine Statistik':'Statistik'}${groups.length?' · '+groups.join(', '):''}</p></div>${seg}${body}`;}
 
@@ -3045,7 +3073,7 @@ function visit(v,forceBust){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.
  if(rest===0&&T&&!T[prev])bust=true;
  if(rest===0&&!bust){const minD=T?T[prev].length:1;if(L.inn)L.inn[i]=true;
   modal(`<h3>Check-out ${prev}! 🎯</h3><p class="muted">Mit wie vielen Darts?</p><div class="row">${[1,2,3].map(d=>`<button class="pri sp" ${d<minD?'disabled':''} onclick="closeModal();finishLeg(${prev},${d})">${d}</button>`).join('')}</div><button class="ghost" style="width:100%;margin-top:10px" onclick="closeModal();render()">Abbrechen</button>`);return;}
- L.hist.push({i,prev,s:{...s,hf:[...(s.hf||[])]},inn:L.inn?L.inn[i]:true});if(L.din&&L.inn&&!L.inn[i]&&v>0&&!bust)L.inn[i]=true;
+ L.vlog=L.vlog||[];L.hist.push({i,prev,s:{...s,hf:[...(s.hf||[])]},inn:L.inn?L.inn[i]:true,vl:L.vlog.length});L.vlog.push([i,bust?0:v,3,bust?1:0,bust?prev:rest]);if(L.din&&L.inn&&!L.inn[i]&&v>0&&!bust)L.inn[i]=true;
  firstN(s,3,bust?0:v);s.darts+=3;if(bust){s.last='Bust';toast('Überworfen! 💥');}else{L.scores[i]=rest;s.pts+=v;s.last=v;if(v===180){s.s180++;toast('🔥 ONE HUNDRED AND EIGHTY! 🔥');}else if(v>=140)s.s140++;else if(v>=100)s.s100++;}
  tmSync(L,i);L.cur=(i+1)%L.players.length;save();render();
  if(T&&T[prev]&&(prev<=50||T[prev].length<=2))s.ch=(s.ch||0)+1;}
@@ -3101,7 +3129,7 @@ function lpStart(d){lpEnd();lpFired=false;lpT=setTimeout(()=>{lpFired=true;lpT=n
 function lpEnd(){if(lpT){clearTimeout(lpT);lpT=null;}}
 function undo(){const L=S.live;if(L.input){L.input='';render();return;}if(!onlOk(true))return;botStop();let h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
  while(h&&isBot(L.players[h.i])&&L.hist.length&&!L.players.every(isBot)){L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;tmSync(L,h.i);h=L.hist.pop();}
- L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;tmSync(L,h.i);save();render();}
+ L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;if(L.vlog&&h.vl!=null)L.vlog.length=h.vl;tmSync(L,h.i);save();render();}
 /* Ergebnis entscheiden: wer zuerst die nötige Anzahl hat – sonst nach allen Legs/Sets: Höchster gewinnt, Gleichstand = Unentschieden */
 /* First 9/12/15/18: Punkte der ersten N Darts je Leg sammeln */
 function firstN(s,d,v){const a=s.ld||0;s.ld=a+d;s.lp=(s.lp||0)+v;[9,12,15,18].forEach(N=>{if(a<N&&s.ld>=N){s['f'+N]=(s['f'+N]||0)+s.lp;s['f'+N+'n']=(s['f'+N+'n']||0)+1;}});}
@@ -3110,6 +3138,7 @@ function decide(arr,bo){const need=fmtNeed(bo);const w=arr.findIndex(x=>x>=need)
  return{done:true,w:top.length===1?top[0]:null};}
 function finishLeg(v,d){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acting)return;const i=L.cur,s=L.st[i];const f=L.fmt;if(coTable(L)){s.ch=(s.ch||0)+1;s.co=(s.co||0)+1;}
  firstN(s,d,v);s.darts+=d;s.pts+=v;s.last=v;s.hiCo=Math.max(s.hiCo,v);if(v>=100){s.hf=s.hf||[];s.hf.push(v);}if(v>=140)s.s140++;else if(v>=100)s.s100++;
+ L.vlog=L.vlog||[];L.vlog.push([i,v,d,0,0]);L.legLog=L.legLog||[];L.legLog.push({w:i,b:L.legStarter,set:f.sets?L.players.map((_,j)=>L.sets[j]):null,v:L.vlog});L.vlog=[];
  L.legs[i]++;L.legsTotal[i]++;tmSync(L,i);let msg=L.team?`Leg für ${esc(tmName(L,L.team[i]))}!`:`Leg für ${esc(U(L.players[i]).nick)}!`;
  if(f.sets){if(L.legs[i]>=fmtNeed(f.setLegs)){L.sets[i]++;tmSync(L,i);L.legs=L.players.map(()=>0);msg=`🎯 Set für ${esc(U(L.players[i]).nick)}!`;
    const r=decide(L.sets,f.bo);if(r.done)return endX01(r.w);}}
@@ -3118,7 +3147,7 @@ function finishLeg(v,d){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acti
  L.st.forEach(x=>{x.ld=0;x.lp=0;});L.scores=L.players.map((_,j)=>startOf(L,j));if(L.din)L.inn=L.players.map(()=>false);L.legStarter=(L.legStarter+1)%L.players.length;L.cur=L.legStarter;L.hist=[];save();render();}
 function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const before={};L.players.forEach(id=>before[id]=calc(id).best);
  const sc=f.sets?L.sets:L.legsTotal;
- const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
+ const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,lg:(L.legLog||[]).map(x=>({w:x.w,b:x.b,v:x.v})),team:L.team||undefined,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
   players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?(L.team?L.team[i]===L.team[wi]:i===wi):true),...(({last,ld,lp,...r})=>r)(L.st[i])}))};
  if(L.online)g.online=true;S.games.push(g);
  if(L.online)onlDone(L,draw?'🤝 Unentschieden':`🏆 ${U(L.players[wi]).nick} gewinnt`);
