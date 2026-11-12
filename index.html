@@ -438,6 +438,11 @@ body.watching.hasnav{padding-left:0!important;padding-bottom:0!important}
 body.watching.livebig header,body.watching.livetab header{display:none}
 body.watching .wrap{max-width:none}
 body.watchall header{display:none}body.watchall .wrap{padding-top:12px!important;padding-bottom:0!important}
+/* Schnellwahltasten größer, Kopfzeile schlank */
+.quick button{padding:14px 0;font-size:18px}
+.x01.big .quick button{padding:0!important;height:9vh;font-size:min(3.8vh,2.6vw)!important}
+.xset{min-width:40px;font-size:18px!important;padding:4px 10px!important}
+.x01.big .xset{font-size:min(2.6vh,2vw)!important}
 .gdt{width:100%;border-collapse:collapse}.gdt td,.gdt th{padding:6px 8px;border-top:1px solid var(--line)}
 #mbox.wide{max-width:720px;width:calc(100vw - 24px)}
 .wt-all{height:calc(100dvh - 24px);display:flex;flex-direction:column;gap:10px}
@@ -754,7 +759,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=52;
+const APPV=53;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -3048,7 +3053,7 @@ function vX01(){const L=S.live;const f=L.fmt;
  const cur=L.scores[L.cur];const T=coTable(L);const notIn=L.din&&L.inn&&!L.inn[L.cur];const co=botCur()?`🤖 ${BOT.show.length?BOT.show.join(' · '):'zielt …'}`:notIn?'Double In: erst ein Doppel treffen':L.coOff?'':T&&T[cur]?T[cur].join(' · '):(!T&&cur<=60?'Check-out möglich':'');
  const showScore=f.sets||f.bo>1;
  const big=bigOn();
- return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.online?'<span class="badge g">🌐 Online</span> ':''}${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${adChip()}<button class="sm ghost" onclick="togCo()" title="Checkout-Wege anzeigen oder ausblenden">${L.coOff?'🧮 Wege: aus':'🧮 Wege: an'}</button><button class="sm ghost xbig" onclick="togBig()">${big?'📱 Normale Anzeige':'📺 Großanzeige'}</button>${rtcBtn()}${big&&SY.on?watchBtn():''}${big?'<button class="sm ghost" onclick="leaveLive()">✕ Spiel verlassen</button>':''}</div>
+ return `<div class="x01 ${big?'big':''}"><div class="row muted small xtop" style="margin-bottom:8px"><span>${L.online?'<span class="badge g">🌐 Online</span> ':''}${L.start} · ${fmtStr(f)} · ${outLabel(L)}</span>${L.tref?`<span class="badge y">${esc(S.tournaments.find(t=>t.id===L.tref.tid)?.name||'Turnier')}</span>`:''}<span class="sp"></span>${rtcBtn()}<button class="sm ghost xset" onclick="x01Menu()" title="Einstellungen: Checkout-Wege, Anzeige, Zuschauer …">⚙️</button>${big?'<button class="sm ghost xset" onclick="leaveLive()" title="Spiel verlassen">✕</button>':''}</div>
  <div class="xgrid"><div class="xl"><div class="sc-players n${L.players.length}">${L.players.map((id,i)=>{const s=L.st[i];return `<div class="sc-p ${i===L.cur?'cur':''}">${i===L.cur&&L.players.length>1?'<div class="turn">🎯 AM WURF</div>':''}${showScore?`<span class="legs">${f.sets?`Sets ${L.sets[i]} · Legs ${L.legs[i]}`:`Legs ${L.legs[i]}`}</span>`:''}
   <div class="nm">${L.team?`<span class="badge ${L.team[i]?'r':'g'}" style="margin-right:4px">${L.team[i]?'B':'A'}</span>`:''}${AV(U(id))} ${esc(U(id).nick)}${hcLabel(L,i)?` <span class="badge y" title="Handicap">⚖️ ${hcLabel(L,i)}</span>`:''}${L.din&&L.inn&&!L.inn[i]?' <span class="badge" title="Noch kein Doppel getroffen">🔒 D-In</span>':''}</div><div class="rem">${L.scores[i]}</div>
   <div class="meta"><span>Ø ${f1(s.darts?s.pts/s.darts*3:0)}</span><span>Letzte: ${s.last??'–'}</span><span>Darts im Leg: ${s.ld||0}</span></div>
@@ -3058,6 +3063,14 @@ function vX01(){const L=S.live;const f=L.fmt;
  ${[1,2,3].some(d=>canCheck(cur,d))?`<p class="muted small" style="text-align:center;margin:2px 0 8px">🟢 Gecheckt? Grüne <b>1</b>, <b>2</b> oder <b>3</b> lange drücken = mit so vielen Darts</p>`:''}
  <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>n<=3&&canCheck(cur,n)?`<button class="cok" onpointerdown="lpStart(${n})" onpointerup="lpEnd()" onpointerleave="lpEnd()" oncontextmenu="return false" onclick="if(lpFired){lpFired=false;return;}key('${n}')">${n}</button>`:`<button onclick="key('${n}')">${n}</button>`).join('')}
  <button onclick="undo()" class="undo" style="font-size:16px">↶ Rückgängig</button><button onclick="key('0')">0</button><button class="pri" onclick="key('ok')">OK</button></div></div></div></div></div>`;}
+
+function x01Menu(){const L=S.live;if(!L)return;const big=bigOn();const m=me();const row=(ic,l,v,on,fn)=>`<button class="ghost" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:14px;font-size:17px" onclick="${fn}"><span style="font-size:22px">${ic}</span><span class="sp">${l}</span>${v!=null?`<span class="badge ${on?'g':''}">${v}</span>`:''}</button>`;
+ modal(`<div class="row" style="margin-bottom:10px"><h3 class="sp" style="margin:0">⚙️ Einstellungen</h3><button class="sm ghost" onclick="closeModal()">✕</button></div><div style="display:grid;gap:8px">
+ ${row('🧮','Checkout-Wege anzeigen',L.coOff?'aus':'an',!L.coOff,"togCo();x01Menu()")}
+ ${row('📺','Großanzeige (Tablet)',big?'an':'aus',big,"togBig();x01Menu()")}
+ ${SY.on&&m?row('👀','Zuschauen erlauben',m.watchOk?'an':'aus',m.watchOk,"togWatch();x01Menu()"):''}
+ ${row('🎯','Autodarts','bald',false,"closeModal();adMenu()")}
+ ${row('🚪','Spiel verlassen',null,false,"closeModal();leaveLive()")}</div>`);}
 /* Großanzeige fürs Tablet: automatisch ab Tablet-Größe, per Knopf umschaltbar (wird pro Gerät gemerkt) */
 const BIGQ='(min-width:600px) and (min-height:480px)';
 /* einmalig: frühere „Normale Anzeige“-Einstellung zurücksetzen, damit Tablets standardmäßig groß anzeigen */
