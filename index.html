@@ -181,6 +181,9 @@ label{font-weight:600;font-size:13px;letter-spacing:.2px}
 .sc-p .legs{color:var(--gold)}
 .inbox{background:#0d1110;border:1px solid var(--line)}
 .inbox{position:relative;padding-left:64px;padding-right:64px}
+/* Eingabefeld darf beim Tippen nie seine Größe ändern */
+.inbox{height:68px;min-height:0;display:flex;align-items:center;justify-content:center;line-height:1;overflow:hidden;box-sizing:border-box}
+.x01.big .inbox{height:9vh!important;min-height:0!important;font-size:min(6.5vh,5vw)!important;line-height:1}
 .bksp{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:54px;height:54px;padding:0;font-size:24px;border-radius:12px;background:var(--panel2);color:var(--text)}
 .pad button,.quick button{background:linear-gradient(180deg,#1b2220,#151b19);border:1px solid var(--line)}
 .pad button.pri{background:linear-gradient(180deg,#25c466,#179a4c);border:0}
@@ -751,7 +754,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=50;
+const APPV=52;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -3908,7 +3911,7 @@ function pairSwiss(t,r){const order=(r===1?shuffle(t.players.slice()):swissTable
 
 function createTour(){const t=makeTour(tset);tset=null;toast('Turnier erstellt & ausgelost 🎲');go('tourview',t.id);}
 function makeTour(cfg){const t={id:uid(),created:Date.now(),status:'open',winner:null,...JSON.parse(JSON.stringify(cfg)),matches:[]};const ps=t.players;
- if(t.mode==='ko'||t.mode==='dko')buildBracket(t,randomPairs(ps),t.mode==='dko');
+ if(t.mode==='ko'||t.mode==='dko')buildBracket(t,t.seed?seedPairs(t.seed):randomPairs(ps),t.mode==='dko');
  if(t.mode==='rr')rrPairs(shuffle(ps.slice())).forEach(([a,b,r],i)=>mk(t,{br:'RR',r,s:i,a,b}));
  if(t.mode==='groups'){t.phase='groups';const sh=shuffle(ps.slice());t.groups=[...Array(t.groupCount)].map(()=>[]);sh.forEach((p,i)=>t.groups[i%t.groupCount].push(p));
   t.qual=Math.min(t.qual,Math.min(...t.groups.map(g=>g.length)));
@@ -3991,11 +3994,64 @@ function vTourView(id){const t=S.tournaments.find(x=>x.id===id);if(!t){view='tou
  if(t.mode==='rr')body+=`<div class="card" style="overflow-x:auto"><h3>Tabelle</h3>${tblHTML(table(t.players,t.matches))}</div><div class="card"><h3>Spiele</h3><div class="grid2">${openFirst(t.matches).map(m=>matchHTML(t,m)).join('')}</div></div>`;
  const tg=S.games.filter(g=>g.tid===t.id);const best={};tg.forEach(g=>g.players.forEach(p=>{const a=p.pts/p.darts*3;if(!best[p.id]||a>best[p.id])best[p.id]=a;}));
  const ba=Object.entries(best).sort((a,b)=>b[1]-a[1])[0];
+ if(TV_TAB==='stats')body=tourStatsHTML(t);
+ const kids=S.tournaments.filter(x=>x.parent===t.id),par=t.parent&&S.tournaments.find(x=>x.id===t.parent);
  return `<div class="row" style="margin-bottom:12px"><button class="sm ghost" onclick="go('tour')">← Zurück</button><h2 class="sp" style="margin:0">${esc(t.name)}</h2>
- ${isStaff()&&t.status!=='done'?`<button class="sm ghost" onclick="tourOutDlg('${t.id}')">👤 Spieler streichen</button>`:''}${me().role==='admin'?`<button class="sm red" onclick="delTour('${t.id}')">Löschen</button>`:''}</div>
+ ${isStaff()?`<button class="sm ghost" onclick="tourAdjust('${t.id}')">⚙️ Turnier anpassen</button>`:''}${isStaff()&&t.status!=='done'?`<button class="sm ghost" onclick="tourOutDlg('${t.id}')">👤 Spieler streichen</button>`:''}${me().role==='admin'?`<button class="sm red" onclick="delTour('${t.id}')">Löschen</button>`:''}</div>
  <div class="muted small" style="margin-bottom:12px">${t.kind==='training'?'Training':'Turnier'} · ${MODES[t.mode]} · ${t.start} · ${fmtStr(tFmt(t))}${t.bestOfFinal&&['ko','dko','groups'].includes(t.mode)?` (Finale Best of ${t.bestOfFinal})`:''} · ${t.dOut?'Double Out':'Single Out'} · Boards ${(t.boards||[]).join(', ')}</div>
  ${t.status==='done'?`<div class="banner"><h3 style="margin:0">🏆 Sieger: ${AV(U(t.winner))} ${esc(U(t.winner).nick)}</h3></div>`:''}
- ${ba?`<div class="muted small" style="margin-bottom:12px">Bester Match-Average: <b style="color:var(--text)">${esc(U(ba[0]).nick)} – ${f1(ba[1])}</b></div>`:''}${body}`;}
+ ${par?`<div class="banner" style="cursor:pointer" onclick="TV_TAB='games';go('tourview','${par.id}')">↩ Gehört zu <b>${esc(par.name)}</b> – antippen zum Öffnen</div>`:''}${kids.map(k=>`<div class="banner" style="cursor:pointer" onclick="TV_TAB='games';go('tourview','${k.id}')">🏆 <b>${esc(k.name)}</b> ${k.status==='done'?`· Sieger ${esc(U(k.winner).nick)}`:'· läuft'} – antippen zum Öffnen</div>`).join('')}
+ ${ba&&TV_TAB!=='stats'?`<div class="muted small" style="margin-bottom:12px">Bester Match-Average: <b style="color:var(--text)">${esc(U(ba[0]).nick)} – ${f1(ba[1])}</b></div>`:''}
+ <div class="seg" style="margin-bottom:12px"><button class="${TV_TAB!=='stats'?'on':''}" onclick="TV_TAB='games';render()">🎯 Spiele</button><button class="${TV_TAB==='stats'?'on':''}" onclick="TV_TAB='stats';render()">📊 Statistiken</button></div>${body}`;}
+
+/* ===================== Laufendes Turnier anpassen, K.-o.-Runde anhängen, Turnier-Statistik ===================== */
+let TV_TAB='games';
+function seedPairs(ids){let size=2;while(size<ids.length)size*=2;const sl=[...ids];while(sl.length<size)sl.push('BYE');const pairs=[];for(let i=0;i<size/2;i++)pairs.push([sl[i],sl[size-1-i]]);return seededSlots(pairs);}
+function tourStand(t){const out=t.out||[];let ids;
+ if(t.mode==='swiss')ids=swissTable(t).map(r=>r.id);else if(t.mode==='rr')ids=table(t.players,t.matches).map(r=>r.id);else if(t.mode==='league')ids=leagueTable(t).map(r=>r.id);
+ else if(t.mode==='groups'){const tabs=t.groups.map((g,gi)=>table(g,t.matches.filter(m=>m.br==='G'&&m.g===gi)).map(r=>r.id));ids=[];const mx=Math.max(...tabs.map(x=>x.length));for(let p=0;p<mx;p++)tabs.forEach(tb=>{if(tb[p])ids.push(tb[p]);});}
+ else{const w={};t.players.forEach(id=>w[id]=0);t.matches.forEach(m=>{if(m.winner&&!m.bye&&w[m.winner]!=null)w[m.winner]++;});ids=t.players.slice().sort((a,b)=>(b===t.winner)-(a===t.winner)||w[b]-w[a]);}
+ return ids.filter(id=>!out.includes(id));}
+function tourAdjust(tid){const t=S.tournaments.find(x=>x.id===tid);if(!t)return;const f=tFmt(t);const u=f.sets?'Sets':'Legs';const ko=['ko','dko','groups'].includes(t.mode);
+ const open=t.matches.filter(playable).length;
+ modal(`<h3>⚙️ Turnier anpassen</h3><p class="muted small" style="margin-top:0">Änderungen gelten für alle Spiele, die noch nicht gestartet sind. Laufende und fertige Spiele bleiben, wie sie sind.</p>
+ ${t.status!=='done'?`${stepperHTML(`Spiele: Best of ${f.bo} ${u}`,f.bo,`tourFmt('${tid}','bo',-1)`,`tourFmt('${tid}','bo',1)`,f.bo>1,f.bo<11,`Wer zuerst ${fmtNeed(f.bo)} ${u} hat, gewinnt`)}
+ ${ko&&t.bestOfFinal?stepperHTML(`Finale: Best of ${t.bestOfFinal} ${u}`,t.bestOfFinal,`tourFmt('${tid}','fin',-1)`,`tourFmt('${tid}','fin',1)`,t.bestOfFinal>1,t.bestOfFinal<11):''}`:''}
+ ${t.mode==='swiss'?`<div class="sec">Schweizer System</div><p class="muted small" style="margin-top:0">Gespielt wird bis Runde <b style="color:var(--text)">${t.swissRounds}</b>, aktuell Runde ${t.curRound}.</p><div class="row"><button class="pri sp" onclick="tourSwissMore('${tid}')">＋ Eine Runde mehr</button>${t.swissRounds>t.curRound?`<button class="ghost sp" onclick="tourSwissLess('${tid}')">− Eine Runde weniger</button>`:''}</div>`:''}
+ ${!['ko','dko','groups'].includes(t.mode)&&!t.parent?`<div class="sec">K.-o.-Runde anhängen</div><p class="muted small" style="margin-top:0">Startet aus diesem Turnier eine K.-o.-Runde. Gesetzt wird nach der aktuellen Tabelle: Platz 1 spielt gegen den Letzten, Platz 2 gegen den Vorletzten usw.${open?` <b style="color:var(--gold)">Achtung: Es sind noch ${open} Spiele offen.</b>`:''}</p><button class="pri" style="width:100%" onclick="koDlg('${tid}')">🏆 K.-o.-Runde starten …</button>`:''}
+ <button class="ghost" style="width:100%;margin-top:14px" onclick="closeModal()">Fertig</button>`);}
+function tourFmt(tid,k,d){const t=S.tournaments.find(x=>x.id===tid);if(!t)return;if(k==='bo'){t.fmt={...tFmt(t)};t.fmt.bo=stepBo(t.fmt.bo%2?t.fmt.bo:t.fmt.bo-1,d,false);delete t.bestOf;}else t.bestOfFinal=stepBo(t.bestOfFinal,d,false);save();tourAdjust(tid);render();}
+function tourSwissMore(tid){const t=S.tournaments.find(x=>x.id===tid);if(!t)return;t.swissRounds++;
+ if(t.status==='done'){t.status='open';t.winner=null;pairSwiss(t,t.curRound+1);woSweep(t);assignAll();toast(`Runde ${t.curRound} ist ausgelost`);}else toast(`Jetzt ${t.swissRounds} Runden`);save();tourAdjust(tid);render();}
+function tourSwissLess(tid){const t=S.tournaments.find(x=>x.id===tid);if(!t||t.swissRounds<=t.curRound)return;t.swissRounds--;checkPhase(t);assignAll();save();tourAdjust(tid);render();}
+let KO_SEL=null,KO_BO=3;
+function koDlg(tid){const t=S.tournaments.find(x=>x.id===tid);if(!t)return;const st=tourStand(t);if(!KO_SEL||KO_SEL.tid!==tid){KO_SEL={tid,ids:new Set(st.slice(0,Math.min(8,2**Math.floor(Math.log2(Math.max(2,st.length))))))};KO_BO=Math.max(3,tFmt(t).bo%2?tFmt(t).bo:tFmt(t).bo+1);}
+ const n=KO_SEL.ids.size;
+ modal(`<h3>🏆 K.-o.-Runde starten</h3><p class="muted small" style="margin-top:0">Wer soll weiterkommen? Reihenfolge = aktuelle Tabelle (gesetzt wird danach).</p>
+ <div class="chips" style="margin-bottom:8px">${[2,4,8,16].filter(k=>k<=st.length).map(k=>`<button onclick="KO_SEL.ids=new Set(tourStand(S.tournaments.find(x=>x.id==='${tid}')).slice(0,${k}));koDlg('${tid}')">Top ${k}</button>`).join('')}<button onclick="KO_SEL.ids=new Set(tourStand(S.tournaments.find(x=>x.id==='${tid}')));koDlg('${tid}')">Alle</button></div>
+ <div style="display:grid;gap:4px;max-height:40vh;overflow:auto">${st.map((id,i)=>`<label class="row" style="flex-wrap:nowrap;margin:0;padding:6px 4px;border-top:1px solid var(--line);cursor:pointer"><input type="checkbox" style="width:auto" ${KO_SEL.ids.has(id)?'checked':''} onchange="this.checked?KO_SEL.ids.add('${id}'):KO_SEL.ids.delete('${id}');koDlg('${tid}')"><span class="muted" style="width:26px">${i+1}.</span><span class="sp">${AV(U(id))} ${esc(U(id).nick)}</span></label>`).join('')}</div>
+ ${stepperHTML(`K.-o.-Spiele: Best of ${KO_BO} ${tFmt(t).sets?'Sets':'Legs'}`,KO_BO,`KO_BO=stepBo(KO_BO,-1,false);koDlg('${tid}')`,`KO_BO=stepBo(KO_BO,1,false);koDlg('${tid}')`,KO_BO>1,KO_BO<11)}
+ <p class="muted small">${n} Spieler${n>=2&&(n&(n-1))?` – ${2**Math.ceil(Math.log2(n))-n} Freilos${2**Math.ceil(Math.log2(n))-n===1?'':'e'} für die Besten`:''}</p>
+ <div class="row"><button class="ghost sp" onclick="tourAdjust('${tid}')">Zurück</button><button class="pri sp" ${n<2?'disabled':''} onclick="koStart('${tid}')">K.-o.-Runde auslosen</button></div>`);}
+function koStart(tid){const t=S.tournaments.find(x=>x.id===tid);if(!t||!KO_SEL)return;const ids=tourStand(t).filter(id=>KO_SEL.ids.has(id));if(ids.length<2)return toast('Mindestens 2 Spieler');
+ const k=makeTour({name:t.name+' – K.-o.-Runde',kind:t.kind,mode:'ko',start:t.start,fmt:{...tFmt(t),bo:KO_BO},bestOfFinal:KO_BO,dOut:t.dOut,boards:(t.boards||[]).slice(),players:ids,seed:ids,parent:t.id});
+ if(t.status!=='done'&&!t.matches.some(playable)){}KO_SEL=null;closeModal();toast('🏆 K.-o.-Runde ist ausgelost');TV_TAB='games';go('tourview',k.id);}
+function tourStatsHTML(t){const fam=[t.id,...S.tournaments.filter(x=>x.parent===t.id).map(x=>x.id)];const gs=S.games.filter(g=>fam.includes(g.tid));
+ const R={};const row=id=>R[id]=R[id]||{id,sp:0,s:0,lw:0,ll:0,darts:0,pts:0,best:0,f9:0,f9n:0,s180:0,s140:0,s100:0,hiCo:0,bl:null,co:0};
+ gs.forEach(g=>g.players.forEach((p,pi)=>{const r=row(p.id);r.sp++;if(p.won)r.s++;r.lw+=p.legs||0;g.players.forEach((q,qi)=>{if(qi!==pi)r.ll+=q.legs||0;});r.darts+=p.darts;r.pts+=p.pts;const a=p.darts?p.pts/p.darts*3:0;if(a>r.best)r.best=a;
+  r.f9+=p.f9||0;r.f9n+=p.f9n||0;r.s180+=p.s180||0;r.s140+=p.s140||0;r.s100+=p.s100||0;r.hiCo=Math.max(r.hiCo,p.hiCo||0);r.co+=p.co||0;
+  (g.lg||[]).forEach(l=>{if(l.w!==pi)return;const d=l.v.filter(x=>x[0]===pi).reduce((s,x)=>s+x[2],0);if(d&&(r.bl==null||d<r.bl))r.bl=d;});}));
+ const rows=Object.values(R).sort((a,b)=>(b.darts?b.pts/b.darts:0)-(a.darts?a.pts/a.darts:0));
+ if(!rows.length)return `<div class="card muted">Noch keine durchgetippten Spiele in diesem Turnier. Statistiken gibt es für Spiele, die am Tablet gespielt wurden (nicht für von Hand eingetragene Ergebnisse).</div>`;
+ const top=(fn,fmt,lbl,ic,low)=>{const c=rows.filter(r=>fn(r)!=null&&fn(r)>0);if(!c.length)return '';const b=c.reduce((x,y)=>(low?fn(y)<fn(x):fn(y)>fn(x))?y:x);return `<div class="stat"><div class="v">${fmt(fn(b))}</div><div class="k">${ic} ${lbl}</div><div class="muted small" style="margin-top:2px">${esc(U(b.id).nick)}</div></div>`;};
+ const av=r=>r.darts?r.pts/r.darts*3:null;
+ let h=`<div class="sec" style="margin-top:0">Highlights</div><div class="stats">${top(av,f1,'Bester Turnier-Ø','📈')}${top(r=>r.best,f1,'Bestes Spiel-Ø','🔥')}${top(r=>r.hiCo,v=>v,'Höchstes Checkout','🎯')}${top(r=>r.s180,v=>v,'Meiste 180er','💯')}${top(r=>r.bl,v=>v+' Darts','Kürzestes Leg','⚡',true)}</div>
+ <div class="sec">Alle Spieler</div><div class="card" style="overflow-x:auto"><table><tr><th>#</th><th>Spieler</th><th>Sp.</th><th>S</th><th>Legs</th><th>Ø</th><th>Bestes Ø</th><th>First 9</th><th>180</th><th>140+</th><th>100+</th><th>High Finish</th><th>Bestes Leg</th></tr>
+ ${rows.map((r,i)=>`<tr><td>${i+1}</td><td style="white-space:nowrap">${AV(U(r.id))} ${esc(U(r.id).nick)}</td><td>${r.sp}</td><td>${r.s}</td><td>${r.lw}:${r.ll}</td><td><b>${r.darts?f1(av(r)):'–'}</b></td><td>${r.best?f1(r.best):'–'}</td><td>${r.f9n?f1(r.f9/r.f9n/9*3):'–'}</td><td>${r.s180}</td><td>${r.s140}</td><td>${r.s100}</td><td>${r.hiCo||'–'}</td><td>${r.bl?r.bl+' D':'–'}</td></tr>`).join('')}</table></div>
+ <p class="muted small">Aus ${gs.length} durchgetippten Spielen${fam.length>1?' (inkl. K.-o.-Runde)':''}. Von Hand eingetragene Ergebnisse zählen hier nicht mit.</p>`;
+ const brT=['ko','dko'].includes(t.mode)||(t.mode==='groups'&&t.phase==='ko')?t:S.tournaments.find(x=>x.parent===t.id&&x.mode==='ko');
+ if(brT)h+=`<div class="sec">Turnierbaum${brT!==t?` – ${esc(brT.name)}`:''}</div><div class="card">${bracketHTML(brT,'W',rng(brT.rounds),r=>rName(brT,r))}</div>`;
+ return h;}
 function playMatch(tid,mid,fromBoard){const t=S.tournaments.find(x=>x.id===tid),m=t.matches.find(x=>x.id===mid);whoStarts([m.a,m.b],first=>startX01([m.a,m.b],t.start,fmtOf(t,m),t.dOut,{tid,mid,board:fromBoard||null},{first}));}
 function manualRes(tid,mid){const t=S.tournaments.find(x=>x.id===tid),m=t.matches.find(x=>x.id===mid);const f=fmtOf(t,m);const need=fmtNeed(f.bo);const unit=f.sets?'Sets':'Legs';
  modal(`<h3>Ergebnis eintragen</h3><p class="muted small">${fmtStr(f)} – Sieger braucht ${need} ${unit}${f.bo%2===0&&!isKO(m)?`, bei ${f.bo/2}:${f.bo/2} unentschieden`:''}.</p>
