@@ -768,7 +768,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=56;
+const APPV=57;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -3179,7 +3179,7 @@ function canCheck(rem,d){const L=S.live;if(!L||rem<=0)return false;if(L.din&&L.i
 let lpT=null,lpFired=false;
 function lpStart(d){lpEnd();lpFired=false;lpT=setTimeout(()=>{lpFired=true;lpT=null;try{navigator.vibrate&&navigator.vibrate(40);}catch(e){}const L=S.live;if(!L||L.kind!=='x01')return;const rem=L.scores[L.cur];if(!canCheck(rem,d))return;L.input='';toast(`🎯 ${rem} gecheckt mit ${d} Dart${d>1?'s':''}!`);finishLeg(rem,d);},550);}
 function lpEnd(){if(lpT){clearTimeout(lpT);lpT=null;}}
-function undo(){const L=S.live;if(L.input){L.input='';render();return;}if(!onlOk(true))return;botStop();let h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
+function undo(){const L=S.live;if(L.input){L.input='';render();return;}if(!L.hist.length&&L.legUndo)return legRestore();if(!onlOk(true))return;botStop();let h=L.hist.pop();if(!h)return toast('Nichts zum Rückgängigmachen in diesem Leg');
  while(h&&isBot(L.players[h.i])&&L.hist.length&&!L.players.every(isBot)){L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;tmSync(L,h.i);h=L.hist.pop();}
  L.scores[h.i]=h.prev;L.st[h.i]=h.s;L.cur=h.i;if(L.inn&&h.inn!=null)L.inn[h.i]=h.inn;if(L.vlog&&h.vl!=null)L.vlog.length=h.vl;tmSync(L,h.i);save();render();}
 /* Ergebnis entscheiden: wer zuerst die nötige Anzahl hat – sonst nach allen Legs/Sets: Höchster gewinnt, Gleichstand = Unentschieden */
@@ -3188,7 +3188,7 @@ function firstN(s,d,v){const a=s.ld||0;s.ld=a+d;s.lp=(s.lp||0)+v;[9,12,15,18].fo
 function decide(arr,bo){const need=fmtNeed(bo);const w=arr.findIndex(x=>x>=need);if(w>=0)return{done:true,w};
  const tot=arr.reduce((a,b)=>a+b,0);if(tot<bo)return{done:false};const mx=Math.max(...arr);const top=arr.map((x,i)=>x===mx?i:-1).filter(i=>i>=0);
  return{done:true,w:top.length===1?top[0]:null};}
-function finishLeg(v,d){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acting)return;const i=L.cur,s=L.st[i];const f=L.fmt;if(coTable(L)){s.ch=(s.ch||0)+1;s.co=(s.co||0)+1;}
+function finishLeg(v,d){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acting)return;const snap=JSON.stringify(Object.assign({},L,{legUndo:null,input:''}));LAST_SNAP=snap;const i=L.cur,s=L.st[i];const f=L.fmt;if(coTable(L)){s.ch=(s.ch||0)+1;s.co=(s.co||0)+1;}
  firstN(s,d,v);s.darts+=d;s.pts+=v;s.last=v;s.hiCo=Math.max(s.hiCo,v);if(v>=100){s.hf=s.hf||[];s.hf.push(v);}if(v>=140)s.s140++;else if(v>=100)s.s100++;
  L.vlog=L.vlog||[];L.vlog.push([i,v,d,0,0]);L.legLog=L.legLog||[];L.legLog.push({w:i,b:L.legStarter,set:f.sets?L.players.map((_,j)=>L.sets[j]):null,v:L.vlog});L.vlog=[];
  L.legs[i]++;L.legsTotal[i]++;tmSync(L,i);let msg=L.team?`Leg für ${esc(tmName(L,L.team[i]))}!`:`Leg für ${esc(U(L.players[i]).nick)}!`;
@@ -3196,7 +3196,7 @@ function finishLeg(v,d){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acti
    const r=decide(L.sets,f.bo);if(r.done)return endX01(r.w);}}
  else{const r=decide(L.legs,f.bo);if(r.done)return endX01(r.w);}
  toast(msg);
- L.st.forEach(x=>{x.ld=0;x.lp=0;});L.scores=L.players.map((_,j)=>startOf(L,j));if(L.din)L.inn=L.players.map(()=>false);L.legStarter=(L.legStarter+1)%L.players.length;L.cur=L.legStarter;L.hist=[];save();render();}
+ L.st.forEach(x=>{x.ld=0;x.lp=0;});L.scores=L.players.map((_,j)=>startOf(L,j));if(L.din)L.inn=L.players.map(()=>false);L.legStarter=(L.legStarter+1)%L.players.length;L.cur=L.legStarter;L.hist=[];L.legUndo=snap;save();render();}
 function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const before={};L.players.forEach(id=>before[id]=calc(id).best);
  const sc=f.sets?L.sets:L.legsTotal;
  const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,lg:(L.legLog||[]).map(x=>({w:x.w,b:x.b,v:x.v})),team:L.team||undefined,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
@@ -3209,7 +3209,17 @@ function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const befo
  if(L.planEx&&L.planEx.idx!=null&&S.planRun&&S.planRun.items[L.planEx.idx]){S.planRun.items[L.planEx.idx].done++;save();view='planrun';param=null;}else if(L.online){view='online';param=null;}else if(L.tref?.board){view='board';param=L.tref.board;}else if(g.tid){view='tourview';param=g.tid;}else view='play';render();
  modal(`<h2>${draw?'🤝 Unentschieden!':`🏆 ${esc(L.team?tmName(L,L.team[wi]):U(L.players[wi]).nick)} gewinnt!`}</h2><p class="muted small">${fmtStr(f)}</p><table>${g.players.map((p,i)=>`<tr><td>${AV(U(p.id))} ${esc(U(p.id).nick)}</td><td>${f.sets?`<b>${L.sets[i]}</b> Sets · ${p.legs} Legs`:(f.bo>1?`<b>${p.legs}</b> Legs`:'')}</td><td>Ø ${f1(p.pts/p.darts*3)}</td></tr>`).join('')}</table>
  ${rec.length?`<div class="banner" style="margin-top:12px">⭐ Neuer persönlicher Rekord-Average: ${rec.map(p=>esc(U(p.id).nick)).join(', ')}!</div>`:''}
- <button class="pri" style="width:100%;margin-top:14px" onclick="closeModal();${L.tref?.board?`go('board',${L.tref.board})`:g.tid?`go('tourview','${g.tid}')`:L.planEx&&L.planEx.idx!=null&&S.planRun?`go('planrun')`:L.online?`go('online')`:`go('${me().role==='player'?'home':'play'}')`}">Weiter</button>`);}
+ ${!L.tref&&!L.online&&LAST_SNAP?`<button class="ghost" style="width:100%;margin-top:14px" onclick="matchRestore('${g.id}')">↶ Vertippt? Letztes Leg zurücknehmen</button>`:''}
+ <button class="pri" style="width:100%;margin-top:${!L.tref&&!L.online?'8':'14'}px" onclick="closeModal();${L.tref?.board?`go('board',${L.tref.board})`:g.tid?`go('tourview','${g.tid}')`:L.planEx&&L.planEx.idx!=null&&S.planRun?`go('planrun')`:L.online?`go('online')`:`go('${me().role==='player'?'home':'play'}')`}">Weiter</button>`);}
+
+/* Gewonnenes Leg zurücknehmen (z. B. beim Checkout vertippt) */
+let LAST_SNAP=null;
+function legRestore(){const L=S.live;let o;try{o=JSON.parse(L.legUndo);}catch(e){return;}
+ if(L.online){if(o.players[o.cur]!==meId)return toast(`Nur ${esc(U(o.players[o.cur]).nick)} kann das Leg zurücknehmen`);ONL_PUSH=true;setTimeout(()=>{ONL_PUSH=false;},0);}
+ botStop();S.live=Object.assign(o,{input:'',coOff:L.coOff,seq:L.seq,legUndo:null});save();render();toast('↶ Leg zurückgenommen – Checkout neu eintragen');}
+function matchRestore(gid){if(!LAST_SNAP)return;const o=JSON.parse(LAST_SNAP);S.games=S.games.filter(g=>g.id!==gid);
+ if(o.planEx&&o.planEx.idx!=null&&S.planRun&&S.planRun.items[o.planEx.idx])S.planRun.items[o.planEx.idx].done=Math.max(0,S.planRun.items[o.planEx.idx].done-1);
+ S.live=Object.assign(o,{input:''});LAST_SNAP=null;closeModal();save();go('live');toast('↶ Letztes Leg zurückgenommen – Checkout neu eintragen');}
 function leaveLive(){if(S.live&&S.live.online)return onlLeave();const wasTr=S.live&&S.live.kind!=='x01';ask('Spiel abbrechen? Der Spielstand geht verloren.','Abbrechen bestätigen',()=>{const t=S.live?.tref;S.live=null;save();t?.board?go('board',t.board):t?go('tourview',t.tid):go(wasTr?(S.planRun?'planrun':'train'):me().role==='player'?'home':'play');},true);}
 
 /* ===================== Training ===================== */
