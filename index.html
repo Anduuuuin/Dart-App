@@ -777,7 +777,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=61;
+const APPV=62;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1303,25 +1303,61 @@ let PCARD=null;
 function pcardSave(){if(!PCARD)return;const a=document.createElement('a');a.href=PCARD.url;a.download=`Spielerkarte-${PCARD.name}.png`;document.body.appendChild(a);a.click();a.remove();}
 function pcardShare(){if(!PCARD)return;PCARD.cv.toBlob(async bl=>{try{const f=new File([bl],`Spielerkarte-${PCARD.name}.png`,{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[f]}))await navigator.share({files:[f],title:'Meine Spielerkarte'});else pcardSave();}catch(e){}},'image/png');}
 /* ---- Gruppen-Trainingsplan ---- */
-let GP_SEL={},GP_TID=null,GP_LV={};
-function teamPlanEdit(tid){const t=S.teams.find(x=>x.id===tid);GP_SEL={};GP_TID=tid;GP_LV=Object.assign({},(t.plan&&t.plan.botLv)||{});((t.plan&&t.plan.items)||[]).forEach(([e,s])=>GP_SEL[e]=s);
- modal(`<h3>📋 Gruppenplan für ${esc(t.name)}</h3><p class="muted small" style="margin-top:0">Wähle Übungen und Sets. Alle Mitglieder sehen den Plan auf ihrer Startseite und können ihn mit einem Tipp starten – du siehst, wer ihn geschafft hat.</p>
- <label>Hinweis an die Gruppe (optional)</label><input id="gpn" maxlength="80" value="${esc((t.plan&&t.plan.note)||'')}" placeholder="z. B. Bis Donnerstag vor dem Spieltag">
- <div id="gpl" style="max-height:46vh;overflow:auto;margin-top:10px">${gpList()}</div>
- <div class="row" style="margin-top:12px">${t.plan?`<button class="red sm" onclick="teamPlanDel('${tid}')">Plan löschen</button>`:''}<span class="sp"></span><button class="ghost" onclick="closeModal()">Abbrechen</button><button class="pri" onclick="teamPlanSave('${tid}')">Speichern</button></div>`);}
+let GP_SEL={},GP_TID=null,GP_LV={},GP_PL=null;
+const tPlans=t=>t?(t.plans||(t.plan?[t.plan]:[])):[];
+function tPlansW(t){t.plans=tPlans(t).slice();delete t.plan;return t.plans;}
+const PLAN_MAX=3;
+const planOn=p=>!p.from||p.from<=Date.now();
+function tpRef(pid){const [,tid,plid]=String(pid).split(':');const t=S.teams.find(x=>x.id===tid);const ps=tPlans(t);return{t,p:plid?ps.find(x=>x.id===plid):ps[0]};}
+const dayStart=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x.getTime();};
+const isoDay=d=>{const x=new Date(d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');};
+const wdDate=d=>new Date(d).toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit'});
+function teamPlanEdit(tid,plid){const t=S.teams.find(x=>x.id===tid);const p=plid?tPlans(t).find(x=>x.id===plid):null;GP_SEL={};GP_TID=tid;GP_PL=p?p.id:null;GP_LV=Object.assign({},(p&&p.botLv)||{});((p&&p.items)||[]).forEach(([e,s])=>GP_SEL[e]=s);
+ const nextMon=(()=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+((8-d.getDay())%7||7));return d.getTime();})();
+ const defFrom=p?(p.from||Date.now()):(tPlans(t).length?nextMon:Date.now());
+ modal(`<h3>📋 ${p?'Plan ändern':'Neuer Gruppenplan'} · ${esc(t.name)}</h3><p class="muted small" style="margin-top:0">Wähle Übungen und Sets. Alle Mitglieder sehen den Plan auf ihrer Startseite und können ihn ab dem Startdatum mit einem Tipp starten – du siehst, wer ihn geschafft hat und mit welchen Ergebnissen.</p>
+ <div class="grid2"><div><label>Name (optional)</label><input id="gpt" maxlength="30" value="${esc((p&&p.title)||'')}" placeholder="z. B. Woche 48"></div><div><label>Gilt ab</label><input id="gpf" type="date" value="${isoDay(defFrom)}"></div></div>
+ <label>Hinweis an die Gruppe (optional)</label><input id="gpn" maxlength="80" value="${esc((p&&p.note)||'')}" placeholder="z. B. Bis Donnerstag vor dem Spieltag">
+ <div id="gpl" style="max-height:42vh;overflow:auto;margin-top:10px">${gpList()}</div>
+ <div class="row" style="margin-top:12px">${p?`<button class="red sm" onclick="teamPlanDel('${tid}','${p.id}')">Plan löschen</button>`:''}<span class="sp"></span><button class="ghost" onclick="closeModal()">Abbrechen</button><button class="pri" onclick="teamPlanSave('${tid}')">Speichern</button></div>`);}
 function gpList(){return botPlanPick("GP_SEL[BPK()]=(GP_SEL[BPK()]||0)+1;const el=document.getElementById('gpl');el.innerHTML=gpList();",true)+gpLvHTML()+'<div class="sec">Übungen</div>'+Object.entries(EX).filter(([id,e])=>e.type!=='x01bot'||GP_SEL[id]).map(([id,e])=>{const s=GP_SEL[id]||0;return `<div class="row" style="flex-wrap:nowrap;padding:6px 0;border-top:1px solid var(--line)"><span class="sp" style="${s?'font-weight:700':''}">${esc(e.name)} <span class="muted small">~${e.dur} Min.</span></span><button class="sm ghost" onclick="gpSet('${id}',-1)">−</button><b style="width:22px;text-align:center">${s}</b><button class="sm ghost" onclick="gpSet('${id}',1)">＋</button></div>`;}).join('');}
 function gpSet(id,d){GP_SEL[id]=Math.max(0,Math.min(9,(GP_SEL[id]||0)+d));if(!GP_SEL[id])delete GP_SEL[id];const el=document.getElementById('gpl');const sc=el.scrollTop;el.innerHTML=gpList();el.scrollTop=sc;}
 function teamPlanSave(tid){const t=S.teams.find(x=>x.id===tid);const items=Object.entries(GP_SEL).filter(([e,s])=>s>0);if(!items.length)return toast('Mindestens eine Übung wählen');
- t.plan={id:uid(),items,note:document.getElementById('gpn').value.trim(),set:Date.now(),by:meId,done:{},botLv:Object.assign({},GP_LV)};save();closeModal();render();toast('📋 Gruppenplan gespeichert');}
-function teamPlanDel(tid){const t=S.teams.find(x=>x.id===tid);delete t.plan;save();closeModal();render();}
-function teamPlanCard(t){if(!t.plan)return canManage(t)?`<div class="card"><div class="row"><b class="sp">📋 Gruppenplan</b><button class="sm pri" onclick="teamPlanEdit('${t.id}')">Plan festlegen</button></div><p class="muted small" style="margin:6px 0 0">Gib deiner Gruppe einen gemeinsamen Trainingsplan vor.</p></div>`:'';
- const p=t.plan,done=p.done||{};const n=t.members.filter(id=>done[id]).length;
- return `<div class="card" style="border-color:#2fbf7155"><div class="row"><b class="sp">📋 Gruppenplan · ${n}/${t.members.length} geschafft</b>${canManage(t)?`<button class="sm" onclick="teamPlanEdit('${t.id}')">Ändern</button>`:''}</div>
+ const fv=document.getElementById('gpf').value;const from=fv?new Date(fv+'T00:00:00').getTime():null;const title=document.getElementById('gpt').value.trim(),note=document.getElementById('gpn').value.trim();
+ const ps=tPlansW(t);const p=GP_PL&&ps.find(x=>x.id===GP_PL);
+ if(p)Object.assign(p,{items,note,title,from,botLv:Object.assign({},GP_LV)});
+ else{if(ps.length>=PLAN_MAX)return toast(`Höchstens ${PLAN_MAX} Pläne gleichzeitig – lösch zuerst einen alten`);ps.push({id:uid(),items,note,title,from,set:Date.now(),by:meId,done:{},dur:{},botLv:Object.assign({},GP_LV)});}
+ ps.sort((a,b)=>(a.from||0)-(b.from||0));save();closeModal();render();toast('📋 Gruppenplan gespeichert');}
+function teamPlanDel(tid,plid){const t=S.teams.find(x=>x.id===tid);ask('Diesen Gruppenplan löschen? Die Ergebnisse bleiben in den Statistiken der Spieler, sind aber hier nicht mehr zu sehen.','Löschen',()=>{t.plans=tPlansW(t).filter(x=>x.id!==plid);save();closeModal();render();},true);}
+function planTitle(t,p,i){return p.title||(tPlans(t).length>1?`Plan ${i+1}`:'Gruppenplan');}
+function teamPlanCard(t){const ps=tPlans(t);const cm=canManage(t);
+ if(!ps.length)return cm?`<div class="card"><div class="row"><b class="sp">📋 Gruppenplan</b><button class="sm pri" onclick="teamPlanEdit('${t.id}')">Plan festlegen</button></div><p class="muted small" style="margin:6px 0 0">Gib deiner Gruppe einen gemeinsamen Trainingsplan vor.</p></div>`:'';
+ return ps.map((p,i)=>{const done=p.done||{};const n=t.members.filter(id=>done[id]).length;const on=planOn(p);const bot=p.items.some(([e])=>e.startsWith('x01bot_auto_'));
+ return `<div class="card" style="border-color:${on?'#2fbf7155':'#f2c14e55'}"><div class="row"><b class="sp">📋 ${esc(planTitle(t,p,i))} · ${n}/${t.members.length} geschafft</b>${on?'<span class="badge g">aktiv</span>':`<span class="badge y">ab ${wdDate(p.from)}</span>`}</div>
  ${p.note?`<p style="margin:6px 0">${esc(p.note)}</p>`:''}<div class="muted small">${p.items.map(([e,s])=>esc(EX[e]?.name||e)+(s>1?` ×${s}`:'')).join(' · ')} · ~${planDur(p.items)} Min.</div>
- ${canManage(t)?`<div class="chips" style="margin-top:10px">${t.members.map(id=>`<span class="badge ${done[id]?'g':''}" style="font-size:13px;padding:5px 10px">${done[id]?'✓':'○'} ${esc(U(id).nick)}${p.items.some(([e])=>e.startsWith('x01bot_auto_'))?` · 🤖 Ø ${(p.botLv||{})[id]||50}`:''}</span>`).join('')}</div>`:''}
- ${t.members.includes(meId)?`<button class="${done[meId]?'ghost':'pri'}" style="width:100%;margin-top:10px" onclick="startPlan('team:${t.id}')">${done[meId]?'✓ Geschafft – nochmal trainieren':'▶ Plan starten'}</button>`:''}</div>`;}
-function teamPlansHome(){const ts=S.teams.filter(t=>t.plan&&t.members.includes(meId));return ts.map(t=>{const d=(t.plan.done||{})[meId];return `<div class="card" style="border-color:#2fbf7155"><div class="row"><b class="sp">📋 Plan von „${esc(t.name)}“</b>${d?'<span class="badge g">✓ geschafft</span>':'<span class="badge y">offen</span>'}</div>${t.plan.note?`<div style="margin-top:4px">${esc(t.plan.note)}</div>`:''}<div class="muted small" style="margin-top:4px">${t.plan.items.length} Übungen · ~${planDur(t.plan.items)} Min.</div>${d?'':`<button class="pri" style="width:100%;margin-top:10px" onclick="startPlan('team:${t.id}')">▶ Plan starten</button>`}</div>`;}).join('');}
-function teamPlanMarkDone(){const P=S.planRun;if(!P||!String(P.pid).startsWith('team:')||!planDone())return;const t=S.teams.find(x=>x.id===P.pid.slice(5));if(!t||!t.plan)return;t.plan.done=t.plan.done||{};if(!t.plan.done[P.uid]){t.plan.done[P.uid]=Date.now();save();}}
+ ${cm?`<div class="chips" style="margin-top:10px">${t.members.map(id=>`<span class="badge ${done[id]?'g':''}" style="font-size:13px;padding:5px 10px">${done[id]?'✓':'○'} ${esc(U(id).nick)}${bot?` · 🤖 Ø ${(p.botLv||{})[id]||50}`:''}</span>`).join('')}</div>
+  <div class="row" style="margin-top:10px"><button class="sm pri sp" onclick="teamPlanResults('${t.id}','${p.id}')">📊 Ergebnisse ansehen</button><button class="sm ghost" onclick="teamPlanEdit('${t.id}','${p.id}')">Ändern</button></div>`:''}
+ ${t.members.includes(meId)?(on?`<button class="${done[meId]?'ghost':'pri'}" style="width:100%;margin-top:10px" onclick="startPlan('team:${t.id}:${p.id}')">${done[meId]?'✓ Geschafft – nochmal trainieren':'▶ Plan starten'}</button>`:`<button class="ghost" disabled style="width:100%;margin-top:10px">⏳ Startet am ${wdDate(p.from)}</button>`):''}</div>`;}).join('')
+ +(cm&&ps.length<PLAN_MAX?`<button class="ghost" style="width:100%;margin-bottom:10px" onclick="teamPlanEdit('${t.id}')">＋ Weiteren Plan anlegen (z. B. für nächste Woche)</button>`:'');}
+function teamPlansHome(){const out=[];S.teams.filter(t=>t.members.includes(meId)).forEach(t=>tPlans(t).forEach((p,i)=>{const d=(p.done||{})[meId];const on=planOn(p);
+ out.push(`<div class="card" style="border-color:${on?'#2fbf7155':'#f2c14e44'}"><div class="row"><b class="sp">📋 ${esc(planTitle(t,p,i))} · „${esc(t.name)}“</b>${!on?`<span class="badge y">ab ${wdDate(p.from)}</span>`:d?'<span class="badge g">✓ geschafft</span>':'<span class="badge y">offen</span>'}</div>${p.note?`<div style="margin-top:4px">${esc(p.note)}</div>`:''}<div class="muted small" style="margin-top:4px">${p.items.length} Übungen · ~${planDur(p.items)} Min.</div>${on&&!d?`<button class="pri" style="width:100%;margin-top:10px" onclick="startPlan('team:${t.id}:${p.id}')">▶ Plan starten</button>`:''}</div>`);}));return out.join('');}
+function teamPlanMarkDone(){const P=S.planRun;if(!P||!String(P.pid).startsWith('team:')||!planDone())return;const {p}=tpRef(P.pid);if(!p)return;p.done=p.done||{};if(!p.done[P.uid]){p.done[P.uid]=Date.now();p.dur=p.dur||{};p.dur[P.uid]=Date.now()-P.start;save();}}
+/* Ergebnisse eines Gruppenplans: wer hat was erreicht */
+function planRes(p,uid){const out={};p.items.forEach(([e])=>{if(e.startsWith('x01bot_')){out[e]=S.games.filter(g=>g.tp===p.id&&g.players.some(q=>q.id===uid)).map(g=>{const me_=g.players.find(q=>q.id===uid),op=g.players.find(q=>q.id!==uid);return{g,won:me_.won,txt:`${me_.legs}:${op?op.legs:0} ${me_.won?'✓':'✗'} · Ø ${me_.darts?f1(me_.pts/me_.darts*3):'–'}`};});}
+  else out[e]=S.trainings.filter(x=>x.tp===p.id&&x.uid===uid&&x.ex===e);});return out;}
+function teamPlanResults(tid,plid){const t=S.teams.find(x=>x.id===tid);const p=tPlans(t).find(x=>x.id===plid);if(!p)return;const done=p.done||{};
+ const R={};t.members.forEach(id=>R[id]=planRes(p,id));
+ const best={};p.items.forEach(([e])=>{if(e.startsWith('x01bot_')||!EX[e])return;const lo=EX[e].better==='low';let b=null;t.members.forEach(id=>R[id][e].filter(x=>x.complete!==false).forEach(x=>{if(b==null||(lo?x.val<b:x.val>b))b=x.val;}));best[e]=b;});
+ const ord=t.members.slice().sort((a,b)=>(!!done[b]-!!done[a])||((done[a]||0)-(done[b]||0)));
+ const fmtD=ms=>ms?Math.max(1,Math.round(ms/60000))+' Min.':'';
+ modal(`<div class="row" style="margin-bottom:6px"><h3 class="sp" style="margin:0">📊 Ergebnisse · ${esc(planTitle(t,p,tPlans(t).indexOf(p)))}</h3><button class="sm ghost" onclick="closeModal()">✕</button></div>
+ <p class="muted small" style="margin-top:0">${t.members.filter(id=>done[id]).length} von ${t.members.length} geschafft · 🏅 = bestes Ergebnis der Gruppe</p>
+ ${ord.map(id=>{const r=R[id];const any=Object.values(r).some(a=>a.length);
+  return `<div class="card" style="margin:0 0 8px;padding:12px"><div class="row"><span class="sp">${AV(U(id),26)} <b>${esc(U(id).nick)}</b></span>${done[id]?`<span class="badge g">✓ ${wdDate(done[id])}${(p.dur||{})[id]?' · '+fmtD(p.dur[id]):''}</span>`:any?'<span class="badge y">angefangen</span>':'<span class="badge">noch offen</span>'}</div>
+  ${any?`<div style="margin-top:6px">${p.items.map(([e])=>{const a=r[e]||[];const nm=e.startsWith('x01bot_auto_')?`501 vs. Bot Ø ${(p.botLv||{})[id]||50}`:EX[e]?.name||e;
+   const vals=e.startsWith('x01bot_')?a.map(x=>`<span class="badge ${x.won?'g':''}" style="cursor:pointer" onclick="gameDetail('${x.g.id}')">${x.txt}</span>`):a.map(x=>`<span class="badge ${x.complete!==false&&x.val===best[e]?'g':''}">${x.complete!==false&&x.val===best[e]?'🏅 ':''}${esc(exFmt(e,x.val,x))}</span>`);
+   return `<div class="row" style="flex-wrap:nowrap;padding:5px 0;border-top:1px solid var(--line);gap:8px;align-items:flex-start"><span class="small sp" style="min-width:0">${esc(nm)}</span><span style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end">${vals.join('')||'<span class="muted small">–</span>'}</span></div>`;}).join('')}</div>`:''}</div>`;}).join('')}
+ <p class="muted small">Ergebnisse werden gespeichert, wenn eine Übung über diesen Plan gestartet wird. Bot-Matches antippen zeigt die Spiel-Details.</p>`);document.getElementById('mbox').classList.add('wide');}
 /* QR-Code-Erzeugung: QRCode for JavaScript, (c) 2009 Kazuhiko Arase, MIT-Lizenz (aus qrcode-terminal) */
 var QRLIB=(function(){var M={},C={};function R(n){n=n.replace('./','');if(C[n])return C[n].exports;var m=C[n]={exports:{}};M[n](m,m.exports);return m.exports;}
 M['QRErrorCorrectLevel']=function(module,exports){var require=R;
@@ -3225,7 +3261,7 @@ function finishLeg(v,d){const L=S.live;if(!onlOk())return;if(botCur()&&!BOT.acti
  L.st.forEach(x=>{x.ld=0;x.lp=0;});L.scores=L.players.map((_,j)=>startOf(L,j));if(L.din)L.inn=L.players.map(()=>false);L.legStarter=(L.legStarter+1)%L.players.length;L.cur=L.legStarter;L.hist=[];L.legUndo=snap;save();render();}
 function endX01(wi){const L=S.live;const draw=wi===null;const f=L.fmt;const before={};L.players.forEach(id=>before[id]=calc(id).best);
  const sc=f.sets?L.sets:L.legsTotal;
- const g={id:uid(),date:Date.now(),start:L.start,fmt:f,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,lg:(L.legLog||[]).map(x=>({w:x.w,b:x.b,v:x.v})),team:L.team||undefined,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
+ const g={id:uid(),date:Date.now(),start:L.start,fmt:f,tp:(L.planEx&&S.planRun&&S.planRun.tp)||undefined,out:outOf(L),din:!!L.din,hc:L.hc||undefined,draw,lg:(L.legLog||[]).map(x=>({w:x.w,b:x.b,v:x.v})),team:L.team||undefined,tid:L.tref?.tid||null,mid:L.tref?.mid||null,
   players:L.players.map((id,i)=>({id,legs:L.legsTotal[i],sets:f.sets?L.sets[i]:undefined,won:!draw&&(L.players.length>1?(L.team?L.team[i]===L.team[wi]:i===wi):true),...(({last,ld,lp,...r})=>r)(L.st[i])}))};
  if(L.online)g.online=true;S.games.push(g);
  if(L.online)onlDone(L,draw?'🤝 Unentschieden':`🏆 ${U(L.players[wi]).nick} gewinnt`);
@@ -3572,7 +3608,7 @@ function exCoNext(){const L=S.live,e=EX[L.ex],s=L.st;s.r++;s.v=0;if(s.r>e.rounds
 function exSprintFin(d){const s=S.live.st;exSnap();s.darts+=d;s.rem=0;finishEx(s.darts);}
 function finishEx(val,extra={},complete=true){const L=S.live,id=L.ex,e=EX[id],pu=L.uid;const best=exBest(pu,id);
  const rec=complete&&best!=null&&(e.better==='low'?val<best:val>best);
- S.trainings.push({id:uid(),uid:pu,date:Date.now(),mode:'ex',ex:id,val,complete,...extra});
+ S.trainings.push({id:uid(),uid:pu,date:Date.now(),mode:'ex',ex:id,val,complete,...extra,...(L.planIdx!=null&&S.planRun&&S.planRun.tp?{tp:S.planRun.tp}:{})});
  let planMsg='';if(L.planIdx!=null&&S.planRun){S.planRun.items[L.planIdx].done++;planMsg=planDone()?'all':'next';}
  S.live=null;save();if(planMsg){view='planrun';param=null;}else{view='ex';param=id;}render();
  const res=complete?exFmt(id,val):`nicht beendet${extra.reached!=null?` – bis zur ${extra.reached} gekommen`:extra.rem!=null?` – Rest ${extra.rem}`:''}`;
@@ -3590,7 +3626,7 @@ function doManualEx(id){const e=EX[id];const pu=trUid();let val,extra={};
  S.trainings.push({id:uid(),uid:pu,date:Date.now(),mode:'ex',ex:id,val,complete:true,manual:true,...extra});save();closeModal();toast(rec?'⭐ Neuer Rekord gespeichert!':'Ergebnis gespeichert');render();}
 
 /* --- Trainingspläne --- */
-function planItems(pid,uid){if(String(pid).startsWith('team:')){const t=S.teams.find(x=>x.id===pid.slice(5));return t&&t.plan?t.plan.items.map(x=>{const m=/^x01bot_auto_(\d)$/.exec(x[0]);return m?['x01bot_'+((t.plan.botLv||{})[uid]||50)+'_'+m[1],x[1]]:x.slice();}):[];}if(pid==='mine')return(S.myPlans[uid]||[]).map(x=>x.slice());const cfg=(S.planCfg[uid]||{})[pid]||{};return PLANS[pid].items.map(([e,s])=>[e,cfg[e]??s]);}
+function planItems(pid,uid){if(String(pid).startsWith('team:')){const {p}=tpRef(pid);return p?p.items.map(x=>{const m=/^x01bot_auto_(\d)$/.exec(x[0]);return m?['x01bot_'+((p.botLv||{})[uid]||50)+'_'+m[1],x[1]]:x.slice();}):[];}if(pid==='mine')return(S.myPlans[uid]||[]).map(x=>x.slice());const cfg=(S.planCfg[uid]||{})[pid]||{};return PLANS[pid].items.map(([e,s])=>[e,cfg[e]??s]);}
 const planDur=items=>items.reduce((a,[e,s])=>a+EX[e].dur*s,0);
 function setSets(pid,ex,d,i){const uid=trUid();
  if(pid==='mine'){const it=S.myPlans[uid][i];it[1]=Math.max(1,Math.min(9,it[1]+d));}
@@ -3607,7 +3643,7 @@ function vPlans(){const uid=trUid();if(!uid)return `<div class="card muted">Wäh
  <button class="pri" ${items.some(x=>x[1]>0)?'':'disabled'} onclick="startPlan('${pid}')">▶ Training starten</button></div></div>`:''}</div>`;}).join('');}
 function addPlanEx(){modal(`<h3>Übung hinzufügen</h3>${botPlanPick("const u=trUid();S.myPlans[u]=S.myPlans[u]||[];S.myPlans[u].push([BPK(),1]);save();closeModal();render()")}<div class="sec">Übungen</div>${Object.entries(EX).filter(([,e])=>e.type!=='x01bot').map(([id,e])=>`<button style="width:100%;text-align:left;margin-bottom:6px" onclick="const u=trUid();S.myPlans[u]=S.myPlans[u]||[];S.myPlans[u].push(['${id}',${e.sets}]);save();closeModal();render()"><b>${e.name}</b> <span class="muted small">· ${e.dur} Min.</span></button>`).join('')}<button class="ghost" style="width:100%;margin-top:6px" onclick="closeModal()">Abbrechen</button>`);}
 function startPlan(pid){const uid=trUid();const items=planItems(pid,uid).filter(x=>x[1]>0);if(!items.length)return;
- const go2=()=>{S.planRun={uid,pid,name:pid==='mine'?'Mein Plan':String(pid).startsWith('team:')?'Gruppenplan '+(S.teams.find(x=>x.id===pid.slice(5))||{}).name:PLANS[pid].name,items:items.map(([ex,sets])=>({ex,sets,done:0})),start:Date.now()};save();go('planrun');};
+ const go2=()=>{S.planRun={uid,pid,name:pid==='mine'?'Mein Plan':String(pid).startsWith('team:')?(()=>{const {t,p}=tpRef(pid);return (p&&p.title?p.title+' · ':'Gruppenplan ')+((t||{}).name||'');})():PLANS[pid].name,items:items.map(([ex,sets])=>({ex,sets,done:0})),start:Date.now(),tp:String(pid).startsWith('team:')?(tpRef(pid).p||{}).id:undefined};save();go('planrun');};
  if(S.planRun)ask('Es läuft schon ein Plan. Abbrechen und neu starten?','Neu starten',go2,true);else go2();}
 function planDone(){return S.planRun&&S.planRun.items.every(i=>i.done>=i.sets);}
 function vPlanRun(){const P=S.planRun;if(!P){view='train';return vTrain();}setTimeout(teamPlanMarkDone,0);const fin=P.items.filter(i=>i.done>=i.sets).length;const nextI=P.items.findIndex(i=>i.done<i.sets);
