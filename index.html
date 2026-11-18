@@ -777,7 +777,7 @@ function togWatch(){const m=me();if(!m)return;m.watchOk=!m.watchOk;save();render
  toast(m.watchOk?'📺 Zuschauen erlaubt – deine Spiele können jetzt auf einem anderen Gerät angezeigt werden':'Zuschauen ausgeschaltet – deine Spiele sieht niemand mehr live');}
 
 /* ===================== Version & automatisches Update ===================== */
-const APPV=62;
+const APPV=63;
 async function checkUpdate(){if(location.protocol==='file:')return;try{const t=await (await fetch('sw.js?'+Date.now(),{cache:'no-store'})).text();const m=t.match(/dartclub-v(\d+)/);if(!m||+m[1]<=APPV)return;
  try{const r=await navigator.serviceWorker?.getRegistration();r&&r.update();}catch(e){}
  const busy=S.live||document.querySelector('#modal.show')||(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName));
@@ -1343,8 +1343,10 @@ function teamPlansHome(){const out=[];S.teams.filter(t=>t.members.includes(meId)
  out.push(`<div class="card" style="border-color:${on?'#2fbf7155':'#f2c14e44'}"><div class="row"><b class="sp">📋 ${esc(planTitle(t,p,i))} · „${esc(t.name)}“</b>${!on?`<span class="badge y">ab ${wdDate(p.from)}</span>`:d?'<span class="badge g">✓ geschafft</span>':'<span class="badge y">offen</span>'}</div>${p.note?`<div style="margin-top:4px">${esc(p.note)}</div>`:''}<div class="muted small" style="margin-top:4px">${p.items.length} Übungen · ~${planDur(p.items)} Min.</div>${on&&!d?`<button class="pri" style="width:100%;margin-top:10px" onclick="startPlan('team:${t.id}:${p.id}')">▶ Plan starten</button>`:''}</div>`);}));return out.join('');}
 function teamPlanMarkDone(){const P=S.planRun;if(!P||!String(P.pid).startsWith('team:')||!planDone())return;const {p}=tpRef(P.pid);if(!p)return;p.done=p.done||{};if(!p.done[P.uid]){p.done[P.uid]=Date.now();p.dur=p.dur||{};p.dur[P.uid]=Date.now()-P.start;save();}}
 /* Ergebnisse eines Gruppenplans: wer hat was erreicht */
-function planRes(p,uid){const out={};p.items.forEach(([e])=>{if(e.startsWith('x01bot_')){out[e]=S.games.filter(g=>g.tp===p.id&&g.players.some(q=>q.id===uid)).map(g=>{const me_=g.players.find(q=>q.id===uid),op=g.players.find(q=>q.id!==uid);return{g,won:me_.won,txt:`${me_.legs}:${op?op.legs:0} ${me_.won?'✓':'✗'} · Ø ${me_.darts?f1(me_.pts/me_.darts*3):'–'}`};});}
-  else out[e]=S.trainings.filter(x=>x.tp===p.id&&x.uid===uid&&x.ex===e);});return out;}
+function planRes(p,uid){const out={};const tagged=S.trainings.some(x=>x.tp===p.id&&x.uid===uid)||S.games.some(g=>g.tp===p.id&&g.players.some(q=>q.id===uid));
+ const d=(p.done||{})[uid];const old=!tagged&&d;const t0=Math.max(p.from||0,p.set||0)-12*3600e3,inWin=x=>x>=t0&&x<=d+60e3;/* ältere Durchgänge ohne Markierung: Ergebnisse aus dem Zeitraum bis zum Abhaken */
+ p.items.forEach(([e])=>{if(e.startsWith('x01bot_')){out[e]=S.games.filter(g=>old?(inWin(g.date)&&g.players.some(q=>q.id===uid)&&g.players.some(q=>String(q.id).startsWith('bot:'))):(g.tp===p.id&&g.players.some(q=>q.id===uid))).map(g=>{const me_=g.players.find(q=>q.id===uid),op=g.players.find(q=>q.id!==uid);return{g,won:me_.won,txt:`${me_.legs}:${op?op.legs:0} ${me_.won?'✓':'✗'} · Ø ${me_.darts?f1(me_.pts/me_.darts*3):'–'}`};});}
+  else out[e]=S.trainings.filter(x=>x.uid===uid&&x.ex===e&&(old?inWin(x.date):x.tp===p.id));});out._old=old;return out;}
 function teamPlanResults(tid,plid){const t=S.teams.find(x=>x.id===tid);const p=tPlans(t).find(x=>x.id===plid);if(!p)return;const done=p.done||{};
  const R={};t.members.forEach(id=>R[id]=planRes(p,id));
  const best={};p.items.forEach(([e])=>{if(e.startsWith('x01bot_')||!EX[e])return;const lo=EX[e].better==='low';let b=null;t.members.forEach(id=>R[id][e].filter(x=>x.complete!==false).forEach(x=>{if(b==null||(lo?x.val<b:x.val>b))b=x.val;}));best[e]=b;});
@@ -1352,9 +1354,9 @@ function teamPlanResults(tid,plid){const t=S.teams.find(x=>x.id===tid);const p=t
  const fmtD=ms=>ms?Math.max(1,Math.round(ms/60000))+' Min.':'';
  modal(`<div class="row" style="margin-bottom:6px"><h3 class="sp" style="margin:0">📊 Ergebnisse · ${esc(planTitle(t,p,tPlans(t).indexOf(p)))}</h3><button class="sm ghost" onclick="closeModal()">✕</button></div>
  <p class="muted small" style="margin-top:0">${t.members.filter(id=>done[id]).length} von ${t.members.length} geschafft · 🏅 = bestes Ergebnis der Gruppe</p>
- ${ord.map(id=>{const r=R[id];const any=Object.values(r).some(a=>a.length);
+ ${ord.map(id=>{const r=R[id];const any=Object.entries(r).some(([k,a])=>k!=='_old'&&a.length);
   return `<div class="card" style="margin:0 0 8px;padding:12px"><div class="row"><span class="sp">${AV(U(id),26)} <b>${esc(U(id).nick)}</b></span>${done[id]?`<span class="badge g">✓ ${wdDate(done[id])}${(p.dur||{})[id]?' · '+fmtD(p.dur[id]):''}</span>`:any?'<span class="badge y">angefangen</span>':'<span class="badge">noch offen</span>'}</div>
-  ${any?`<div style="margin-top:6px">${p.items.map(([e])=>{const a=r[e]||[];const nm=e.startsWith('x01bot_auto_')?`501 vs. Bot Ø ${(p.botLv||{})[id]||50}`:EX[e]?.name||e;
+  ${any&&r._old?'<div class="muted small" style="margin-top:4px">≈ vor dem Update gespielt – Ergebnisse aus dem Zeitraum bis zum Abhaken</div>':''}${any?`<div style="margin-top:6px">${p.items.map(([e])=>{const a=r[e]||[];const nm=e.startsWith('x01bot_auto_')?`501 vs. Bot Ø ${(p.botLv||{})[id]||50}`:EX[e]?.name||e;
    const vals=e.startsWith('x01bot_')?a.map(x=>`<span class="badge ${x.won?'g':''}" style="cursor:pointer" onclick="gameDetail('${x.g.id}')">${x.txt}</span>`):a.map(x=>`<span class="badge ${x.complete!==false&&x.val===best[e]?'g':''}">${x.complete!==false&&x.val===best[e]?'🏅 ':''}${esc(exFmt(e,x.val,x))}</span>`);
    return `<div class="row" style="flex-wrap:nowrap;padding:5px 0;border-top:1px solid var(--line);gap:8px;align-items:flex-start"><span class="small sp" style="min-width:0">${esc(nm)}</span><span style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end">${vals.join('')||'<span class="muted small">–</span>'}</span></div>`;}).join('')}</div>`:''}</div>`;}).join('')}
  <p class="muted small">Ergebnisse werden gespeichert, wenn eine Übung über diesen Plan gestartet wird. Bot-Matches antippen zeigt die Spiel-Details.</p>`);document.getElementById('mbox').classList.add('wide');}
